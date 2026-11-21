@@ -190,8 +190,9 @@ struct Options {
     bool spend_requests_first = false;
     // For a test (`--test-pilot`): on a server, every input sent is
     // frontend::test_pilot's, controls that keep changing; and
-    // (`--unpaced`) its ticks flown at this machine's pace, not steered to
-    // the server's (sim::Pacing) - what the paced test shows failing.
+    // (`--unpaced`) its ticks flown, and its inputs stamped, at this
+    // machine's pace, not steered to the server's (sim::Pacing) - what the
+    // paced test shows failing.
     bool test_pilot = false;
     bool unpaced = false;
     // For a test: A pressed in the frame the take-over is asked, while the
@@ -2254,7 +2255,7 @@ static int run_program(int argc, char** argv) {
                               // And the ticks a held pass left owed
                               // (--ticks-behind): reckoned, not yet flown.
                               return static_cast<std::uint64_t>(
-                                         flight->flown_in(since_s) *
+                                         (o.unpaced ? since_s : flight->flown_in(since_s)) *
                                          static_cast<double>(
                                              glideslope::sim::steps_per_second)) +
                                      static_cast<std::uint64_t>(
@@ -3262,7 +3263,14 @@ static int run_program(int argc, char** argv) {
                     // **With its 95th percentile and how many were a metre
                     // or more**, as glideslope_cli's paced test holds them
                     // (server_paced_prediction.cmake).
-                    const std::size_t at_95 = errors.size() * 95 / 100;
+                    // The 95th as glideslope_cli takes it: ceil(0.95 n) - 1.
+                    const std::size_t at_95 =
+                        errors.empty()
+                            ? 0
+                            : std::min(errors.size() - 1,
+                                       static_cast<std::size_t>(std::ceil(
+                                           0.95 * static_cast<double>(errors.size()))) -
+                                           1);
                     const auto over_a_metre = static_cast<std::size_t>(std::count_if(
                         errors.begin(), errors.end(), [](double e) { return e >= 1.0; }));
                     std::printf("glideslope: prediction error: %zu updates compared, the "
@@ -3270,7 +3278,7 @@ static int run_program(int argc, char** argv) {
                                 "%zu a metre or more\n",
                                 errors.size(), errors.empty() ? 0.0 : errors[errors.size() / 2],
                                 errors.empty() ? 0.0 : errors.back(),
-                                errors.empty() ? 0.0 : errors[std::min(at_95, errors.size() - 1)],
+                                errors.empty() ? 0.0 : errors[at_95],
                                 over_a_metre);
                     // **The pace it flew at** (sim::Pacing), as glideslope_cli
                     // says it: one at a server behind real time flies at its

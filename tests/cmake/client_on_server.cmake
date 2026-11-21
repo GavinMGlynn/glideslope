@@ -248,6 +248,8 @@ if(PREDICTED)
     math(EXPR _median_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
     math(EXPR _worst_mm "${CMAKE_MATCH_4} * 1000 + ${CMAKE_MATCH_5}")
     math(EXPR _p95_mm "${CMAKE_MATCH_6} * 1000 + ${CMAKE_MATCH_7}")
+    # How many were a metre or more is said, not judged: the 95th
+    # percentile is.
     set(_over ${CMAKE_MATCH_8})
     if(NOT _out MATCHES "paced: flown at ([0-9]+)\\.([0-9][0-9][0-9]) of this machine's clock")
         message(FATAL_ERROR "the client did not say its pace:\n${_out}")
