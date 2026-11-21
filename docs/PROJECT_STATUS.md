@@ -209,7 +209,9 @@ stopped 3 s between flying and sending keeps its F-35B within four steps
 (2026-10-24), and the windowed client the same (2026-10-28), a server's
 slow start no longer owed and caught up after it, and one whose every
 frame is held a second paced by each frame's words as one look, put right
-by 7 m at worst beside 24 busy loops (2026-11-19); a prediction
+by 7 m at worst beside 24 busy loops (2026-11-19), and one whose frames
+are held two seconds holding its clocks' difference within two steps in
+the pacing unit test (2026-11-21); a prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only

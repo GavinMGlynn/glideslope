@@ -1609,8 +1609,8 @@ GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pac
 }
 
 // **A client whose every frame is long holds its clocks' difference and
-// flies at the server's pace** - frames of a quarter, a half and a whole
-// second, each against every server rate from half real time to real time,
+// flies at the server's pace** - frames of a quarter, a half, one and two
+// seconds, each against every server rate from half real time to real time,
 // in tenths. Such a client sends an input a frame and reads the frame's words
 // together, so it looks at the difference once a frame (sim::Pacing::heard).
 // Stepped by each word, the loop took every move of the difference for a jump
@@ -1619,10 +1619,14 @@ GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pac
 // look, with the gains set for 25 looks a second, it rang, and against a
 // server at half real time flew at 0.68 (docs/status, 2026-11-18). Over the
 // last ten of 60 s it is within 0.002 of the server's pace and the difference
-// within two steps of the one held, as at sixty frames a second.
+// within two steps of the one held, as at sixty frames a second. With
+// frames of 2 s, steering by the difference heard a look late, at the
+// gentler gains that needed, it was 0.014 off against a server at 0.5 and
+// the difference 40 steps off; with the gains alone raised, it rang
+// (docs/status, 2026-11-21).
 GLIDESLOPE_TEST(a_client_whose_every_frame_is_long_holds_its_clocks_difference_and_flies_at_the_servers_pace) {
     std::size_t flown = 0;
-    for (const double frame_s : {0.25, 0.5, 1.0}) {
+    for (const double frame_s : {0.25, 0.5, 1.0, 2.0}) {
         for (int tenths = 5; tenths <= 10; ++tenths) {
             const double rate = tenths / 10.0;
             const AtPace p = fly_at_pace(rate, 60.0, true, 0, 0.0, -1.0, 0.0, frame_s);
@@ -1638,7 +1642,7 @@ GLIDESLOPE_TEST(a_client_whose_every_frame_is_long_holds_its_clocks_difference_a
             ++flown;
         }
     }
-    check(flown == 18, "three frame lengths at six server rates were flown: " +
+    check(flown == 24, "four frame lengths at six server rates were flown: " +
                            std::to_string(flown));
 }
 
