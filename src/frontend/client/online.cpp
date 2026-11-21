@@ -2,6 +2,7 @@
 
 #include "frontend/own_words.hpp"
 #include "frontend/same_air.hpp"
+#include "frontend/test_pilot.hpp"
 #include "platform/paths.hpp"
 
 #include "sim/fixed_step.hpp"
@@ -185,7 +186,8 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
     if (local_s - sent_at_s_ >= inputs_every_s) {
         sent_at_s_ = local_s;
         ++sequence_;
-        const net::ControlList sent = net::as_sent(stick.as_list());
+        const net::ControlList sent = net::as_sent(
+            (test_pilot_ ? frontend::test_pilot(sequence_) : stick).as_list());
         sent_ = sim::Controls::from_list(sent);
         // The first, with nothing flown before it, is flown at once, from
         // the step its prediction is at; any other from after the ticks owed.

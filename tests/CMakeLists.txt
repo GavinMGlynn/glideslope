@@ -4350,6 +4350,38 @@ add_test(NAME a_client_whose_every_frame_is_held_a_second_is_never_put_right_too
 set_tests_properties(a_client_whose_every_frame_is_held_a_second_is_never_put_right_too_far_to_hide
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
+# **The client with the window, predicting against a server behind real
+# time, flies at its pace and is off by centimetres** - and against one
+# keeping it: its prediction error held to glideslope_cli's bounds
+# (server_paced_prediction.cmake), a pilot's controls that keep changing
+# flown (`--test-pilot`), 4,800 ticks, 40 s of the server's time
+# (cmake/client_on_server.cmake, PREDICTED). Seen red unpaced
+# (`-DUNPACED=ON`): the median 4.5 m, the worst 19.1 m (docs/status,
+# 2026-11-22). RUN_SERIAL, as the paced test: a busy runner would put the
+# server further behind than its set pace, unsteadily. Costed until
+# tests/ci_costs measures them: the plain window test's CI figures (14 to
+# 303 s) plus the 30 s more of the server's time flown, and at 0.6 the 27 s
+# more its slower clock takes - 101 and 76 s here, Linux debug.
+add_test(NAME a_window_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server_paced -DPORT=24942 -DDRIVER=vulkan
+        -DSERVER_PACE=0.6 -DSHOT_AT=4800 -DTEST_PILOT=ON -DPREDICTED=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+set_tests_properties(a_window_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE COST 200)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_paced)
+add_test(NAME a_window_client_predicting_against_a_server_keeping_real_time_is_off_by_centimetres
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server_keeping_time -DPORT=24944
+        -DDRIVER=vulkan -DSHOT_AT=4800 -DTEST_PILOT=ON -DPREDICTED=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+set_tests_properties(a_window_client_predicting_against_a_server_keeping_real_time_is_off_by_centimetres
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE COST 160)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_keeping_time)
 # **The client with the window, predicting an F-35B, stopped 3 s between
 # reckoning a frame's ticks and sending, is placed within four steps' travel**
 # (frontend::stamp_sent). Needs a GPU and the DEM; see

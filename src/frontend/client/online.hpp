@@ -217,6 +217,11 @@ public:
     // spent on nothing just before it, as glideslope_cli's
     // `--spend-requests-first` does.
     void spend_requests_first() { spend_requests_first_ = true; }
+    // **For a test, a pilot whose controls keep changing** (`--test-pilot`):
+    // each input sent is frontend::test_pilot's, as glideslope_cli's are, in
+    // place of the stick - so that how many steps of each input are flown
+    // here and on the server matters.
+    void fly_test_pilot() { test_pilot_ = true; }
     // **Joined again, the newest word the old session had**, on its clock:
     // a server started again counts from nought, under it.
     std::optional<double> old_session_s() const { return old_session_s_; }
@@ -561,6 +566,7 @@ private:
     std::optional<std::pair<double, net::AircraftState>> own_heard_;
     bool late_after_take_over_ = false;
     bool spend_requests_first_ = false;
+    bool test_pilot_ = false;
     // The newest update's time on the session's clock, and the old
     // session's newest when it joined again.
     std::optional<double> newest_heard_s_;
