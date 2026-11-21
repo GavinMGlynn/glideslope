@@ -2301,6 +2301,12 @@ static int run_program(int argc, char** argv) {
                         std::fprintf(stderr, "glideslope: --test-say-air: %s\n", e.what());
                         return 1;
                     }
+                    said.flush();
+                    if (!said) {
+                        std::fprintf(stderr, "glideslope: cannot write --test-say-air %s\n",
+                                     o.say_air.c_str());
+                        return 1;
+                    }
                 }
                 std::printf("glideslope: quitting at tick %lld\n",
                             static_cast<long long>(ticks));
