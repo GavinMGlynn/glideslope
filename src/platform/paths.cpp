@@ -273,6 +273,10 @@ std::string runways_source() {
     return environment_path("GLIDESLOPE_RUNWAYS_SOURCE").string();
 }
 
+std::string dem_source() {
+    return environment_path("GLIDESLOPE_DEM_SOURCE").string();
+}
+
 namespace {
 
 // One line of a `server.txt`, or nothing if it is not one.

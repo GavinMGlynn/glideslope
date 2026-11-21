@@ -1004,6 +1004,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_bad_tile_in_a_directory_fails_its_query_and_is_left_as_it_is
     a_file_put_in_place_by_another_since_it_was_read_is_not_taken_away
     the_runways_may_be_fetched_elsewhere_for_a_test_and_are_still_held_to_their_pin
+    a_dem_tile_may_be_fetched_elsewhere_for_a_test_and_is_still_held_to_its_etag
     a_cached_pinned_file_cut_short_or_damaged_is_fetched_again_and_read_whole
     level_terrain_holds_an_aircraft_exactly_as_jsbsims_own_ground_does
     an_aircraft_set_down_on_a_slope_rests_tilted_by_the_slope
@@ -3490,6 +3491,21 @@ add_test(NAME a_client_predicting_over_hills_in_a_strong_wind_flies_the_servers_
 set_tests_properties(a_client_predicting_over_hills_in_a_strong_wind_flies_the_servers_ground_lift_within_the_seas_bound
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_ground_lift)
+# **A client joining over hills with no DEM tiles cached flies the server's
+# ground lift within the sea's bound once its tile arrives**, fetched from a
+# stand-in for the bucket, and how long it took is said. See
+# cmake/server_tiles_arrive.cmake.
+add_test(NAME a_client_joining_over_hills_with_no_tiles_cached_flies_the_servers_ground_lift_within_the_seas_bound_once_they_arrive
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_tiles_arrive -DPORT=24879 -DSAME_M=0.25
+        -DLIFT_SHARE=0.5
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_tiles_arrive.cmake)
+set_tests_properties(a_client_joining_over_hills_with_no_tiles_cached_flies_the_servers_ground_lift_within_the_seas_bound_once_they_arrive
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_tiles_arrive)
 # **A client flies the server's stations around it, the nearer's weather,
 # with no step in the wind** (REQUIREMENTS.md 6.3): the stations found from a
 # recorded answer of aviationweather.gov's, served by glideslope_http_stub.

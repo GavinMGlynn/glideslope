@@ -215,6 +215,11 @@ std::size_t connect_until_compared = 0;
 // prediction has begun on a law the server told it (`LAW_STATE`) - given
 // her by a take-over or a take-back, not as it joined.
 std::size_t connect_until_compared_on_law = 0;
+// **(`--until-compared-on-ground N`)**: the same, counted only once every
+// tile its air's ground asked for has arrived (`note_ground_had`) - what a
+// test of a client joining with no tiles cached waits for, however long the
+// tiles take (server_tiles_arrive.cmake).
+std::size_t connect_until_compared_on_ground = 0;
 // **(`--unpaced`)**: with `--predict`, fly at this machine's pace, not
 // steered to the server's (sim::Pacing) - what a test shows going wrong.
 bool connect_unpaced = false;
@@ -705,6 +710,9 @@ void print_usage(std::FILE* out) {
         "                            --until-engine-compared N (with --predict) stays\n"
         "                            until N updates are compared after the server\n"
         "                            says its engine has stopped\n"
+        "                            --until-compared-on-ground N (with --predict)\n"
+        "                            stays until N updates are compared after every\n"
+        "                            tile its air's ground asked for has arrived\n"
         "                            --flood (with --fly), once flown, sends 1,000\n"
         "                            pings at 1,000 a second and, once they are read,\n"
         "                            50 requests at once,\n"
@@ -2599,6 +2607,17 @@ public:
                     last_compared_ = std::make_pair(*c.at_step, server_step);
                 }
                 errors_m_.push_back(error);
+                // **Before the air's ground was had, and after**
+                // (`--until-compared-on-ground`): the error while the
+                // tiles its lift is made from were still being fetched -
+                // the server's air with the lift on its end only - and
+                // once every tile asked for had arrived.
+                note_ground_had(state.simulation_time_s);
+                (ground_had_at_s_ ? errors_ground_had_m_ : errors_ground_not_had_m_)
+                    .push_back(error);
+                if (!first_compared_at_s_) {
+                    first_compared_at_s_ = state.simulation_time_s;
+                }
                 // **Her pitch's error**, the same way: what a law that
                 // has wandered in the prediction shows first.
                 const double pitch_error = std::abs(at->pitch_deg - pitch_of(m));
@@ -3181,6 +3200,8 @@ public:
     std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
     // How many updates have been compared at all (`--until-compared`).
     std::size_t compared() const { return compared_; }
+    // Updates compared once the air's ground was had (note_ground_had).
+    std::size_t compared_on_ground() const { return errors_ground_had_m_.size(); }
     // Whether its prediction has begun on a law the server told it.
     bool begun_on_law() const { return !law_begun_lines_.empty(); }
 
@@ -3307,6 +3328,35 @@ public:
                               percent, sorted[at], sorted.size(), sorted.size() - 1 - at);
                 lines.emplace_back(line);
             }
+        }
+        // **The air's ground, fetched while it flew** (note_ground_had):
+        // how long its tiles took, when they were all had, and the error
+        // before and after - a client joining with no tiles cached
+        // (server_tiles_arrive.cmake).
+        if (connect_stovl_ground && connect_stovl_ground->air_tiles &&
+            !connect_air.no_ground_lift) {
+            const glideslope::world::TilesAhead& tiles = *connect_stovl_ground->air_tiles;
+            std::snprintf(line, sizeof line,
+                          "the air's ground: %d tiles fetched in %.3f s, %d failed, %d waiting",
+                          tiles.fetched(), tiles.fetching_s(), tiles.failed(), tiles.waiting());
+            lines.emplace_back(line);
+            if (ground_had_at_s_ && first_compared_at_s_) {
+                std::snprintf(line, sizeof line,
+                              "the air's ground had at %.3f s on the session's clock, %.3f s "
+                              "after the first update compared",
+                              *ground_had_at_s_, *ground_had_at_s_ - *first_compared_at_s_);
+                lines.emplace_back(line);
+            }
+            const auto median_of = [](std::vector<double> v) {
+                std::sort(v.begin(), v.end());
+                return v.empty() ? 0.0 : v[v.size() / 2];
+            };
+            std::snprintf(line, sizeof line,
+                          "prediction error median before the air's ground was had: %.3f m "
+                          "over %zu updates; once it was had: %.3f m over %zu updates",
+                          median_of(errors_ground_not_had_m_), errors_ground_not_had_m_.size(),
+                          median_of(errors_ground_had_m_), errors_ground_had_m_.size());
+            lines.emplace_back(line);
         }
         // **The pace it flew at** (sim::Pacing), and how far the clocks'
         // difference moved from the one it was held to.
@@ -3533,6 +3583,8 @@ private:
         compared_ = 0;
         gust_clock_ = {};
         errors_m_.clear();
+        errors_ground_not_had_m_.clear();
+        errors_ground_had_m_.clear();
         worst_error_m_ = 0.0;
         worst_error_at_s_ = 0.0;
         worst_pitch_error_deg_ = 0.0;
@@ -4054,6 +4106,24 @@ private:
     // Every error compared, for its median: a wrong wind is in every update,
     // where a slow frame is in a few (`report`).
     std::vector<double> errors_m_;
+    // **The air's ground had** (`note_ground_had`): the session's time at
+    // the first update compared once every tile its air asked for had
+    // arrived, at least one fetched; the session's time at the first update
+    // compared; and the errors before it and after.
+    std::optional<double> ground_had_at_s_;
+    std::optional<double> first_compared_at_s_;
+    std::vector<double> errors_ground_not_had_m_;
+    std::vector<double> errors_ground_had_m_;
+    void note_ground_had(double session_s) {
+        if (ground_had_at_s_ || !connect_stovl_ground || !connect_stovl_ground->air_tiles ||
+            connect_air.no_ground_lift) {
+            return;
+        }
+        const glideslope::world::TilesAhead& tiles = *connect_stovl_ground->air_tiles;
+        if (tiles.fetched() > 0 && tiles.waiting() == 0) {
+            ground_had_at_s_ = session_s;
+        }
+    }
     std::size_t compared_since_ = 0;
     std::size_t snapped_since_ = 0;
     double worst_error_since_m_ = 0.0;
@@ -4489,6 +4559,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             }
         }
         if (connect_held.done) {
+            break;
+        }
+        if (connect_until_compared_on_ground > 0 && predicting &&
+            predicting->compared_on_ground() >= connect_until_compared_on_ground) {
             break;
         }
         if (connect_until_engine_compared > 0 && predicting &&
@@ -6610,6 +6684,11 @@ static int run_program(int argc, char** argv) {
                                              "more than nothing\n");
                         return 2;
                     }
+                    continue;
+                }
+                if (args[i] == "--until-compared-on-ground" && i + 1 < args.size()) {
+                    connect_until_compared_on_ground =
+                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
                     continue;
                 }
                 if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {
