@@ -4356,8 +4356,8 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
 # (server_paced_prediction.cmake), a pilot's controls that keep changing
 # flown (`--test-pilot`), 4,800 ticks, 40 s of the server's time
 # (cmake/client_on_server.cmake, PREDICTED). Seen red unpaced
-# (`-DUNPACED=ON`): the median 4.5 m, the worst 19.1 m (docs/status,
-# 2026-11-22). RUN_SERIAL, as the paced test: a busy runner would put the
+# (`-DUNPACED=ON`): the 95th percentile 7.97 m, the worst 18.0 m
+# (docs/status, 2026-11-22). RUN_SERIAL, as the paced test: a busy runner would put the
 # server further behind than its set pace, unsteadily. Costed until
 # tests/ci_costs measures them: the plain window test's CI figures (14 to
 # 303 s) plus the 30 s more of the server's time flown, and at 0.6 the 27 s
