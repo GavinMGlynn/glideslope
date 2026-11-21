@@ -1464,6 +1464,16 @@ foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
 set_tests_properties(${GLIDESLOPE_GUST_SWEEP_SEEDS} PROPERTIES LABELS gust_sweep)
+# **Unit tests the cost tables have not measured yet**, each under a second
+# locally (2026-11-21): costed so, not at the 60 s tools/ci_shard.cmake
+# gives a test it does not know, which put windows-clang's night's way
+# 0.05 min over its shards' share in run 44893007567.
+# Once the tables name them, their figures rule.
+set_tests_properties(
+    the_window_client_joining_while_the_servers_stations_change_flies_the_servers_air
+    more_than_a_reliable_sender_puts_on_the_wire_at_once_arrives_whole_and_in_order
+    a_client_joining_32_stations_each_mid_blend_over_several_reports_flies_the_servers_air
+    PROPERTIES COST 1)
 # Flies a circuit after its go-around, in simulated time: 762 s on Linux
 # debug's runners (tests/ci_costs), and past the presets' 900 there in run
 # 41703342974. Nothing gives up on a slow machine sooner than it needs.

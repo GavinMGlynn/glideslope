@@ -51,3 +51,10 @@ joiner flew other air.
   the same helper, acknowledgements heard: 150 of 150 points the same.
 
 **Seen red.** With `src/net/reliable.cpp` put back as it was on `main`, both new tests were built and run and failed: the reliable one at "message 256 queued", the 32-station join at "every message queued: 256 of 288". The fix was then put back, and both pass.
+
+**From the draft's run.** The two new tests and the window client's
+mid-change one were not yet in `tests/ci_costs`, so the dealing costed each
+at 60 s, and windows-clang's night's way came to 33.8 of its shards' 33.75
+minutes (`every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`,
+run 44893007567). Each is given a ctest `COST` of 1 s until the tables
+measure it.
