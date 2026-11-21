@@ -101,6 +101,11 @@ if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 endif()
 file(MAKE_DIRECTORY "${WORK}")
+# Ubuntu's OpenSSL keeps 904 bytes from loading its configuration, reached
+# through curl_global_init, and never frees them. Only that is let go: a leak
+# of this program's own still fails the test.
+file(WRITE "${WORK}/lsan.supp" "leak:libcrypto.so\n")
+set(ENV{LSAN_OPTIONS} "suppressions=${WORK}/lsan.supp")
 set(_store "${WORK}/tiles.sqlite")
 set(_plan "${WORK}/hills.plan")
 file(REMOVE "${_store}")
