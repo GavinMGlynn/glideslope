@@ -4682,6 +4682,22 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_flies_the_servers_weather_within_the_headless_clients_bound
         PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_weather)
+    # **A window client joining while the server's stations change flies the
+    # server's air to the last bit**: joined after three changes, slot 1 told
+    # three weathers, its air and the server's compared at 150 points, every
+    # field to the bit. See cmake/window_joins_mid_change.cmake.
+    add_test(NAME a_window_client_joining_while_the_servers_stations_change_flies_the_servers_air_to_the_last_bit
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_joins_mid_change -DPORT=24982
+            -DDRIVER=vulkan
+            -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json
+            -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/window_joins_mid_change.cmake)
+    set_tests_properties(a_window_client_joining_while_the_servers_stations_change_flies_the_servers_air_to_the_last_bit
+        PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_joins_mid_change)
     # **The client with the window lets go of a prediction given a NaN**, takes
     # the server's state back on the aircraft it has, and flies on. See
     # cmake/client_let_go_of_a_nan.cmake.

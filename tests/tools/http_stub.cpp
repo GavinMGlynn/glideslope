@@ -15,6 +15,12 @@
 // requests a FILE would answer are answered with it, in all; every one after
 // them is answered STATUS - a service that answered, and then did not.
 //
+// **A PREFIX given more than once is answered in turn**: its first request
+// with its first FILE, the next with the next, one each, and every one after
+// the last with STATUS - a service whose answer changes, and then answers no
+// more (with --stall, a transfer that never ends: nothing changes again).
+// A PREFIX given once is answered with its FILE every time.
+//
 // **--stall** answers STATUS with a transfer under way that never ends: its
 // head, a Content-Length of a megabyte, and the first few bytes of the body,
 // and then nothing, the connection held open until /stop. It says, as each is
@@ -146,8 +152,14 @@ int main(int argc, char** argv) {
         return refuse("STATUS must be an HTTP status, 100 to 599");
     }
     const std::filesystem::path port_file = argv[arg + 1];
-    // Each PREFIX as the start of a request line, and the answer its FILE makes.
-    std::vector<std::pair<std::string, std::string>> files;
+    // Each PREFIX as the start of a request line, and the answers its FILEs
+    // make, in turn when more than one; how many of them have been given.
+    struct Turns {
+        std::string prefix;
+        std::vector<std::string> answers;
+        std::size_t given = 0;
+    };
+    std::vector<Turns> files;
     for (int i = arg + 2; i + 1 < argc; i += 2) {
         std::ifstream in(argv[i + 1], std::ios::binary);
         if (!in) {
@@ -155,11 +167,22 @@ int main(int argc, char** argv) {
         }
         const std::string body((std::istreambuf_iterator<char>(in)),
                                std::istreambuf_iterator<char>());
-        files.emplace_back(std::string("GET ") + argv[i],
-                           "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+        const std::string prefix = std::string("GET ") + argv[i];
+        std::string made = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
                            "Content-Length: " +
-                               std::to_string(body.size()) +
-                               "\r\nConnection: close\r\n\r\n" + body);
+                           std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" +
+                           body;
+        Turns* same = nullptr;
+        for (Turns& t : files) {
+            if (t.prefix == prefix) {
+                same = &t;
+            }
+        }
+        if (same != nullptr) {
+            same->answers.push_back(std::move(made));
+        } else {
+            files.push_back({prefix, {std::move(made)}, 0});
+        }
     }
 #ifdef _WIN32
     WSADATA data;
@@ -211,11 +234,17 @@ int main(int argc, char** argv) {
         }
         const std::string head = read_head(client);
         const bool stop = head.rfind("GET /stop ", 0) == 0;
-        const std::string* file_answer = nullptr;
-        for (const auto& [prefix, file] : files) {
-            if (head.rfind(prefix, 0) == 0) {
-                file_answer = &file;
+        Turns* matched = nullptr;
+        for (Turns& t : files) {
+            if (head.rfind(t.prefix, 0) == 0) {
+                matched = &t;
             }
+        }
+        const std::string* file_answer = nullptr;
+        if (matched != nullptr && matched->answers.size() == 1) {
+            file_answer = &matched->answers.front();
+        } else if (matched != nullptr && matched->given < matched->answers.size()) {
+            file_answer = &matched->answers[matched->given];
         }
         if (files_for >= 0 && answered_file >= files_for) {
             file_answer = nullptr;
@@ -225,6 +254,9 @@ int main(int argc, char** argv) {
         } else if (file_answer != nullptr) {
             send_all(client, *file_answer);
             ++answered_file;
+            if (matched != nullptr && matched->answers.size() > 1) {
+                ++matched->given;
+            }
         } else if (stall) {
             send_all(client, stalled_answer);
             ++answered;

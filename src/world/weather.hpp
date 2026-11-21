@@ -324,6 +324,22 @@ public:
                    : nullptr;
     }
 
+    // **Everything it blends from that still reaches the air from `now_s`**,
+    // the oldest first: what it blends from while its blend has not ended,
+    // what that blends from while its own has not, and so on - empty when
+    // nothing blends. A report arriving mid-blend blends from the whole
+    // weather as it was, so a station given new reports quicker than a
+    // blend flies a chain of them; a client joining is told all of it
+    // (frontend::weather_said_on_joining), not only blending_from.
+    std::vector<const ReportedWeather*> blending_chain(double now_s) const {
+        std::vector<const ReportedWeather*> chain;
+        for (const ReportedWeather* c = this; c->blending_from(now_s) != nullptr;
+             c = c->before_.get()) {
+            chain.push_back(c->before_.get());
+        }
+        return {chain.rbegin(), chain.rend()};
+    }
+
     // When the latest report took over - update's `now_s`, or when it was
     // made - and when the one it blends from did.
     double changed_at_s() const { return changed_at_s_; }

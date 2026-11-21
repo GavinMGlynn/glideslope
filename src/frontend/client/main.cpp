@@ -27,6 +27,7 @@
 #include "frontend/briefs.hpp"
 #include "frontend/held_levers.hpp"
 #include "frontend/players_copilot.hpp"
+#include "frontend/same_air.hpp"
 #include "online.hpp"
 #include "pass.hpp"
 #include "frontend/shown.hpp"
@@ -203,6 +204,12 @@ struct Options {
     // And the server's words as heard, for half a second from tick T
     // (`--test-nan-words-at T`).
     std::int64_t nan_words_at = -1;
+    // Test flag (`--test-say-air POINTS FILE`): on a server, as it quits at
+    // --quit-at, the air its flight flies of the server's stations, said at
+    // POINTS to FILE to the last bit (frontend::air_at_points) - to compare
+    // with what the server says of its own.
+    std::string say_air_points;
+    std::string say_air;
     // Test flag (`--test-imagery-url URL`): the open imagery fetched from this
     // template instead of EOX's - one that answers nothing, for a test that
     // every imagery fetch fails.
@@ -288,6 +295,9 @@ void usage(std::FILE* out) {
         "  --toward      where the terrain screen looks, as --at is given\n"
         "  --imagery     drape the open imagery on the terrain (the default), or\n"
         "                tint it by height instead\n"
+        "  --test-say-air POINTS FILE  on a server, quitting at --quit-at, write\n"
+        "                to FILE the server's air flown at each of POINTS' lines,\n"
+        "                TIME LAT LON HEIGHT, to the last bit (for tests)\n"
         "  --test-imagery-url URL  fetch the open imagery from URL, a template\n"
         "                as EOX's is, instead (for tests: one nothing answers)\n"
         "  --test-imagery-wedge  hold the imagery's finer fetches until the\n"
@@ -780,6 +790,9 @@ static int run_program(int argc, char** argv) {
             o.test_imagery_wedge = true;
         } else if (a == "--test-imagery-out-of-order") {
             o.test_imagery_out_of_order = true;
+        } else if (a == "--test-say-air" && i + 2 < args.size()) {
+            o.say_air_points = std::string(args[++i]);
+            o.say_air = std::string(args[++i]);
         } else if (a == "--test-imagery-url" && has_value) {
             o.test_imagery_url = std::string(args[++i]);
             ok = !o.test_imagery_url.empty();
@@ -2269,6 +2282,25 @@ static int run_program(int argc, char** argv) {
                 }
                 if (flight && !flight->air_flown().empty()) {
                     std::printf("glideslope: %s\n", flight->air_flown().c_str());
+                }
+                // **The server's air as flown here, to the last bit**
+                // (`--test-say-air`), with the moment it is said.
+                if (!o.say_air.empty()) {
+                    std::ofstream said(o.say_air);
+                    try {
+                        const auto& stations = flight ? flight->server_stations() : nullptr;
+                        said << "said at " << (online ? online->session_now_s() : -1.0)
+                             << " s\n";
+                        if (!stations) {
+                            said << "no air flown\n";
+                        } else {
+                            said << glideslope::frontend::air_at_points(
+                                *stations, glideslope::frontend::air_points(o.say_air_points));
+                        }
+                    } catch (const std::exception& e) {
+                        std::fprintf(stderr, "glideslope: --test-say-air: %s\n", e.what());
+                        return 1;
+                    }
                 }
                 std::printf("glideslope: quitting at tick %lld\n",
                             static_cast<long long>(ticks));

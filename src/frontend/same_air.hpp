@@ -256,4 +256,22 @@ private:
     double least_first_share_ = 1.0;
 };
 
+// **The air at given moments and places, to the last bit**, for a test to
+// compare one program's air with another's (`--test-say-air`): what a
+// client flies of its server's stations against what the server flies.
+// `points` is a file of lines "TIME LAT LON HEIGHT" - seconds on the
+// session's clock, degrees, metres above the ellipsoid; a blank line or one
+// beginning '#' is passed over. Throws std::runtime_error for a file that
+// cannot be read or a line that is not four numbers, or one with none.
+struct AirPoint {
+    double time_s = 0.0;
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double height_m = 0.0;
+};
+std::vector<AirPoint> air_points(const std::filesystem::path& points);
+// A line for each point, in order: the point, and every field of
+// sim::Conditions there and then - each double as C's "%a", exactly.
+std::string air_at_points(sim::Weather& air, const std::vector<AirPoint>& points);
+
 } // namespace glideslope::frontend

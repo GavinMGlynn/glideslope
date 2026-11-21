@@ -104,7 +104,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
               --hand-over-record --weather --metar --station --metar-then --changed-file
               --weather-blend --weather-refresh --players-on-final --ai-on-final
-              --ai-route --steps-after-hand-over --stopped-file)
+              --ai-route --steps-after-hand-over --stopped-file --test-say-air)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

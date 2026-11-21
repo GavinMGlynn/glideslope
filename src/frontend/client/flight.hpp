@@ -371,6 +371,11 @@ public:
     // what the aircraft flies.
     void fly_server_air(std::shared_ptr<const frontend::HeardAir> air,
                         std::function<double()> clock);
+    // **The server's stations as this flight flies them** (`fly_server_air`):
+    // null before it has flown any.
+    const std::shared_ptr<world::StationSlots>& server_stations() const {
+        return server_stations_flown_;
+    }
     // The geoid this flight's ground stands on, for the server's air.
     const std::shared_ptr<const world::Geoid>& geoid() const { return geoid_; }
     gfx::Station weather_station() const;

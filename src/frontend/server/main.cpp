@@ -284,6 +284,11 @@ struct Options {
     // For a test: written once that METAR has taken over, so that a client
     // can join while it blends in (`--changed-file FILE`).
     std::string changed_file;
+    // For a test: the air flown, said at the points in `say_air_points` to
+    // `say_air` as the server stops (`--test-say-air POINTS FILE`,
+    // frontend::air_at_points) - to compare with a client's to the last bit.
+    std::string say_air_points;
+    std::string say_air;
     double weather_blend_s = default_weather_blend_s;
     double weather_refresh_s = default_weather_refresh_s;
 };
@@ -372,6 +377,9 @@ void print_usage(std::FILE* out) {
         "                     (for tests). Without --weather or --metar, still air\n"
         "  --changed-file FILE  write FILE once --metar-then's METAR has taken\n"
         "                     over - for a test that joins while it blends in\n"
+        "  --test-say-air POINTS FILE  as it stops, write to FILE the air flown at\n"
+        "                     each of POINTS' lines, TIME LAT LON HEIGHT, to the\n"
+        "                     last bit - for a test comparing a client's with it\n"
         "  --seconds N        stop after N seconds instead of running until killed\n"
         "  --until-empty      stop once every client that joined has gone and been\n"
         "                     let go - for a test, which then waits on its clients\n"
@@ -631,6 +639,11 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--changed-file") {
             if (!next(value)) return std::nullopt;
             o.changed_file = std::string(value);
+        } else if (a == "--test-say-air") {
+            if (!next(value)) return std::nullopt;
+            o.say_air_points = std::string(value);
+            if (!next(value)) return std::nullopt;
+            o.say_air = std::string(value);
         } else if (a == "--test-say-controls") {
             o.test_say_controls = true;
         } else if (a == "--test-first-update-lost") {
@@ -3060,6 +3073,9 @@ public:
     double weather_blend_s() const { return weather_blend_s_; }
     // How many weathers a slot has had: a client told an older count is told again.
     int weathers(std::size_t i) const { return slots_[i].weathers; }
+    // **The stations flown**, as every aircraft flies them on the session's
+    // clock; null before any weather.
+    const std::shared_ptr<glideslope::world::StationSlots>& stations() const { return air_; }
     // **The stations flown now** (world::StationSlots::stations_flown).
     std::vector<glideslope::world::WeatherReport> stations_flown() const {
         return air_ ? air_->stations_flown() : std::vector<glideslope::world::WeatherReport>{};
@@ -6952,6 +6968,29 @@ int run(const Options& o) {
                     fleet->tiles_fetched() == 1 ? "" : "s");
     }
     std::fflush(stdout);
+    // **The air flown, to the last bit** (`--test-say-air`): the stations
+    // every aircraft flew, at each point and moment asked - after the clients
+    // have gone, so that it is what they were told.
+    if (!o.say_air.empty()) {
+        std::ofstream said(o.say_air);
+        try {
+            if (!fleet || !fleet->stations()) {
+                said << "no air flown\n";
+            } else {
+                said << glideslope::frontend::air_at_points(
+                    *fleet->stations(), glideslope::frontend::air_points(o.say_air_points));
+            }
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "glideslope_server: --test-say-air: %s\n", e.what());
+            return 1;
+        }
+        said.flush();
+        if (!said) {
+            std::fprintf(stderr, "glideslope_server: cannot write --test-say-air %s\n",
+                         o.say_air.c_str());
+            return 1;
+        }
+    }
     if (!o.stopped_file.empty()) {
         std::ofstream(o.stopped_file) << "stopped\n";
     }
