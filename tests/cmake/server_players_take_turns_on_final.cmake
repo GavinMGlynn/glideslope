@@ -509,7 +509,20 @@ foreach(_i RANGE ${_last})
                                 "ahead was handed over:\n${_out}")
         endif()
     else()
-        if(NOT _since MATCHES "^[^\n]*\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final[^\n]*\nadmitted [0-9a-f]+ to slot")
+        # **At once**: admitted after her start on final with no wait between.
+        # Not the next line: the window client shares the stream, and its GPU
+        # driver's words can fall between (Windows release, train #392's run
+        # 44873994432: "Integrated memory detected, ...").
+        if(NOT _since MATCHES "slot [0-9]+'s ${_a} starts on final[^\n]*\n(.*)")
+            message(FATAL_ERROR "the first never started on final:\n${_out}")
+        endif()
+        set(_after_start "${CMAKE_MATCH_1}")
+        string(FIND "${_after_start}" "admitted " _admitted_at)
+        if(_admitted_at EQUAL -1)
+            message(FATAL_ERROR "the first was never admitted:\n${_out}")
+        endif()
+        string(SUBSTRING "${_after_start}" 0 ${_admitted_at} _between)
+        if(_between MATCHES "waits for its turn|turn on final")
             message(FATAL_ERROR "the first was not given her aircraft at once:\n${_out}")
         endif()
         set(_number 0)
