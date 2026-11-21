@@ -49,8 +49,12 @@ public:
     // keeping real time, and at 0.68 against one at 0.5 (docs/status,
     // 2026-11-18). **Two and a half**, now the loop steers by the difference
     // still to come (Pacing::heard), not the one heard a look late: frames
-    // of 0.1 to 3 s each settle within 0.002 of the server's pace (the unit
-    // test takes 0.25 to 2 s). At five, needed while the loop steered by the
+    // of 0.1 to 3 s against servers at 0.5 to 1.0 of real time each settle
+    // within 0.002 of the server's pace in 60 s (the unit test takes 0.25 to
+    // 2 s). Against slower servers long frames settle more slowly: at 0.2,
+    // 2 s frames were 0.018 off and 35 steps, 3 s frames 0.044 and 119.
+    // Nor can a look 1 or 2 s apart tell a server's jump from its pace: a
+    // jump is steered on, and the pace swings up to 0.49 (the unit test). At five, needed while the loop steered by the
     // difference heard, a client whose frames were 2 s long steered at 0.1 a
     // second and was still 40 steps off after 60 s against a server at 0.5;
     // at 3 and 3.5 without the difference still to come, it rang (docs/status,

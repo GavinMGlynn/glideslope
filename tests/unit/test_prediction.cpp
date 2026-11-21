@@ -1642,8 +1642,65 @@ GLIDESLOPE_TEST(a_client_whose_every_frame_is_long_holds_its_clocks_difference_a
             ++flown;
         }
     }
+    // **A held-up server catching up, and one slowing all at once, with
+    // long frames** - a jump of 36, -36 or 120 steps at 30 s, and a server
+    // slowed from real time to 0.3 or 0.6 at 20 s, each at frames of 1 and
+    // 2 s. Bounds at the measured figures, with a margin, not the two steps
+    // and 0.002 above. **Why**: a look a second or two apart cannot tell a
+    // jump from a pace. The most two paces may part by over one look of 1 s
+    // is 61 steps (`Pacing::most_parting`), so a jump smaller than that is
+    // steered on as if it were a pace. The pace swung 0.29 to 0.49 from the
+    // server's (0.15 to 0.25 before 2026-11-21, when the loop was slower
+    // and settled worse). At 2 s a 120-step jump was 19 steps off in the
+    // last ten seconds, and a server slowed to 0.3 was not yet followed
+    // after 40 s: 53 steps off and 0.026 slow (143 steps before).
+    struct Upset {
+        double frame_s;
+        std::int64_t jump;
+        double rate_after;
+        double most_pace_off;   // from the server's, after a jump
+        std::int64_t most_late; // steps, the last ten seconds
+        std::int64_t most_off;  // steps, after a slowing
+        double most_end_pace_off;
+    };
+    const Upset upsets[] = {
+        {1.0, 36, -1.0, 0.35, 2, 0, 0.002},     {1.0, -36, -1.0, 0.35, 2, 0, 0.002},
+        {1.0, 120, -1.0, 0.55, 2, 0, 0.002},    {1.0, 0, 0.3, 0.0, 12, 180, 0.01},
+        {1.0, 0, 0.6, 0.0, 2, 115, 0.002},      {2.0, 36, -1.0, 0.18, 7, 0, 0.004},
+        {2.0, -36, -1.0, 0.18, 5, 0, 0.004},    {2.0, 120, -1.0, 0.55, 23, 0, 0.012},
+        {2.0, 0, 0.3, 0.0, 65, 350, 0.035},     {2.0, 0, 0.6, 0.0, 8, 230, 0.005},
+    };
+    std::size_t upset = 0;
+    for (const Upset& u : upsets) {
+        const bool jumps = u.jump != 0;
+        const AtPace p = jumps ? fly_at_pace(1.0, 60.0, true, u.jump, 30.0, -1.0, 0.0, u.frame_s)
+                               : fly_at_pace(1.0, 60.0, true, 0, 0.0, u.rate_after, 20.0,
+                                             u.frame_s);
+        const double final_rate = jumps ? 1.0 : u.rate_after;
+        const std::string what =
+            "frames " + std::to_string(u.frame_s) + " s long, " +
+            (jumps ? "the server's clock jumping " + std::to_string(u.jump) + " steps"
+                   : "the server slowed to " + std::to_string(u.rate_after));
+        if (jumps) {
+            check(p.worst_pace_off_after_jump <= u.most_pace_off,
+                  what + ", the pace went " + std::to_string(p.worst_pace_off_after_jump) +
+                      " from the server's");
+        } else {
+            check(std::llabs(p.worst_off_after_change) <= u.most_off,
+                  what + ", the difference went " + std::to_string(p.worst_off_after_change) +
+                      " steps from the one held");
+        }
+        check(std::llabs(p.worst_late_off) <= u.most_late,
+              what + ", the difference was " + std::to_string(p.worst_late_off) +
+                  " steps from the one held in the last ten seconds");
+        check(std::abs(p.pace - final_rate) <= u.most_end_pace_off,
+              what + ", it flew at " + std::to_string(p.pace));
+        ++upset;
+    }
     check(flown == 24, "four frame lengths at six server rates were flown: " +
                            std::to_string(flown));
+    check(upset == 10, "three jumps and two slowings at two frame lengths were flown: " +
+                           std::to_string(upset));
 }
 
 namespace {
