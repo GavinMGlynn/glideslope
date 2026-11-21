@@ -320,6 +320,8 @@ public:
         return out;
     }
     std::uint8_t mine() const { return mine_; }
+    // The session's clock as of this frame, which the server's air is on.
+    double session_now_s() const { return session_now_s_; }
     // **What the server last said of this client's own aircraft**: whether
     // the AI is flying it, and whether, since it was taken over, the server
     // has applied an input this client sent - which it does only if it is

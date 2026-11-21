@@ -589,8 +589,10 @@ blend is told first the stations they blend from**: each change of the
 stations that still reaches the air - what the newest change blends from,
 and what that blends from while its own blend has not ended - the oldest
 first, each as the slots that differ from the change before: a `WEATHER`
-for each slot filled or given another station, with the weather it blends
-from before it while it does, and an empty METAR for each slot emptied, each
+for each slot filled or given another station, with everything it blends
+from before it while it does - the oldest first: a station given a new
+report while its last still blended blends from that blend, a chain - and
+an empty METAR for each slot emptied, each
 naming that change's moment as when the stations changed, and the station's
 `RUNWAY_CONDITIONS` straight after that slot's weather;
 then the slots the newest change differs in, at its moment. A station there
@@ -614,8 +616,9 @@ report gives to what this one gives, and the turbulence changing halfway. The
 receiver blends from when the sender says and over as long, so the air is the
 same while it changes as well as before and after. A first weather has
 nothing to blend from and is flown whole. **A client joining while one blends
-in is told first the weather it blends from**, with when that one took over,
-and then the new one: so it blends from the same weather as the server, and
+in is told first the weather it blends from**, with when that one took over
+(and, while that one blends from another, that one before it, the oldest
+first), and then the new one: so it blends from the same weather as the server, and
 does not fly the new one whole until the blend ends. A receiver making its air
 afresh - a client's flight made since - makes it from those two, in that
 order, the same way. No byte of either message changed with this, nor the

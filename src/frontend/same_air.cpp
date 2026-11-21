@@ -16,7 +16,9 @@
 #include <fstream>
 #include <iterator>
 #include <span>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -239,8 +241,11 @@ std::vector<std::vector<std::uint8_t>> weather_said_on_joining(const world::Stat
                 write_said(weather_said(nullptr, at_s, blend_s, slot, at_s), out);
                 continue;
             }
-            if (const world::WeatherReport* from = air->blending_from(now_s)) {
-                write_said(weather_said(from, air->blending_from_changed_at_s(), blend_s, slot,
+            // **Everything it blends from**, oldest first: a station given a
+            // new report while the last still blended blends from that
+            // blend, and the joiner's must too.
+            for (const world::ReportedWeather* from : air->blending_chain(now_s)) {
+                write_said(weather_said(&from->report(), from->changed_at_s(), blend_s, slot,
                                         at_s),
                            out);
             }
@@ -454,6 +459,48 @@ std::string AirFlown::said() const {
                   first_station_.c_str(), first_share_,
                   last_station_.c_str(), last_share_, least_first_share_);
     return line;
+}
+
+std::vector<AirPoint> air_points(const std::filesystem::path& points) {
+    std::ifstream in(points);
+    if (!in) {
+        throw std::runtime_error("cannot read the points " + points.string());
+    }
+    std::vector<AirPoint> out;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+        AirPoint p;
+        std::istringstream words(line);
+        std::string rest;
+        if (!(words >> p.time_s >> p.latitude_deg >> p.longitude_deg >> p.height_m) ||
+            (words >> rest)) {
+            throw std::runtime_error("not TIME LAT LON HEIGHT in " + points.string() + ": " +
+                                     line);
+        }
+        out.push_back(p);
+    }
+    if (out.empty()) {
+        throw std::runtime_error("no points in " + points.string());
+    }
+    return out;
+}
+
+std::string air_at_points(sim::Weather& air, const std::vector<AirPoint>& points) {
+    std::string out;
+    char line[512];
+    for (const AirPoint& p : points) {
+        const sim::Conditions c = air.at(p.latitude_deg, p.longitude_deg, p.height_m, p.time_s);
+        std::snprintf(line, sizeof line, "%.3f %.6f %.6f %.1f: %a %a %a %a %a %d %a %d %a\n",
+                      p.time_s, p.latitude_deg, p.longitude_deg, p.height_m, c.wind_north_mps,
+                      c.wind_east_mps, c.wind_down_mps, c.temperature_offset_c,
+                      c.sea_level_pressure_hpa, c.turbulence_severity, c.wind_at_20ft_mps,
+                      c.runway_condition, c.gust_factor_kt);
+        out += line;
+    }
+    return out;
 }
 
 } // namespace glideslope::frontend
