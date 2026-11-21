@@ -52,6 +52,11 @@ std::string weather_host(const std::string& own);
 // over plain HTTP of another machine could be read and changed on the way.
 bool weather_service_allowed(const std::string& service);
 
+// **Where a DEM tile's URL is fetched from**: the bucket's own, or the same
+// path on platform::dem_source() when a test names one. Throws DemError if it
+// names one that weather_service_allowed refuses.
+std::string dem_fetched_from(const std::string& url);
+
 // A GET through the platform's HTTP client, with a body limit to suit a DEM
 // tile, given up as a FetchesGivenUp on its thread says.
 Fetch http_fetch();
@@ -264,6 +269,13 @@ public:
     // Tiles fetched, and fetches that failed, so far.
     int fetched() const;
     int failed() const;
+    // Tiles asked for and not yet fetched or failed: being fetched, or
+    // waiting their turn.
+    int waiting() const;
+    // **How long the fetches took**, on the machine's clock, in all: from
+    // each tile's being taken up by the fetching thread to its arrival or
+    // failure.
+    double fetching_s() const;
 
     const DemCoverage& coverage() const { return coverage_; }
 
@@ -293,6 +305,7 @@ private:
     std::map<std::pair<int, int>, std::chrono::steady_clock::time_point> failed_at_;
     int fetched_ = 0;
     int failed_ = 0;
+    double fetching_s_ = 0.0;
     bool stop_ = false;
     // Set as it is let go: the fetch under way is given up (FetchesGivenUp).
     std::atomic<bool> give_up_{false};

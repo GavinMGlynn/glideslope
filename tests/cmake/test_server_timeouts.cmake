@@ -45,9 +45,10 @@ endforeach()
 # 2026-11-19: server_weather_gusts.cmake's gust-clock run and
 # copilots_nearest_station_run.cmake's server, a long one each; 74 and 62
 # since 2026-11-21: server_ground_lift.cmake's and window_joins_mid_change.cmake's
-# servers, a long one each).
-set(_expect_uses 74)
-set(_expect_long 62)
+# servers, a long one each; 75 and 63 since 2026-11-21 too:
+# server_tiles_arrive.cmake's server, a long one).
+set(_expect_uses 75)
+set(_expect_long 63)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 

@@ -2,7 +2,8 @@
 // request with one status, for a test to point a service at.
 //
 //   glideslope_http_stub [--retry-after SECONDS] [--files-for N] [--stall]
-//                        [--answered FILE] STATUS PORTFILE [PREFIX FILE]...
+//                        [--answered FILE] [--etag TAG] STATUS PORTFILE
+//                        [PREFIX FILE]...
 //
 // Listens on 127.0.0.1, on a port the system picks, and writes that port to
 // PORTFILE - whole, by renaming it into place - once it is listening. Every
@@ -32,6 +33,10 @@
 // **--answered FILE** is written, empty, once the first request answered with
 // STATUS has had its answer (or, with --stall, its transfer begun): an event
 // for a test to wait on - the program it was sent to has been turned away.
+//
+// **--etag TAG** sends every FILE's answer with the ETag TAG, quoted, as S3
+// sends a DEM tile with its MD5 (world::DownloadedTiles checks it): a
+// bucket, standing in for Copernicus's (server_tiles_arrive.cmake).
 //
 // Says on standard error how many requests it answered with STATUS, and how
 // many with FILE. Exits 0, or 2 on bad arguments or a socket it could not
@@ -117,17 +122,20 @@ int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
 #endif
     const char* usage = "usage: glideslope_http_stub [--retry-after SECONDS] "
-                        "[--files-for N] [--stall] [--answered FILE] STATUS PORTFILE "
-                        "[PREFIX FILE]...";
+                        "[--files-for N] [--stall] [--answered FILE] [--etag TAG] STATUS "
+                        "PORTFILE [PREFIX FILE]...";
     int retry_after = 1;
     long files_for = -1;
     bool stall = false;
     std::filesystem::path answered_file_path;
+    std::string etag;
     int arg = 1;
     for (; arg < argc && std::string(argv[arg]).rfind("--", 0) == 0; ++arg) {
         const std::string option = argv[arg];
         if (option == "--stall") {
             stall = true;
+        } else if (option == "--etag" && arg + 1 < argc) {
+            etag = argv[++arg];
         } else if (option == "--answered" && arg + 1 < argc) {
             answered_file_path = argv[++arg];
         } else if (option == "--retry-after" && arg + 1 < argc) {
@@ -168,7 +176,8 @@ int main(int argc, char** argv) {
         const std::string body((std::istreambuf_iterator<char>(in)),
                                std::istreambuf_iterator<char>());
         const std::string prefix = std::string("GET ") + argv[i];
-        std::string made = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+        std::string made = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n" +
+                           (etag.empty() ? std::string() : "ETag: \"" + etag + "\"\r\n") +
                            "Content-Length: " +
                            std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" +
                            body;
