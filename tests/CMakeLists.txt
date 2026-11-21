@@ -4361,7 +4361,8 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
 # server further behind than its set pace, unsteadily. Costed until
 # tests/ci_costs measures them: the plain window test's CI figures (14 to
 # 303 s) plus the 30 s more of the server's time flown, and at 0.6 the 27 s
-# more its slower clock takes - 101 and 76 s here, Linux debug.
+# more its slower clock takes - 101 and 76 s here, Linux debug; 273 and
+# 121 s on the Windows machine, Windows debug.
 add_test(NAME a_window_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
@@ -4370,7 +4371,7 @@ add_test(NAME a_window_client_predicting_against_a_server_behind_real_time_flies
         -DSERVER_PACE=0.6 -DSHOT_AT=4800 -DTEST_PILOT=ON -DPREDICTED=ON
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
 set_tests_properties(a_window_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres
-    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE COST 200)
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE COST 300)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_paced)
 add_test(NAME a_window_client_predicting_against_a_server_keeping_real_time_is_off_by_centimetres
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
@@ -4380,7 +4381,7 @@ add_test(NAME a_window_client_predicting_against_a_server_keeping_real_time_is_o
         -DDRIVER=vulkan -DSHOT_AT=4800 -DTEST_PILOT=ON -DPREDICTED=ON
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
 set_tests_properties(a_window_client_predicting_against_a_server_keeping_real_time_is_off_by_centimetres
-    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE COST 160)
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE COST 200)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_keeping_time)
 # **The client with the window, predicting an F-35B, stopped 3 s between
 # reckoning a frame's ticks and sending, is placed within four steps' travel**
