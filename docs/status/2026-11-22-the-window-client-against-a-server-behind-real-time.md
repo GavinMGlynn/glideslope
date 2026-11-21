@@ -18,8 +18,9 @@ the ground. A wreck stays where it hit for 5 s of the server's time
 (`wreck_s`) and then flies again from her start, about 7 km back along her
 40 s. The client took that word as an ordinary correction. In the debug
 runs here she was a wreck too: SPD 0 KT, 15 ft at the shot, 122 words of
-about 966 saying so. The respawn simply came after the shot. So part of
-every F-15C figure below is a wreck sitting still, whose error is nought.
+about 966 saying so. The respawn simply came after the shot. So
+every F-15C test-pilot figure first reported here included a wreck sitting
+still, whose error is nought (withdrawn below).
 
 **Fix.** The two tests fly the C172P (`-DAIRCRAFT=c172p`), the aircraft
 glideslope_cli's paced test flies with the same pilot. The window client now
@@ -48,36 +49,48 @@ loosened.
   and 121 s over twelve. Given as debug seconds, run 44934787992 dealt them
   as an hour with the night's repeats.
 
-**Measured first, on main (Linux debug).** The window client
-(`client_on_server.cmake`, F-15C, flying for 4,800 ticks) no longer showed
-the 6 to 9 m and 10 to 13 m of 2026-10-08:
+**Before: main's window client (Linux debug), in the C172P, no word a
+wreck.** Main's window client has no `--test-pilot`. So "before" is
+measured two ways, each over 4,800 ticks (40 s of the server's time):
+- **Main's client as it is**: the stick held still. This branch's binary
+  differs from main's here only in what it prints at the shot.
+- **Main's client with moving controls**: `--test-pilot`. This PR changes no
+  prediction or pacing code. Its source diff against main is the shared
+  test pilot, the `--test-pilot` and `--unpaced` flags, and lines printed at
+  the shot. So with the pilot added, this is main's flying.
 
-| server | corrections once the difference was known | prediction error: median / 95th / worst |
+| server | stick still: median / 95th / worst | test pilot: median / 95th / worst |
 |--------|-----|-----|
-| 0.6 of real time, stick still | 0.000 m | 0 / 0 / 0 m (964 updates) |
-| keeping real time, stick still | 1.381 m | 0 / 0 / 1.378 m (974) |
+| 0.6 of real time | 0 / 0 / 0.462 m (967 updates) | 0 / 0 / 0.634 m (965) |
+| keeping real time | 0 / 0 / 0 m (974) | 0 / 0 / 0 m (973) |
 
-**Why it was not seen before.** The window client's tests fly a stick held
-still, so every input is the same. glideslope_cli's paced test says why
-its own pilot keeps moving: with every input the same, a prediction that
-flies each input for the wrong number of steps is still right. Flown with a
-pilot whose controls keep changing (the same as glideslope_cli's):
+Every run flew: 0 words a wreck, at 100 or 137 to 140 kt at the shot.
+Once the clocks' difference was known, the worst correction was 0.46 to
+0.63 m at 0.6, and 0 m keeping time. While it was learnt it was 3.7 to
+4.6 m at 0.6, and 0.5 to 0.9 m keeping time.
 
-| server, window client | median / 95th / worst | a metre or more | pace |
-|----|----|----|----|
-| 0.6, paced | 0 / 0 / 1.461 m (966 updates) | 4 | |
-| 0.6, unpaced | 4.541 / 8.387 / 19.147 m (573) | 526 | |
-| 1.0, paced | 0 / 0 / 0 m (974) | 0 | |
-| 0.6, paced, through ctest | 0 / 0 / 1.807 m (969) | 6 | 0.600 |
-| 1.0, paced, through ctest | 0 / 0 / 0 m (974) | 0 | 1.000 |
-
-So pacing holds the window client at the server's pace, and the old
-figures are gone. **The old figures were not bisected.** They came before
-2026-10-24, when the window client began comparing every word at its own
-step and steering its pace by every word, not each frame's newest. Before
+**So main already holds the bound; this PR fixes nothing in the window
+client's flying.** It adds the test that pins it, and the pilot and
+unpaced red that test needs. The 6 to 9 m and 10 to 13 m of 2026-10-08 are
+gone on main. **What removed them was not bisected.** A likely cause is the
+2026-10-24 change: since then the window client compares every word at its
+own step and steers its pace by every word, not each frame's newest. Before
 that, a word about a step not yet flown, if it was the frame's newest, put
-the aircraft at the server's word ahead of the steps counted. That is the
-likely cause, but it has not been shown.
+the aircraft at the server's word ahead of the steps counted. Pacing's later
+changes (2026-11-19, 2026-11-21) are another candidate. Neither is shown.
+
+**Why the window tests could not have seen it.** The window client's tests
+fly a stick held still, so every input is the same. glideslope_cli's paced
+test says why its own pilot keeps moving: with every input the same, a
+prediction that flies each input for the wrong number of steps is still
+right. Unpaced against 0.6, the test pilot in the C172P is put 2.2 m off at
+the 95th percentile.
+
+**Withdrawn: the F-15C figures first reported here.** In the first version
+of this file, the test pilot flew the F-15C and every run ended as a wreck
+(below). Those figures included a wreck's nought error and are not
+evidence. The stick-still F-15C runs did fly, at 300 kt at the shot:
+0 / 0 / 0 m at 0.6 and 0 / 0 / 1.378 m keeping time.
 
 **What changed.**
 - `frontend/test_pilot.hpp`: the test pilot glideslope_cli flew
@@ -94,30 +107,23 @@ likely cause, but it has not been shown.
   `-DSERVER_PACE`, the pace flown within 2 percent of it. The client's
   output is kept in `WORK/said.txt`.
 
-**Verification.**
+**Verification.** The C172P figures, the tests as they now stand, are in
+the train section at the top. They are 0.63 and 0.51 m at worst on Linux
+debug, and 0.60 and 0.52 m on Windows debug.
 - `a_window_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres`
   (port 24942, server at `--test-pace 0.6`) and
   `a_window_client_predicting_against_a_server_keeping_real_time_is_off_by_centimetres`
-  (port 24944), both RUN_SERIAL: in the F-15C, before the fix above, passed, 101 and 76 s, Linux debug; on the
-  Windows machine (tools/windows_build.sh, windows-debug) both passed, 273
-  and 121 s.
-- **The F-15C's figures, median / 95th / worst** (the bounds: 5 cm / 1 m /
-  3 m), each run ending as a wreck:
-
-  | run | 0.6 of real time | keeping real time |
-  |-----|------------------|-------------------|
-  | Linux debug, first | 0 / 0 / 1.807 m (969) | 0 / 0 / 0 m (974) |
-  | Linux debug, after the review | 0 / 0 / 0 m (960) | 0 / 0 / 1.833 m (972) |
-  | Windows debug, first | 0 / 0 / 1.829 m (968) | 0 / 0 / 1.653 m (974) |
-  | Windows debug, after the review | 0 / 0 / 1.836 m (966) | 0 / 0 / 1.572 m (972) |
-
-  The worst is always one step's travel, 1.4 to 1.8 m. At most 9 updates in
-  about 970 were a metre or more, and 49 would move the 95th percentile, so
-  that bound has a wide margin. The worst is 1.2 m under its 3 m bound. No
-  `timing` label: the held-a-second sibling has one because its long frames
-  need a release build's quick frames between them, and these frames are
-  not held. CI's figures are in this pull request's runs; ctest prints the
-  "its prediction" line only on failure there.
+  (port 24944), both RUN_SERIAL.
+- No `timing` label. The held-a-second sibling has one because its long
+  frames need a release build's quick frames between them. These frames are
+  not held, and the worst is 2.4 m under its 3 m bound. CI's figures are in
+  this pull request's runs. There, ctest prints the "its prediction" line
+  only on failure.
+- **Withdrawn (F-15C, the test pilot flying her into the ground).** First
+  reported here: passed, worst 1.8 m, with these seen reds. Unpaced at 0.6,
+  95th percentile 7.97 m and worst 18.0 m. Keeping time with ticks 2 percent
+  fast, 95th 1.57 m. A wreck's nought error was part of each, so none is
+  evidence.
 - **From the review of #398.** The window client's 95th percentile is now
   taken as glideslope_cli takes it, ceil(0.95 n) - 1. `--unpaced` also
   stamps its sent inputs at this machine's pace. The count of updates a
@@ -129,7 +135,7 @@ likely cause, but it has not been shown.
   built, run, taken out): 95th percentile 1574 mm, worst 1859 mm, 87 a
   metre or more.
 - The window, paced, prediction, first-input, inputs and behind-real-time
-  tests, with the flag and port checks, Linux debug, `-j4`: 113 of 113
-  passed, two skipped for want of a display (the nightly label left out).
+  tests, with the flag and port checks, Linux debug, `-j4`, before the
+  C172P change: 113 of 113 passed, two skipped for want of a display (the nightly label left out).
 - **Selftest hash** 27e94c795b47141c, unchanged: the selftest does not fly
   the test pilot.
