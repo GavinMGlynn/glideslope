@@ -58,3 +58,11 @@ at 60 s, and windows-clang's night's way came to 33.8 of its shards' 33.75
 minutes (`every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`,
 run 44893007567). Each is given a ctest `COST` of 1 s until the tables
 measure it.
+
+**From the review of #394.**
+- **The window seen red too**: with `to_send`'s limit of `most_in_flight`
+  taken out, the reliable test failed at "never more than most_in_flight
+  on the wire unacknowledged: 785" (all 785 put on the wire at once, the
+  receiver holding 256 and dropping past it); restored, it passes.
+- The loopback helper is bounded by 100,000 rounds of the layer's clock,
+  not by 20 s of the wall clock.

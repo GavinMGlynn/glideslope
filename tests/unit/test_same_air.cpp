@@ -1015,10 +1015,13 @@ std::shared_ptr<glideslope::frontend::HeardAir> heard_over_the_loopback(
     auto air = std::make_shared<glideslope::frontend::HeardAir>(
         nullptr, glideslope::world::GroundAt{}, clock);
     std::size_t taken = 0;
-    const auto began = std::chrono::steady_clock::now();
-    for (double t = 0.0;
-         taken < to_take && std::chrono::steady_clock::now() - began < std::chrono::seconds(20);
-         t += 0.01) {
+    // **Bounded by rounds, not by the wall clock**: each round is 10 ms on
+    // the layer's clock, and 100,000 of them - 4,000 chances to send each
+    // message again - is far past what any machine needs. A round on a
+    // slow one only takes longer; it is never given up sooner.
+    constexpr int most_rounds = 100000;
+    int round = 0;
+    for (double t = 0.0; taken < to_take && round < most_rounds; ++round, t += 0.01) {
         stand_in.send_reliable(reliable, t);
         session->poll(t);
         stand_in.hear_reliable(reliable);
