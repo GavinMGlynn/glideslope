@@ -89,3 +89,9 @@ server).
 **Built on Windows** before each push: `tools/windows_build.sh windows-debug`
 (under `flock /tmp/glideslope-windows.lock`) built the tests, the cli, the
 server and the window client with MSVC, after the review's fixes too.
+
+**Found on the way:** windows-clang's shards were already close to full, and
+the new test pushed a night's run over the 75% limit.
+`every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
+failed on draft run 44894429415 with 33.9 of the 45 minutes in each of the
+5 shards. windows-clang now has 6 shards (`.github/workflows/ci.yml`).

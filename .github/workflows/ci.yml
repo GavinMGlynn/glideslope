@@ -1186,11 +1186,12 @@ jobs:
           - { preset: windows-release, shard: 4, of: 6 }
           - { preset: windows-release, shard: 5, of: 6 }
           - { preset: windows-release, shard: 6, of: 6 }
-          - { preset: windows-clang, shard: 1, of: 5 }
-          - { preset: windows-clang, shard: 2, of: 5 }
-          - { preset: windows-clang, shard: 3, of: 5 }
-          - { preset: windows-clang, shard: 4, of: 5 }
-          - { preset: windows-clang, shard: 5, of: 5 }
+          - { preset: windows-clang, shard: 1, of: 6 }
+          - { preset: windows-clang, shard: 2, of: 6 }
+          - { preset: windows-clang, shard: 3, of: 6 }
+          - { preset: windows-clang, shard: 4, of: 6 }
+          - { preset: windows-clang, shard: 5, of: 6 }
+          - { preset: windows-clang, shard: 6, of: 6 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
