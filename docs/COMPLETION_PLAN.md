@@ -1819,19 +1819,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       client and its server differ there until it arrives. *Verification: a
       client joining a server over hills with no tiles cached is within the
       sea's bound once its tiles arrive, and how long that takes is measured.*
-- [ ] **A client's gusts are not the server's while its clocks' difference
+- [x] **A client's gusts are not the server's while its clocks' difference
       settles**, a step or two out, metres in a strong gust. *Verification: a
       client predicting in gusting air stays within the steady air's bound.*
-      2026-11-17: an end-to-end test judges each word's step against the
-      difference the word itself shows: none out but by the estimate, none
-      late; the large worst errors are the estimate moving, in steady air
-      too. 2026-11-21, inputs naming their step: the median is within the
-      steady bound (0.030-0.033 m against steady air's 0.029 m, bound
-      0.25 m), but 75, 133 and 321 of about 540 steps are still flown one or
-      two steps early. Still missing: the server flies each input from the
-      step due when it arrives, not from the step its client named, so the
-      server needs to hold inputs to their named step (an input buffer the
-      client steers, as Overwatch's), which costs input latency.
+      Done 2026-11-21, closed on the bound (owner's call): the median is
+      0.030 to 0.033 m against steady air's 0.029 m, bound 0.25 m. A named
+      limit: up to 59% of steps are still flown one or two steps early, the
+      server flying each input from the step due when it arrives.
 - [x] **Every aircraft trims in the session's air**: she was trimmed in
       the standard atmosphere and still air, and the METAR's temperature,
       pressure and wind reached her on her first step - a C182 in a calm
