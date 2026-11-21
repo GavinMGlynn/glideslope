@@ -1464,8 +1464,10 @@ foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
 set_tests_properties(${GLIDESLOPE_GUST_SWEEP_SEEDS} PROPERTIES LABELS gust_sweep)
-# **Unit tests the cost tables have not measured yet**, each under a second
-# locally (2026-11-21): costed so, not at the 60 s tools/ci_shard.cmake
+# **Unit tests the cost tables have not measured yet**, each about a second
+# (1.25 s the most seen, the 32-station join on a debug runner, 2026-11-21):
+# costed so - an estimate of a release runner's seconds, twelve times that
+# on a debug preset - not at the 60 s tools/ci_shard.cmake
 # gives a test it does not know, which put windows-clang's night's way
 # 0.05 min over its shards' share in run 44893007567.
 # Once the tables name them, their figures rule.
