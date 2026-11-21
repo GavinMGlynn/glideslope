@@ -39,6 +39,11 @@
 #   idle and beside twice as many busy loops as cores. With the first
 #   client's lift thrown away once its tile was had it was 0.067 to 0.085 m,
 #   0.58 to 1.01 of it - so this holds 0.4.
+#   **What off the path does not see**: error along the path. Each word is
+#   held to the nearest point of the path kept, so air flown wrong that only
+#   changed her speed, or a vertical error on a path climbing steeply, would
+#   escape it. Here she flies level at 1,200 ft, so the ground's lift moves
+#   her off the path, up or down; the seen-red runs show it does.
 #
 # Without the DEM's tiles downloaded it reports itself skipped (exit 77),
 # never passed.
@@ -254,16 +259,23 @@ set(_off_liftless ${CMAKE_MATCH_2})
 # or named as not - one across a machine's stall (the server's catching up
 # and the words after it, MachineStalls), or nearest an end of the steps the
 # client kept, where the path may lie beyond them. Under twice as many busy
-# loops as cores, up to 85 of 300 were across a stall, and up to 23 at an end.
+# loops as cores, up to 118 of 300 were across a stall, and up to 23 at an end.
 math(EXPR _accounted "${_off_after} + ${_across} + ${_at_an_end}")
 if(NOT _accounted EQUAL _after)
     judged_red("the fetching client held ${_off_after} of its ${_after} updates once its ground "
                "was had to the path flown, and named ${_across} across a stall and "
                "${_at_an_end} at an end: ${_accounted}, not ${_after}")
 endif()
-if(_off_after LESS 150)
+math(EXPR _off_after_twice "2 * ${_off_after}")
+if(_off_after_twice LESS _after)
     judged_red("the fetching client held only ${_off_after} of its ${_after} updates once its "
                "ground was had to the path flown, fewer than half")
+endif()
+# **The liftless median is of enough updates to compare with**: 511 to 560
+# here, idle and loaded.
+if(_off_liftless LESS 100)
+    judged_red("the liftless client held only ${_off_liftless} updates to the path flown, "
+               "fewer than 100")
 endif()
 message(STATUS "off the path flown, once the tile was had ${_median_lift} m over ${_off_after} "
                "of its ${_after} updates (${_across} across a stall, ${_at_an_end} at an end); "

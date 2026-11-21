@@ -59,3 +59,18 @@ Debug build, WSL, 2026-11-22:
   Loaded: 0.083 and 0.067 m against 0.085 and 0.115 m, 0.98 and 0.58 of it.
   All 4 runs failed the share. They were run against 0.5, and 0.4 is tighter.
   Reverted.
+- **Seen red at the committed 0.4** (from the review of #399): the same bug
+  injected again, with the test as committed. Idle, 2 runs: 0.069 m against
+  0.105 m, 0.66 of it, both times. Loaded, 1 run: 0.068 m against 0.114 m,
+  0.60 of it. All 3 failed the share. Reverted.
+- **What off the path does not see** (said in the test's header): error
+  along the path. A word is held to the nearest point of the path kept. So
+  air flown wrong that only changed her speed or timing would escape, and so
+  would a vertical error on a steeply climbing path. On this level path the
+  ground's lift moves her off it, as the seen-red runs show.
+- The judged share of updates is now at least half of those compared once the
+  tile was had, not a fixed 150. The liftless client's off-path median must
+  be over at least 100 updates; it was 511 to 560 here.
+- Reverted and run again: idle 0.009 m against 0.104 m. Loaded 0.014 m
+  against 0.106 m, with 182 of 300 updates judged and 118 across a stall.
+  Both passed.
