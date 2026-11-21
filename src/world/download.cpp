@@ -350,18 +350,40 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                    ":" + passed_over);
 }
 
+std::string dem_fetched_from(const std::string& url) {
+    const std::string instead = platform::dem_source();
+    if (instead.empty()) {
+        return url;
+    }
+    // As a weather service's stand-in is allowed: https, or the loopback.
+    if (!weather_service_allowed(instead)) {
+        throw DemError("GLIDESLOPE_DEM_SOURCE is \"" + instead +
+                       "\": it must be an https:// host, or http:// to 127.0.0.1 or "
+                       "localhost");
+    }
+    // The bucket's scheme and host, up to the path's first '/'.
+    const std::size_t host_from = url.find("://");
+    const std::size_t path_from =
+        host_from == std::string::npos ? std::string::npos : url.find('/', host_from + 3);
+    if (path_from == std::string::npos) {
+        throw DemError(url + " has no path to ask " + instead + " for");
+    }
+    return instead + url.substr(path_from);
+}
+
 DownloadedTiles::DownloadedTiles(std::filesystem::path cache, Fetch fetch)
     : cache_(std::move(cache)), fetch_(std::move(fetch)) {}
 
 std::shared_ptr<const ByteSource> DownloadedTiles::open(DemDataset dataset,
                                                         DemCell cell) {
-    return fetched(dataset, dem_tile_name(dataset, cell), dem_tile_url(dataset, cell));
+    return fetched(dataset, dem_tile_name(dataset, cell),
+                   dem_fetched_from(dem_tile_url(dataset, cell)));
 }
 
 std::shared_ptr<const ByteSource> DownloadedTiles::open_water_mask(DemDataset dataset,
                                                                    DemCell cell) {
     return fetched(dataset, dem_water_mask_name(dataset, cell),
-                   dem_water_mask_url(dataset, cell));
+                   dem_fetched_from(dem_water_mask_url(dataset, cell)));
 }
 
 bool DownloadedTiles::take_away(DemDataset dataset, DemCell cell,
@@ -416,6 +438,16 @@ int TilesAhead::fetched() const {
 int TilesAhead::failed() const {
     const std::lock_guard<std::mutex> lock(mutex_);
     return failed_;
+}
+
+int TilesAhead::waiting() const {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    return static_cast<int>(pending_.size());
+}
+
+double TilesAhead::fetching_s() const {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    return fetching_s_;
 }
 
 bool TilesAhead::cell_had(DemCell cell) {
@@ -496,14 +528,18 @@ void TilesAhead::fetch_loop() {
             asked_.pop_front();
         }
         bool ok = false;
+        const auto began = std::chrono::steady_clock::now();
         try {
             tiles_.open(coverage_.at(cell), cell);
             ok = true;
         } catch (const std::exception&) {
             ok = false;
         }
+        const double took_s =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
         const std::lock_guard<std::mutex> lock(mutex_);
         const std::pair<int, int> key{cell.latitude, cell.longitude};
+        fetching_s_ += took_s;
         pending_.erase(key);
         if (ok) {
             ++fetched_;

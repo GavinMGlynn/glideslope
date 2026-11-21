@@ -87,6 +87,16 @@ std::string weather_service();
 // the pinned file is fetched again, so a damaged copy alone no longer is.
 std::string runways_source();
 
+// **Where the Copernicus DEM's tiles are asked instead of its S3 buckets, for
+// a test.** GLIDESLOPE_DEM_SOURCE, a scheme and host such as
+// `http://127.0.0.1:1`, put in place of
+// `https://copernicus-dem-30m.s3.amazonaws.com` and its 90 m twin in every
+// tile's URL; empty when it is not set. A tile is still checked against the
+// ETag it arrives with, wherever it comes from. It exists so a test can serve
+// a client with no tiles cached the tiles the tests downloaded, with no
+// network (server_tiles_arrive.cmake).
+std::string dem_source();
+
 // **The default server, as a line anybody can send you.** `--online` reads
 // it: one line naming a host, a port and the server's public key, which is
 // what a client needs and all it needs (`REQUIREMENTS.md` 6.6).

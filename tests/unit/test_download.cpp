@@ -719,6 +719,78 @@ GLIDESLOPE_TEST(the_runways_may_be_fetched_elsewhere_for_a_test_and_are_still_he
           "unset again, GitHub again");
 }
 
+namespace {
+// GLIDESLOPE_DEM_SOURCE set to `value` for as long as this lives, and taken
+// away after.
+struct DemSource {
+    explicit DemSource(const std::string& value) {
+#if defined(_WIN32)
+        _putenv_s("GLIDESLOPE_DEM_SOURCE", value.c_str());
+#else
+        setenv("GLIDESLOPE_DEM_SOURCE", value.c_str(), 1);
+#endif
+    }
+    ~DemSource() {
+#if defined(_WIN32)
+        _putenv_s("GLIDESLOPE_DEM_SOURCE", "");
+#else
+        unsetenv("GLIDESLOPE_DEM_SOURCE");
+#endif
+    }
+    DemSource(const DemSource&) = delete;
+    DemSource& operator=(const DemSource&) = delete;
+};
+} // namespace
+
+// A test may send a DEM tile's fetch elsewhere - a stand-in for the bucket
+// serving a client with no tiles cached (server_tiles_arrive.cmake) - but
+// only over https or to the loopback, the same path asked, and what arrives
+// from there is still held to the ETag it arrives with.
+GLIDESLOPE_TEST(a_dem_tile_may_be_fetched_elsewhere_for_a_test_and_is_still_held_to_its_etag) {
+    using glideslope::world::DemDataset;
+    using glideslope::world::DownloadedTiles;
+    const std::string bucket = glideslope::world::dem_tile_url(DemDataset::glo30, {-34, 151});
+    check(glideslope::world::dem_fetched_from(bucket) == bucket,
+          "unset, a tile comes from the bucket");
+    const std::vector<std::uint8_t> tile = {1, 2, 3, 4};
+    {
+        const DemSource source("http://127.0.0.1:1");
+        const auto cache = scratch("dem-elsewhere-damaged");
+        std::vector<std::string> asked;
+        bool refused = false;
+        try {
+            DownloadedTiles tiles(cache, serving(tile, "\"0123456789abcdef0123456789abcdef\"",
+                                                 asked));
+            (void)tiles.open(DemDataset::glo30, {-34, 151});
+        } catch (const DemError& e) {
+            refused = std::string(e.what()).find("arrived damaged") != std::string::npos;
+        }
+        check(asked.size() == 1 &&
+                  asked[0] == "http://127.0.0.1:1/Copernicus_DSM_COG_10_S34_00_E151_00_DEM/"
+                              "Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif",
+              "the fetch goes where the test says, the bucket's path: " +
+                  (asked.empty() ? "" : asked[0]));
+        check(refused, "a tile not its ETag's is refused, wherever it came from");
+        const auto kept = scratch("dem-elsewhere-whole");
+        asked.clear();
+        DownloadedTiles tiles(kept, serving(tile, "\"" + glideslope::world::md5_hex(tile) + "\"",
+                                            asked));
+        (void)tiles.open(DemDataset::glo30, {-34, 151});
+        check(tiles.cached(DemDataset::glo30, {-34, 151}), "one that is its ETag's is kept");
+    }
+    {
+        const DemSource source("http://example.org");
+        bool refused = false;
+        try {
+            (void)glideslope::world::dem_fetched_from(bucket);
+        } catch (const DemError& e) {
+            refused = std::string(e.what()).find("GLIDESLOPE_DEM_SOURCE") != std::string::npos;
+        }
+        check(refused, "plain http to another machine is refused, by name");
+    }
+    check(glideslope::world::dem_fetched_from(bucket) == bucket, "unset again, the bucket again");
+}
+
 GLIDESLOPE_TEST(a_file_put_in_place_by_another_since_it_was_read_is_not_taken_away) {
     const auto directory = scratch("taken-away-by-identity");
     const auto path = directory / "tile.tif";

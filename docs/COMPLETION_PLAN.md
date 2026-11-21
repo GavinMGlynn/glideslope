@@ -1814,11 +1814,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       median was 0.04 m, and 0.09 m with the lift on the server's end only.
       Its DEM tiles are fetched ahead, never waited for; a place without
       them lifts nothing until they come.
-- [ ] **One end fetching a tile the other has differs by the lift there**:
+- [x] **One end fetching a tile the other has differs by the lift there**:
       the ground's lift is none where a tile is still being fetched, so a
       client and its server differ there until it arrives. *Verification: a
       client joining a server over hills with no tiles cached is within the
       sea's bound once its tiles arrive, and how long that takes is measured.*
+      Done 2026-11-21: from the real bucket the tile took 4.9 s; the median
+      error was 0.067 m before it arrived and 0.035 m after (bound 0.25 m).
 - [x] **A client's gusts are not the server's while its clocks' difference
       settles**, a step or two out, metres in a strong gust. *Verification: a
       client predicting in gusting air stays within the steady air's bound.*
