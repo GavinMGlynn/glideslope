@@ -43,9 +43,10 @@ endforeach()
 # server_on_final_wind_limits.cmake, a long one; 70 and 58 since 2026-11-11
 # too: its run with a second session, a second long one; 72 and 60 since
 # 2026-11-19: server_weather_gusts.cmake's gust-clock run and
-# copilots_nearest_station_run.cmake's server, a long one each).
-set(_expect_uses 72)
-set(_expect_long 60)
+# copilots_nearest_station_run.cmake's server, a long one each; 73 and 61
+# since 2026-11-21: server_ground_lift.cmake's server, a long one).
+set(_expect_uses 73)
+set(_expect_long 61)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 
