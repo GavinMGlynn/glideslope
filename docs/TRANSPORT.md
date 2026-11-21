@@ -457,6 +457,20 @@ it only ever acknowledges what arrived. Telling a *forged* acknowledgement of
 a message that was sent from a real one is the sealing's job, and the sealing
 is below.
 
+**No more than 256 messages are on the wire unacknowledged at once.** A
+sender may queue up to 4,096; it numbers each as it is queued, and puts on
+the wire only the 256 lowest-numbered not yet acknowledged, the next going
+out as acknowledgements let the first go. A receiver holds up to 256
+messages that arrive before their predecessors and drops any past that, so
+a sender of this layer never has one dropped: with the lowest missing, at
+most 255 are ahead of it. So a burst larger than the window - a client
+joining 32 stations' weather, each blending from a few reports - arrives
+whole and in order, only later. A sender with 4,096 waiting refuses more.
+This is a fixed window and not congestion control: it does not shrink when
+datagrams are lost. No byte of the reliable datagram changed with it, nor
+the version; a receiver cannot tell it from a sender that happened to have
+no more than 256 to say.
+
 **The weather is two of them**, because it does not fit in one datagram. The
 forecast above a station is nineteen pressure levels as this project fetches
 it, which is 760 bytes on its own, and a single message carrying that, a
@@ -612,9 +626,11 @@ report every `r` seconds keeps at most (blend + 60) / `r` + 2 of them. **The
 queue is not bounded with it**: the server looks for the stations at every
 refresh and whenever an aircraft is added or removed or has flown 50 km, so
 how often a station is given a report is not a setting, and a join told
-more than the reliable layer holds in flight (256 messages) is possible -
-32 slots each blending from a few reports. A server that cannot queue all
-of it says so on its standard error. No
+more than the reliable layer puts on the wire at once (256 messages) is
+possible - 32 slots each blending from a few reports. The rest wait their
+turn behind the first 256 (above, "Reliable messages") and arrive after
+them, in order. A server that cannot queue all of it - more than 4,096
+waiting - says so on its standard error. No
 byte of any message changed with this, nor the version: a client that keeps
 only each slot's newest flies the new stations whole, as before.
 

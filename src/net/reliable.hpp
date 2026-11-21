@@ -25,10 +25,16 @@
 // acknowledgement of a message that *was* sent from a real one; that is the
 // sealing's job, and the sealing is not built.
 //
-// **It is not a window.** There is no congestion control and no flight
-// limit: these messages are few, small and occasional, and the channel below
-// is a game's, not a file transfer's. `docs/TRANSPORT.md` says so where it
-// says what the transport does not claim.
+// **It is a fixed window, and nothing more.** At most `most_in_flight`
+// messages are on the wire unacknowledged at once; a message sent past them
+// is numbered and kept, and goes out as acknowledgements let the ones before
+// it go - held back, not refused. So a receiver is never sent more than it
+// holds out of order (`most_held_back`), and a burst - a client joining told
+// 32 stations' weather, each blending from a few reports - arrives whole,
+// only later. There is no congestion control: these messages are few, small
+// and occasional, and the channel below is a game's, not a file transfer's.
+// `docs/TRANSPORT.md` says so where it says what the transport does not
+// claim.
 //
 // **Nothing here touches a socket.** It turns messages into datagrams and
 // datagrams back into messages, which is what lets it be tested against
@@ -47,14 +53,26 @@ namespace glideslope::net {
 // How long to wait for an acknowledgement before sending a message again.
 inline constexpr double retry_after_s = 0.25;
 
-// The most messages held unacknowledged before `send` refuses. A sender that
-// has got this far behind is not going to catch up by queueing more.
+// The most messages on the wire unacknowledged at once. A message sent past
+// them waits, numbered, until acknowledgements let enough of those before it
+// go (Reliable::to_send). Never more than `most_held_back`, so that a
+// receiver missing the first of them holds every one after it.
 inline constexpr std::size_t most_in_flight = 256;
+
+// The most messages held unacknowledged - on the wire, and waiting behind
+// those that are - before `send` refuses. A sender that has got this far
+// behind is not going to catch up by queueing more. A client joining is told
+// at most 32 stations' weather, each a few reports blending: well inside it.
+inline constexpr std::size_t most_waiting = 4096;
 
 // The most messages held out of order before the rest are dropped. An
 // endpoint that cannot deliver because one message is missing has no reason
-// to hold an unbounded number behind it.
+// to hold an unbounded number behind it. A sender of this layer never puts
+// more than `most_in_flight` past the one missing on the wire, so none of
+// its messages is dropped here.
 inline constexpr std::size_t most_held_back = 256;
+static_assert(most_in_flight <= most_held_back,
+              "a receiver holds every message a sender has on the wire");
 
 // One reliable message on the wire: its number, then its body.
 //
@@ -70,12 +88,16 @@ inline constexpr std::size_t reliable_header_size = 8;
 
 class Reliable {
 public:
-    // Queues a message. False if too many are already waiting, in which case
-    // the caller has a problem this layer cannot solve for it.
+    // Queues a message: put on the wire at once if fewer than
+    // `most_in_flight` are there unacknowledged, and otherwise as soon as
+    // acknowledgements make room for it, in number order. False if
+    // `most_waiting` are already waiting, in which case the caller has a
+    // problem this layer cannot solve for it.
     bool send(std::span<const std::uint8_t> body);
 
     // The datagrams to put on the wire now: each message not yet
-    // acknowledged whose turn has come round again, and an acknowledgement
+    // acknowledged, among the first `most_in_flight` of them, whose turn has
+    // come round again, and an acknowledgement
     // of its own if there is anything to acknowledge and nothing to say.
     std::vector<std::vector<std::uint8_t>> to_send(double now_s);
 
@@ -88,8 +110,13 @@ public:
     // rubbish is not a reason to stop.
     std::vector<std::vector<std::uint8_t>> received(std::span<const std::uint8_t> datagram);
 
-    // How many messages are waiting to be acknowledged.
+    // How many messages are waiting to be acknowledged: on the wire, and
+    // held back behind those that are.
     std::size_t in_flight() const { return waiting_.size(); }
+    // How many of them are held back, not yet let onto the wire.
+    std::size_t held_to_send() const {
+        return waiting_.size() > most_in_flight ? waiting_.size() - most_in_flight : 0;
+    }
     // How many have arrived early and are being held for their predecessors.
     std::size_t held_back() const { return early_.size(); }
     // The number of the last message handed up.

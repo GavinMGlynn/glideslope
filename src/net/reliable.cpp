@@ -5,7 +5,7 @@
 namespace glideslope::net {
 
 bool Reliable::send(std::span<const std::uint8_t> body) {
-    if (waiting_.size() >= most_in_flight) {
+    if (waiting_.size() >= most_waiting) {
         return false;
     }
     Waiting one;
@@ -20,7 +20,13 @@ std::vector<std::vector<std::uint8_t>> Reliable::to_send(double now_s) {
 
     // Everything not yet acknowledged whose turn has come round again. The
     // queue is in number order, so this sends in number order too.
+    // **No more than `most_in_flight` of them**: the rest wait their turn,
+    // so the far end is never sent more than it holds out of order.
+    std::size_t window = 0;
     for (Waiting& one : waiting_) {
+        if (window++ >= most_in_flight) {
+            break;
+        }
         if (one.last_sent_s >= 0.0 && now_s - one.last_sent_s < retry_after_s) {
             continue;
         }

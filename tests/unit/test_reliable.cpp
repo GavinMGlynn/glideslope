@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <set>
 #include <span>
 #include <string>
 #include <vector>
@@ -251,21 +252,101 @@ GLIDESLOPE_TEST(a_reliable_endpoint_ignores_a_datagram_that_is_not_one_of_its_ow
 }
 
 // **A sender that gets far enough behind refuses rather than queueing for
-// ever.**
+// ever** - at most_waiting, far past what it puts on the wire at once.
 GLIDESLOPE_TEST(a_reliable_sender_refuses_once_too_many_are_waiting) {
     Reliable a;
     const std::vector<std::uint8_t> body = body_of(1);
     std::size_t queued = 0;
     while (a.send(all_of(body))) {
         ++queued;
-        if (queued > glideslope::net::most_in_flight + 10) {
+        if (queued > glideslope::net::most_waiting + 10) {
             break;
         }
     }
-    check(queued == glideslope::net::most_in_flight,
-          "it queued " + std::to_string(glideslope::net::most_in_flight) +
+    check(queued == glideslope::net::most_waiting,
+          "it queued " + std::to_string(glideslope::net::most_waiting) +
               " and then refused, not " + std::to_string(queued));
-    check(a.in_flight() == glideslope::net::most_in_flight, "and holds them all");
+    check(a.in_flight() == glideslope::net::most_waiting, "and holds them all");
+    check(a.held_to_send() == glideslope::net::most_waiting - glideslope::net::most_in_flight,
+          "all but the first most_in_flight held back from the wire");
+    check(a.to_send(0.0).size() == glideslope::net::most_in_flight,
+          "and only the first most_in_flight put on it");
+}
+
+// **More than the wire holds at once arrives whole, in order, and is never
+// more than the receiver holds out of order.** A sender told 3 x
+// most_in_flight + 17 messages at once - more than a client joining 32
+// stations each blending from a few reports is told - to a receiver, over a
+// channel that loses the first datagram of every round of sending the first
+// time it carries its message (the message the receiver needs next, every
+// time, so that everything after it is held out of order), and loses every
+// acknowledgement in the first five rounds: every message arrives, once, in order; the sender never has more
+// than most_in_flight on the wire unacknowledged, nor the receiver more
+// than most_in_flight - 1 held back, so most_held_back drops none. Before
+// 2026-11-21 the sender refused every message past the 256th.
+GLIDESLOPE_TEST(more_than_a_reliable_sender_puts_on_the_wire_at_once_arrives_whole_and_in_order) {
+    const std::size_t messages = 3 * glideslope::net::most_in_flight + 17;
+    Reliable a;
+    Reliable b;
+    for (std::size_t i = 0; i < messages; ++i) {
+        const std::vector<std::uint8_t> body = body_of(static_cast<int>(i));
+        check(a.send(all_of(body)), "message " + std::to_string(i) + " queued");
+    }
+    std::vector<std::vector<std::uint8_t>> arrived;
+    std::uint32_t highest_on_the_wire = 0;
+    std::size_t most_ahead = 0;
+    std::size_t most_held = 0;
+    std::size_t lost = 0;
+    std::set<std::uint32_t> lost_once;
+    double now_s = 0.0;
+    int round = 0;
+    for (; round < 2000 && !(a.in_flight() == 0 && arrived.size() == messages); ++round) {
+        bool first = true;
+        for (const std::vector<std::uint8_t>& datagram : a.to_send(now_s)) {
+            glideslope::net::Reader r(all_of(datagram));
+            const std::uint32_t number = r.u32();
+            highest_on_the_wire = std::max(highest_on_the_wire, number);
+            // How far past the last acknowledged-in-order message it is.
+            most_ahead = std::max(most_ahead,
+                                  static_cast<std::size_t>(highest_on_the_wire) -
+                                      (messages - a.in_flight()));
+            if (first && lost_once.insert(number).second) {
+                first = false;
+                ++lost;
+                continue;
+            }
+            first = false;
+            for (std::vector<std::uint8_t>& got : b.received(all_of(datagram))) {
+                arrived.push_back(std::move(got));
+            }
+            most_held = std::max(most_held, b.held_back());
+        }
+        for (const std::vector<std::uint8_t>& datagram : b.to_send(now_s)) {
+            if (round < 5) {
+                continue;
+            }
+            (void)a.received(all_of(datagram));
+        }
+        now_s += glideslope::net::retry_after_s;
+    }
+    bool in_order = arrived.size() == messages;
+    for (std::size_t i = 0; in_order && i < messages; ++i) {
+        in_order = arrived[i] == body_of(static_cast<int>(i));
+    }
+    std::printf("  %zu messages in %d rounds, %zu datagrams lost: at most %zu on the wire "
+                "unacknowledged, %zu held back\n",
+                messages, round, lost, most_ahead, most_held);
+    check(arrived.size() == messages, "every message arrived: " +
+                                          std::to_string(arrived.size()) + " of " +
+                                          std::to_string(messages));
+    check(in_order, "once each, in the order sent");
+    check(a.in_flight() == 0, "and the sender holds none");
+    check(most_ahead <= glideslope::net::most_in_flight,
+          "never more than most_in_flight on the wire unacknowledged: " +
+              std::to_string(most_ahead));
+    check(most_held < glideslope::net::most_in_flight && most_held > 0,
+          "the receiver held some back, and fewer than most_in_flight: " +
+              std::to_string(most_held));
 }
 
 namespace {

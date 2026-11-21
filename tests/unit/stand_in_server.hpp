@@ -111,6 +111,30 @@ struct StandIn {
         }
     }
 
+    // **What the client says back of them**, read without waiting: each
+    // reliable datagram it has sent - its acknowledgements among them - fed
+    // to `reliable` as a server feeds it. Without it a sender with more than
+    // most_in_flight messages to say never says the rest.
+    void hear_reliable(glideslope::net::Reliable& reliable) {
+        std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+        platform::Address from;
+        for (std::size_t got = socket.receive(into, from); got > 0;
+             got = socket.receive(into, from)) {
+            if (got <= glideslope::net::envelope_size ||
+                into[glideslope::net::envelope_size - 1] !=
+                    static_cast<std::uint8_t>(glideslope::net::Type::sealed)) {
+                continue;
+            }
+            const auto opened = opening->open(std::span<const std::uint8_t>(into).subspan(
+                glideslope::net::envelope_size, got - glideslope::net::envelope_size));
+            if (!opened || opened->empty() ||
+                (*opened)[0] != static_cast<std::uint8_t>(glideslope::net::Inside::reliable)) {
+                continue;
+            }
+            (void)reliable.received(std::span<const std::uint8_t>(*opened).subspan(1));
+        }
+    }
+
     void refuse(glideslope::net::Refusal why) {
         glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
         w.u8(static_cast<std::uint8_t>(why));
