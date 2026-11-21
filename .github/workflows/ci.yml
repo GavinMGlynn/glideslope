@@ -1044,18 +1044,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 12 }
-          - { preset: windows-debug, shard: 2, of: 12 }
-          - { preset: windows-debug, shard: 3, of: 12 }
-          - { preset: windows-debug, shard: 4, of: 12 }
-          - { preset: windows-debug, shard: 5, of: 12 }
-          - { preset: windows-debug, shard: 6, of: 12 }
-          - { preset: windows-debug, shard: 7, of: 12 }
-          - { preset: windows-debug, shard: 8, of: 12 }
-          - { preset: windows-debug, shard: 9, of: 12 }
-          - { preset: windows-debug, shard: 10, of: 12 }
-          - { preset: windows-debug, shard: 11, of: 12 }
-          - { preset: windows-debug, shard: 12, of: 12 }
+          - { preset: windows-debug, shard: 1, of: 13 }
+          - { preset: windows-debug, shard: 2, of: 13 }
+          - { preset: windows-debug, shard: 3, of: 13 }
+          - { preset: windows-debug, shard: 4, of: 13 }
+          - { preset: windows-debug, shard: 5, of: 13 }
+          - { preset: windows-debug, shard: 6, of: 13 }
+          - { preset: windows-debug, shard: 7, of: 13 }
+          - { preset: windows-debug, shard: 8, of: 13 }
+          - { preset: windows-debug, shard: 9, of: 13 }
+          - { preset: windows-debug, shard: 10, of: 13 }
+          - { preset: windows-debug, shard: 11, of: 13 }
+          - { preset: windows-debug, shard: 12, of: 13 }
+          - { preset: windows-debug, shard: 13, of: 13 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
