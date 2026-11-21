@@ -164,7 +164,7 @@ if(NOT _out MATCHES "the server gave this client aircraft ([0-9]+), the ${_aircr
     message(FATAL_ERROR "the client was not given the ${_aircraft} it asked for:\n${_out}")
 endif()
 set(_mine "${CMAKE_MATCH_1}")
-# **The server's word is what it flies**: the F-15C the server gave it for
+# **The server's word is what it flies**: the aircraft the server gave it for
 # asking. (A client that took its own `--aircraft` over the server's word
 # flew one model and was put right by another's motion.)
 if(NOT _out MATCHES "flying the [^\n]* \\(${_aircraft}\\)")

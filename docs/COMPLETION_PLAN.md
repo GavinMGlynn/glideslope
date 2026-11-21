@@ -1752,7 +1752,7 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: a server slowed on purpose keeps a predicting client's
       error under a metre.* Both clients fly at the server's pace and are held
       to it by tests: against a server at 0.6 of real time and one keeping
-      it, the window client's C172P is within 0.6 m (2026-11-22; unpaced,
+      it, the window client's C172P is under 0.65 m (2026-11-22; unpaced,
       2.2 m at the 95th percentile). Held up, a server flies every input from its step
       (2026-10-28, 2026-11-17). Still missing: the first-input test and the
       F-22A's still run alone, not yet seen on CI held up. Windows' two-step
