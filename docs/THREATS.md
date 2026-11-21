@@ -991,10 +991,14 @@ stranger on every initiation it can find a slot for.**
 
 **The queues are bounded; the number of peers is what is not.**
 
-`Reliable::send` refuses once `most_in_flight` (256) messages are waiting to
+`Reliable::send` refuses once `most_waiting` (4,096) messages are waiting to
 be acknowledged, which bounds the sender's own queue - that is the local
 caller's problem, not an attacker's, and
-`a_reliable_sender_refuses_once_too_many_are_waiting` holds it.
+`a_reliable_sender_refuses_once_too_many_are_waiting` holds it. At most
+4,096 bodies of at most 1,218 bytes is about 4.8 MiB a peer at worst; a
+join's weather, the most a server queues at once, is a few hundred. Only
+`most_in_flight` (256) of them are on the wire at once, so a peer that
+withholds its acknowledgements gets those 256 repeated and nothing more.
 
 The receiving side is the one an attacker touches. A peer that sends messages
 2 upwards while withholding message 1 makes the receiver hold them:
