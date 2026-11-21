@@ -65,6 +65,26 @@ likely cause, but it has not been shown.
   tests/ci_costs measures them: passed, 101 and 76 s, Linux debug; on the
   Windows machine (tools/windows_build.sh, windows-debug) both passed, 273
   and 121 s.
+- **Figures, median / 95th / worst** (the bounds: 5 cm / 1 m / 3 m):
+
+  | run | 0.6 of real time | keeping real time |
+  |-----|------------------|-------------------|
+  | Linux debug, first | 0 / 0 / 1.807 m (969) | 0 / 0 / 0 m (974) |
+  | Linux debug, after the review | 0 / 0 / 0 m (960) | 0 / 0 / 1.833 m (972) |
+  | Windows debug, first | 0 / 0 / 1.829 m (968) | 0 / 0 / 1.653 m (974) |
+  | Windows debug, after the review | 0 / 0 / 1.836 m (966) | 0 / 0 / 1.572 m (972) |
+
+  The worst is always one step's travel, 1.4 to 1.8 m. At most 9 updates in
+  about 970 were a metre or more, and 49 would move the 95th percentile, so
+  that bound has a wide margin. The worst is 1.2 m under its 3 m bound. No
+  `timing` label: the held-a-second sibling has one because its long frames
+  need a release build's quick frames between them, and these frames are
+  not held. CI's figures are in this pull request's runs; ctest prints the
+  "its prediction" line only on failure there.
+- **From the review of #398.** The window client's 95th percentile is now
+  taken as glideslope_cli takes it, ceil(0.95 n) - 1. `--unpaced` also
+  stamps its sent inputs at this machine's pace. The count of updates a
+  metre or more is printed, not judged.
 - **Seen red**: the paced one with `-DUNPACED=ON`: "its prediction was off
   by more than its bounds: 573 updates compared, the worst error 18043 mm,
   the 95th percentile 7966 mm, the median 4547 mm". The keeping-time one,
