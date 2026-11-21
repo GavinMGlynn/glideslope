@@ -1750,19 +1750,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
 - [ ] **A server that falls behind real time puts its clients' prediction off
       by metres**: it flies each input for fewer steps than the client does.
       *Verification: a server slowed on purpose keeps a predicting client's
-      error under a metre.* Both clients now fly at the server's pace
-      (2026-10-08); the command-line client holds it. Still missing: the
-      window client is still put right 6 to 9 m against a slowed server, and
-      10 to 13 m against one keeping time, untested and unexplained; and on
-      Windows one update in a hundred is off by two steps (1.1 m) - a named
-      limit, its cause found (2026-10-08), not fixed. A server held up now
-      flies every input from the step due when it came and catches up what it
-      can (2026-10-28): stopped alone 3 s, the 95th percentile 0.5 to 1.5 m
-      (was 15 m). Inputs now name their step and those that came in the
-      stall are flown as far apart as they were sent (2026-11-17): the worst
-      0.9 to 1.4 m, was 2.6 to 4.7 m (Linux debug). (A
-      server's slow start is no longer owed, 2026-10-28.) The first-input
-      test and the F-22A's still run alone: not yet seen on CI held up.
+      error under a metre.* Both clients fly at the server's pace and are held
+      to it by tests: against a server at 0.6 of real time and one keeping
+      it, the window client's 95th percentile is 0 m (2026-11-22; unpaced,
+      4.5 m median). Held up, a server flies every input from its step
+      (2026-10-28, 2026-11-17). Still missing: the first-input test and the
+      F-22A's still run alone, not yet seen on CI held up. Windows' two-step
+      placements are the next item's.
 - [x] **A test that fails twice on CI for the same cause has nowhere to go but
       the pull request's run**: a test labelled `nightly` is left out of every
       pull request's run and run by the nightly one, and each is named with its

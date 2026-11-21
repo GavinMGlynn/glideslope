@@ -41,6 +41,15 @@
 # player's PA-28, each under a number not its own - and drawn means made
 # from that aeroplane's model, since a model is chosen by the id it says.
 #
+# **Its prediction error, as the command-line client's is held**, with
+# `-DPREDICTED=ON -DTEST_PILOT=ON -DSHOT_AT=4800` and, behind real time,
+# `-DSERVER_PACE=0.6`: a pilot's controls that keep changing are sent
+# (`--test-pilot`, frontend/test_pilot.hpp) - a stick held still makes every
+# input the same, and a prediction flown for the wrong number of steps of
+# each is still right - for 40 s of the server's time, and the error is held
+# to glideslope_cli's paced bounds. `-DUNPACED=ON` flies the client at its
+# own machine's pace (`--unpaced`): that is what fails, by metres.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -92,11 +101,21 @@ endif()
 if(EVERY_WORD)
     list(APPEND _slow --ticks-behind 12)
 endif()
+if(TEST_PILOT)
+    list(APPEND _slow --test-pilot)
+endif()
+if(UNPACED)
+    list(APPEND _slow --unpaced)
+endif()
 # The client connects once the server is flying (client.cmake says why).
 set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
 # **A server behind real time by a set factor**, built on purpose with
 # `-DSERVER_PACE=<fraction>` (the server's `--test-pace`).
+set(_shot_at 1200)
+if(DEFINED SHOT_AT)
+    set(_shot_at ${SHOT_AT})
+endif()
 set(_pace)
 if(DEFINED SERVER_PACE)
     set(_pace --test-pace ${SERVER_PACE})
@@ -115,10 +134,12 @@ execute_process(
             --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}" ${_pace}
     ${_other_player}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5
+            --shot "${_shot}" --shot-at ${_shot_at} --view behind --aircraft f15c --slow-start 5
             ${_slow} --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 port_listened("${_out}" "${_err}")
+# What the client said, kept for reading after a run.
+file(WRITE "${WORK}/said.txt" "${_out}")
 # The window client's is the last.
 list(GET _rcs -1 _rc)
 
@@ -211,6 +232,57 @@ if(EVERY_WORD)
     check_own_words("${_out}" ${_heard} ${_replays} 2 ${CMAKE_MATCH_1} _summary)
     message(STATUS "with its frames held ${SLOW_FRAMES} ms: ${_summary}")
     return()
+endif()
+
+# **Its prediction error held to the command-line client's bounds**, with
+# `-DPREDICTED=ON`: where the server says its aircraft was, against where
+# this client had flown it by the same step - under a metre for 95 updates in
+# a hundred, 3 m at worst, the median under 5 cm, over 600 updates at least
+# (server_paced_prediction.cmake's, for glideslope_cli). And with
+# `-DSERVER_PACE`, flown within 2 percent of it.
+if(PREDICTED)
+    if(NOT _out MATCHES "prediction error: ([0-9]+) updates compared, the median ([0-9]+)\\.([0-9][0-9][0-9]) m, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, the 95th percentile ([0-9]+)\\.([0-9][0-9][0-9]) m, ([0-9]+) a metre or more")
+        message(FATAL_ERROR "the client did not say its prediction error:\n${_out}")
+    endif()
+    set(_compared ${CMAKE_MATCH_1})
+    math(EXPR _median_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
+    math(EXPR _worst_mm "${CMAKE_MATCH_4} * 1000 + ${CMAKE_MATCH_5}")
+    math(EXPR _p95_mm "${CMAKE_MATCH_6} * 1000 + ${CMAKE_MATCH_7}")
+    # How many were a metre or more is said, not judged: the 95th
+    # percentile is.
+    set(_over ${CMAKE_MATCH_8})
+    if(NOT _out MATCHES "paced: flown at ([0-9]+)\\.([0-9][0-9][0-9]) of this machine's clock")
+        message(FATAL_ERROR "the client did not say its pace:\n${_out}")
+    endif()
+    math(EXPR _pace_thousandths "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+    string(CONCAT _line "${_compared} updates compared, the worst error ${_worst_mm} mm, the "
+                        "95th percentile ${_p95_mm} mm, the median ${_median_mm} mm, "
+                        "${_over} a metre or more; flown at ${_pace_thousandths} thousandths "
+                        "of real time")
+    if(_p95_mm GREATER 1000 OR _worst_mm GREATER 3000 OR _median_mm GREATER 50)
+        message(FATAL_ERROR "its prediction was off by more than its bounds: ${_line}\n${_out}")
+    endif()
+    if(_compared LESS 600)
+        message(FATAL_ERROR "only ${_compared} updates were compared: ${_line}\n${_out}")
+    endif()
+    if(DEFINED SERVER_PACE)
+        if(NOT SERVER_PACE MATCHES "^([0-9])\\.([0-9]?[0-9]?[0-9]?)$")
+            message(FATAL_ERROR "SERVER_PACE is a fraction such as 0.6, not '${SERVER_PACE}'")
+        endif()
+        string(SUBSTRING "${CMAKE_MATCH_2}000" 0 3 _fraction)
+        math(EXPR _server_thousandths "${CMAKE_MATCH_1} * 1000 + 1${_fraction} - 1000")
+        math(EXPR _apart "${_pace_thousandths} - ${_server_thousandths}")
+        if(_apart LESS 0)
+            math(EXPR _apart "0 - ${_apart}")
+        endif()
+        # Two percent of the server's pace.
+        math(EXPR _most "${_server_thousandths} * 2 / 100")
+        if(_apart GREATER _most)
+            message(FATAL_ERROR "it did not fly within 2 percent of the server's pace of "
+                                "${SERVER_PACE}: ${_line}\n${_out}")
+        endif()
+    endif()
+    message(STATUS "its prediction: ${_line}")
 endif()
 
 if(NOT _out MATCHES "predicted: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")

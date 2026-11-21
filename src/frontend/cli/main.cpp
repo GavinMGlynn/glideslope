@@ -17,6 +17,7 @@
 #include "frontend/own_words.hpp"
 #include "frontend/sent_stamp.hpp"
 #include "frontend/shown.hpp"
+#include "frontend/test_pilot.hpp"
 #include "net/told.hpp"
 #include "copilot/provider.hpp"
 #include "net/handshake.hpp"
@@ -2069,14 +2070,9 @@ public:
     // **The pilot**: the controls keep changing, so that when an input
     // arrives, late or not at all, matters - a stick held still would make
     // every input the same and prediction trivially right.
+    // The window client's `--test-pilot` flies the same (frontend/test_pilot.hpp).
     static glideslope::sim::Controls pilot(std::uint32_t sequence) {
-        const double t = static_cast<double>(sequence) / 30.0;
-        glideslope::sim::Controls c;
-        c.throttle = 0.7 + 0.2 * std::sin(t * 0.7);
-        c.aileron = 0.3 * std::sin(t * 1.3);
-        c.elevator = 0.05 * std::sin(t * 0.9);
-        c.rudder = 0.05 * std::sin(t * 0.5);
-        return c;
+        return glideslope::frontend::test_pilot(sequence);
     }
 
     // **The server's weather** (REQUIREMENTS.md 6.3), each whole one as it is
