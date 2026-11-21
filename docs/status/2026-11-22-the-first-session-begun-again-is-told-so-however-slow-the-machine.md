@@ -36,6 +36,13 @@ the same assertion as before. The server path under test is unchanged: a
 second session on a key that waits on final shares her place and takes over
 when it proves itself.
 
+## Out of scope
+
+This test does not cover one path: a truly silent old session (a client
+that was killed) that the server lets go by `--timeout` before the newer
+session proves itself. The old test never covered it either, because its
+first session was always still running when the takeover came.
+
 ## Verification
 
 - **Seen to fail:** the first session was cut to 0.3 s (standing in for a

@@ -90,9 +90,9 @@ list(GET _runs ${RUN} _run)
 # own program, run --headless as every window test runs it, waiting with no
 # aircraft and told why, then given hers; or the second, the command-line
 # client begun again on the same key while it waits - its first session
-# still there, as a client hung or given up on is - after the third has
-# joined, and it must keep its place ahead of the third, and its first
-# session be told it was taken over. `+ai`: an AI aircraft is put
+# still running, as a client given up on but not killed is - after the
+# third has joined, and it must keep its place ahead of the third, and its
+# first session be told it was taken over. `+ai`: an AI aircraft is put
 # on the final first (`--ai-on-final`), and every player waits for it as she
 # would for a player. `+circle`: the first player's copilot route orbits
 # where the next would start (data/copilot/route-orbit-over-the-16r-start.txt),
