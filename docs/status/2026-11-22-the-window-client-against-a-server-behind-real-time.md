@@ -43,8 +43,13 @@ loosened.
   0.48 and 0.52 m. Its ticks flown on the input sent in the same pass, or
   flying the stick while sending the pilot, gave 0 m and 5 mm: each word
   puts the prediction right, and 40 ms between words is too short to part
-  far at 55 m/s. Its wreck guard is seen red, and its bounds are the paced
-  test's code, seen red there.
+  far at 55 m/s. **Seen red from the re-review:** with each word compared
+  three steps past its own (`*p.at_step + 3` in `Online`'s two
+  `flight.compare` calls), the test as committed failed: "its prediction was
+  off by more than its bounds: 1 updates compared, the worst error 1529 mm,
+  the 95th percentile 1529 mm". Words placed past the steps flown are held,
+  so only one was compared. With the change taken out and the client
+  rebuilt, it passed again: 974 updates, 0 / 0 / 0.537 m.
 - COST is now a release runner's seconds: 25 and 12, Windows debug's 273
   and 121 s over twelve. Given as debug seconds, run 44934787992 dealt them
   as an hour with the night's repeats.
@@ -139,3 +144,11 @@ debug, and 0.60 and 0.52 m on Windows debug.
   C172P change: 113 of 113 passed, two skipped for want of a display (the nightly label left out).
 - **Selftest hash** 27e94c795b47141c, unchanged: the selftest does not fly
   the test pilot.
+
+**Tail (not a plan item).** A wreck flown again from its start is taken by
+`Flight::reconcile` as an ordinary correction. It is snapped as too large
+to hide, so the aircraft is drawn right at once. But the client's
+correction and error figures count the jump: 7,080 m and 7,064 m on CI. A
+player sees nothing wrong, so this is named here, not added to the plan. A
+client that knew the server had placed her again would start its
+prediction afresh there, as at a take-over.
