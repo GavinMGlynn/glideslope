@@ -3050,14 +3050,13 @@ public:
     double stations_changed_at_s() const {
         return air_ && std::isfinite(air_->set_changed_at_s()) ? air_->set_changed_at_s() : 0.0;
     }
-    // **What a slot's weather blends from while it does**, and when that
-    // one changed: told first to a client joining mid-blend, which flew the
-    // new one whole until the blend ended when told only it. Null when
-    // nothing blends.
-    const glideslope::world::WeatherReport* weather_blending_from(std::size_t i) const {
+    // **Everything a slot's weather blends from**, oldest first
+    // (world::ReportedWeather::blending_chain): empty when nothing blends.
+    std::vector<const glideslope::world::ReportedWeather*> weather_blending_chain(
+        std::size_t i) const {
         return air_ && i < air_->slots().size() && air_->slots()[i]
-                   ? air_->slots()[i]->blending_from(now_s())
-                   : nullptr;
+                   ? air_->slots()[i]->blending_chain(now_s())
+                   : std::vector<const glideslope::world::ReportedWeather*>{};
     }
     // **Everything a client joining is told of the weather**
     // (frontend::weather_said_on_joining): mid-change, the stations it
@@ -3066,9 +3065,6 @@ public:
         const glideslope::world::StationSlots none(nullptr);
         return glideslope::frontend::weather_said_on_joining(air_ ? *air_ : none, slots_.size(),
                                                              weather_blend_s_, now_s());
-    }
-    double previous_weather_changed_at_s(std::size_t i) const {
-        return slots_[i].previous_changed_at_s;
     }
     double weather_blend_s() const { return weather_blend_s_; }
     // How many weathers a slot has had: a client told an older count is told again.
@@ -4897,11 +4893,10 @@ private:
     // The weather (`fly_in`): none until it is given, which is still air.
     std::shared_ptr<glideslope::world::StationSlots> air_;
     // **Each slot as the clients are told it**: when its weather took over
-    // and the one before, and how many weathers and runway conditions it
+    // and how many weathers and runway conditions it
     // has had.
     struct WeatherSlot {
         double changed_at_s = 0.0;
-        double previous_changed_at_s = 0.0;
         int weathers = 0;
         int runway_conditions = 0;
     };
@@ -4913,7 +4908,6 @@ private:
             slots_.resize(i + 1);
         }
         WeatherSlot& slot = slots_[i];
-        slot.previous_changed_at_s = slot.changed_at_s;
         slot.changed_at_s = now_s();
         ++slot.weathers;
         ++slot.runway_conditions;
@@ -6672,12 +6666,16 @@ int run(const Options& o) {
                         // **Joining mid-blend, first what it blends from**:
                         // told the newest alone, a client flew it whole until
                         // the blend ended, and its air was not the server's.
-                        const glideslope::world::WeatherReport* from =
-                            c.weathers_told[i] < 0 ? fleet->weather_blending_from(i) : nullptr;
-                        if (from != nullptr) {
+                        // All of it, oldest first, as on joining
+                        // (frontend::weather_said_on_joining).
+                        const std::vector<const glideslope::world::ReportedWeather*> chain =
+                            c.weathers_told[i] < 0
+                                ? fleet->weather_blending_chain(i)
+                                : std::vector<const glideslope::world::ReportedWeather*>{};
+                        for (const glideslope::world::ReportedWeather* from : chain) {
                             const glideslope::frontend::WeatherSaid said_from =
                                 glideslope::frontend::weather_said(
-                                    from, fleet->previous_weather_changed_at_s(i),
+                                    &from->report(), from->changed_at_s(),
                                     fleet->weather_blend_s(), slot,
                                     fleet->stations_changed_at_s());
                             send(glideslope::net::write(said_from.weather));
