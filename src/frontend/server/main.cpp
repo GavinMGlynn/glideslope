@@ -6640,7 +6640,11 @@ int run(const Options& o) {
                 // Slot by slot (world::StationSlots), in order.
                 // **Joining, all of it at once**: mid-change, the stations
                 // the change blends from first, so that it flies the blend
-                // the server flies and not the new stations whole.
+                // the server flies and not the new stations whole. More
+                // than the reliable layer puts on the wire at once - 32
+                // stations each blending from a few reports - is held back
+                // there and goes out as the first are acknowledged
+                // (net::most_in_flight), not refused.
                 if (c.weathers_told.empty() && fleet->weather_slots() > 0) {
                     const std::vector<std::vector<std::uint8_t>> bodies =
                         fleet->weather_said_on_joining();
@@ -6652,11 +6656,12 @@ int run(const Options& o) {
                                        : 1U;
                     }
                     // **Never silently short**: a client told part of the
-                    // weather flies other air, so a refusal is said.
+                    // weather flies other air, so a refusal - past
+                    // net::most_waiting - is said.
                     if (refused > 0) {
                         std::fprintf(stderr,
                                      "glideslope_server: %zu of the weather's %zu messages to a "
-                                     "client joining could not be queued (%zu already in flight)\n",
+                                     "client joining could not be queued (%zu already waiting)\n",
                                      refused, bodies.size(), c.reliable.in_flight());
                     }
                     for (std::size_t i = 0; i < fleet->weather_slots(); ++i) {

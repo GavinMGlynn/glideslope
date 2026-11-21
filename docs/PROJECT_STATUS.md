@@ -597,7 +597,10 @@ are the risks the phase order is built around:
   the order said, into one air for the session (2026-11-18), and joining a
   real server after three changes of its stations flies the server's air to
   the last bit, a station's chain of reports blending into each other told
-  whole (2026-11-21). glideslope_cli has no weather of its own: it flies a
+  whole (2026-11-21); a join of 32 stations each blending from several
+  reports, more than the reliable layer puts on the wire at once, waits its
+  turn behind the first 256 and is flown to the last bit too (2026-11-21).
+  glideslope_cli has no weather of its own: it flies a
   server's, or none. On a server the server's weather travels and every
   client flies it - one joining mid-blend blended from the same weather -
   over the collision ground, its ridge and wave lift and all (2026-11-19);

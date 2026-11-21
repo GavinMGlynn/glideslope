@@ -968,69 +968,221 @@ GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_ser
     });
 }
 
+namespace {
+
+// **Told as the window client is told**: `told`, the bodies of every
+// reliable message glideslope_server tells a client joining, sent through
+// the reliable layer, sealed, over the loopback by a stand-in server, to a
+// real net::ClientSession - its acknowledgements heard back, as the server
+// hears them - and taken from it as client::Online takes them: everything
+// said of the air since last asked, in the order said
+// (net::ClientSession::take_air), each made into one air for the session
+// (frontend::HeardAir::said). Everything said is taken - counted against
+// what was sent - and `weathers_of_slot[i]` counts the weathers slot i was
+// told. All of it is queued at once, as the server queues a join's.
+std::shared_ptr<glideslope::frontend::HeardAir> heard_over_the_loopback(
+    const std::vector<std::vector<std::uint8_t>>& told, const std::function<double()>& clock,
+    std::vector<std::size_t>& weathers_of_slot) {
+    glideslope::test::StandIn stand_in;
+    const std::string where = "127.0.0.1:" + std::to_string(stand_in.socket.port());
+    std::optional<glideslope::net::ClientSession> session;
+    std::thread connecting([&] {
+        if (auto made =
+                glideslope::net::ClientSession::connect(where, stand_in.key.publik.text())) {
+            session.emplace(std::move(*made));
+        }
+    });
+    const bool answered = stand_in.answer_one();
+    connecting.join();
+    check(answered && session.has_value(), "the client has a session with the stand-in");
+    // What is to be taken: each whole weather - a WEATHER, with the
+    // WEATHER_ALOFT after it where it says one follows - and each slot's
+    // runways.
+    glideslope::net::Reliable reliable;
+    std::size_t to_take = 0;
+    std::size_t queued = 0;
+    for (const std::vector<std::uint8_t>& body : told) {
+        queued += reliable.send(all_of(body)) ? 1U : 0U;
+        const auto kind = glideslope::net::kind_of(all_of(body));
+        to_take += kind == glideslope::net::Message::weather ||
+                           kind == glideslope::net::Message::runway_conditions
+                       ? 1U
+                       : 0U;
+    }
+    check(queued == told.size(), "every message queued: " + std::to_string(queued) + " of " +
+                                     std::to_string(told.size()));
+    const std::size_t held_to_send = reliable.held_to_send();
+    auto air = std::make_shared<glideslope::frontend::HeardAir>(
+        nullptr, glideslope::world::GroundAt{}, clock);
+    std::size_t taken = 0;
+    const auto began = std::chrono::steady_clock::now();
+    for (double t = 0.0;
+         taken < to_take && std::chrono::steady_clock::now() - began < std::chrono::seconds(20);
+         t += 0.01) {
+        stand_in.send_reliable(reliable, t);
+        session->poll(t);
+        stand_in.hear_reliable(reliable);
+        for (const glideslope::net::AirSaid& said : session->take_air()) {
+            check(air->said(said), "what was said of the air taken");
+            if (said.weather) {
+                weathers_of_slot.resize(
+                    std::max<std::size_t>(weathers_of_slot.size(), said.weather->station + 1U));
+                ++weathers_of_slot[said.weather->station];
+            }
+            ++taken;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    std::printf("  %zu messages queued, %zu of them held back from the wire at first; %zu "
+                "things said of the air sent over the loopback, %zu taken\n",
+                told.size(), held_to_send, to_take, taken);
+    check(taken == to_take, "everything said of the air taken: " + std::to_string(taken) +
+                                " of " + std::to_string(to_take));
+    return air;
+}
+
+} // namespace
+
 // **The window client joining while the server's stations change flies the
 // server's air to the last bit** (joined_mid_change), told it as the window
-// client is: the bodies sent through the reliable layer, sealed, over the
-// loopback by a stand-in server, to a real net::ClientSession, and taken
-// from it as client::Online takes them - everything said of the air since
-// last asked, in the order said (net::ClientSession::take_air), each made
-// into one air for the session (frontend::HeardAir::said). Everything said
-// is taken - counted against what was sent - and slot 1's three weathers
-// among them. Its stations are flown as Flight::fly_server_air flies them,
-// on the aircraft's own clock.
+// client is (heard_over_the_loopback), slot 1's three weathers among what it
+// takes. Its stations are flown as Flight::fly_server_air flies them, on the
+// aircraft's own clock.
 GLIDESLOPE_TEST(the_window_client_joining_while_the_servers_stations_change_flies_the_servers_air) {
     joined_mid_change([](const std::vector<std::vector<std::uint8_t>>& told,
                          const std::function<double()>& clock) {
-        glideslope::test::StandIn stand_in;
-        const std::string where = "127.0.0.1:" + std::to_string(stand_in.socket.port());
-        std::optional<glideslope::net::ClientSession> session;
-        std::thread connecting([&] {
-            if (auto made = glideslope::net::ClientSession::connect(
-                    where, stand_in.key.publik.text())) {
-                session.emplace(std::move(*made));
-            }
-        });
-        const bool answered = stand_in.answer_one();
-        connecting.join();
-        check(answered && session.has_value(), "the client has a session with the stand-in");
-        // What is to be taken: each whole weather - a WEATHER, with the
-        // WEATHER_ALOFT after it where it says one follows - and each
-        // slot's runways.
-        glideslope::net::Reliable reliable;
-        std::size_t to_take = 0;
-        for (const std::vector<std::uint8_t>& body : told) {
-            check(reliable.send(all_of(body)), "a message queued");
-            const auto kind = glideslope::net::kind_of(all_of(body));
-            to_take += kind == glideslope::net::Message::weather ||
-                               kind == glideslope::net::Message::runway_conditions
-                           ? 1U
-                           : 0U;
-        }
-        auto air = std::make_shared<glideslope::frontend::HeardAir>(
-            nullptr, glideslope::world::GroundAt{}, clock);
-        std::size_t taken = 0;
-        std::size_t weathers_of_slot_1 = 0;
-        const auto began = std::chrono::steady_clock::now();
-        for (double t = 0.0; taken < to_take &&
-                             std::chrono::steady_clock::now() - began < std::chrono::seconds(10);
-             t += 0.01) {
-            stand_in.send_reliable(reliable, t);
-            session->poll(t);
-            for (const glideslope::net::AirSaid& said : session->take_air()) {
-                check(air->said(said), "what was said of the air taken");
-                weathers_of_slot_1 += said.weather && said.weather->station == 1 ? 1U : 0U;
-                ++taken;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        std::printf("  %zu things said of the air sent over the loopback, %zu taken, %zu of "
-                    "them slot 1's weathers\n",
-                    to_take, taken, weathers_of_slot_1);
-        check(taken == to_take, "everything said of the air taken: " + std::to_string(taken) +
-                                    " of " + std::to_string(to_take));
-        check(weathers_of_slot_1 >= 3, "slot 1's three weathers among them");
+        std::vector<std::size_t> weathers_of_slot;
+        auto air = heard_over_the_loopback(told, clock, weathers_of_slot);
+        check(weathers_of_slot.size() > 1 && weathers_of_slot[1] >= 3,
+              "slot 1's three weathers among them");
         return air;
     });
+}
+
+// **A client joining 32 stations each mid-blend over several reports flies
+// the server's air to the last bit**, though it is told more than the
+// reliable layer puts on the wire at once. A server flies 32 stations
+// (world::most_stations) in a grid 0.3 degrees apart, found together at 0 s,
+// and gives each a new report at 30, 60 and 90 s - quicker than the 120 s
+// blend, as a server looking for its stations at every refresh does - each
+// with a forecast above it. A client joining at 95 s is told, for every
+// slot, the reports from 0, 30 and 60 s it still blends from and the newest
+// from 90 s - built so, and checked: four weathers a slot, each a WEATHER
+// and a WEATHER_ALOFT, 256 messages, and each slot's runways after them,
+// more than net::most_in_flight - told as the window client is
+// (heard_over_the_loopback). Its air is compared with the server's at every
+// station and between each pair of neighbours, 3 heights and 8 times from
+// the joining to past every blend's end, to the last bit. Before
+// 2026-11-21 the reliable layer refused every message past the 256th, and
+// the joiner flew other air (said on the server's standard error).
+GLIDESLOPE_TEST(a_client_joining_32_stations_each_mid_blend_over_several_reports_flies_the_servers_air) {
+    double now_s = 0.0;
+    const std::function<double()> clock = [&now_s] { return now_s; };
+    constexpr double blend_s = 120.0;
+    constexpr std::size_t stations = glideslope::world::most_stations;
+    const auto place = [](std::size_t i) {
+        return std::array<double, 2>{-32.5 - 0.3 * static_cast<double>(i / 8),
+                                     150.0 + 0.3 * static_cast<double>(i % 8)};
+    };
+    const auto report = [&](std::size_t i, std::size_t k) {
+        const std::string id = std::string("YX") + static_cast<char>('A' + i / 8) +
+                               static_cast<char>('A' + i % 8);
+        const auto direction = static_cast<int>((i * 37 + k * 70) % 36) * 10 + 10;
+        const auto knots = 4 + static_cast<int>((i + k * 5) % 20);
+        char wind[16];
+        std::snprintf(wind, sizeof wind, "%03d%02dKT", direction, knots);
+        glideslope::world::WeatherReport r =
+            a_full_report(id + " 102100Z " + wind + " 9999 FEW030 18/11 Q" +
+                          std::to_string(1008 + 3 * k));
+        r.surface.latitude_deg = place(i)[0];
+        r.surface.longitude_deg = place(i)[1];
+        r.aloft->latitude_deg = place(i)[0];
+        r.aloft->longitude_deg = place(i)[1];
+        r.microbursts.clear();
+        return r;
+    };
+    const auto server = std::make_shared<glideslope::world::StationSlots>(nullptr);
+    glideslope::frontend::SessionClocked server_air(server, clock);
+    for (std::size_t k = 0; k < 4; ++k) {
+        now_s = 30.0 * static_cast<double>(k);
+        for (std::size_t i = 0; i < stations; ++i) {
+            server->set(i, report(i, k), now_s, blend_s, 0.0);
+        }
+    }
+    now_s = 95.0;
+    std::size_t chains = 0;
+    for (const auto& s : server->slots()) {
+        chains += s && s->blending_chain(now_s).size() == 3 ? 1U : 0U;
+    }
+    std::vector<std::vector<std::uint8_t>> told =
+        glideslope::frontend::weather_said_on_joining(*server, stations, blend_s, now_s);
+    for (std::size_t i = 0; i < server->slots().size(); ++i) {
+        if (const auto& s = server->slots()[i]) {
+            told.push_back(glideslope::net::write(glideslope::frontend::runway_conditions_said(
+                *s, s->changed_at_s(), now_s, static_cast<std::uint8_t>(i))));
+        }
+    }
+    check(server->slots().size() == stations && chains == stations,
+          "every one of the 32 slots blends from three reports at the joining: " +
+              std::to_string(chains));
+    check(told.size() > glideslope::net::most_in_flight,
+          "more told than the reliable layer puts on the wire at once: " +
+              std::to_string(told.size()));
+
+    std::vector<std::size_t> weathers_of_slot;
+    const std::shared_ptr<glideslope::frontend::HeardAir> joiner =
+        heard_over_the_loopback(told, clock, weathers_of_slot);
+    check(joiner != nullptr && joiner->stations() != nullptr, "the joiner has stations");
+    std::size_t slots_told_four = 0;
+    for (const std::size_t n : weathers_of_slot) {
+        slots_told_four += n == 4 ? 1U : 0U;
+    }
+    check(slots_told_four == stations,
+          "every slot told its four weathers: " + std::to_string(slots_told_four));
+    glideslope::frontend::SessionClocked joiner_air(joiner->stations(), clock);
+
+    std::vector<std::array<double, 2>> places;
+    for (std::size_t i = 0; i < stations; ++i) {
+        places.push_back(place(i));
+        if (i % 8 != 7) {
+            places.push_back({place(i)[0], place(i)[1] + 0.15});
+        }
+        if (i / 8 != 3) {
+            places.push_back({place(i)[0] - 0.15, place(i)[1]});
+        }
+    }
+    const std::vector<double> heights{9.0, 300.0, 1200.0};
+    const std::vector<double> times{95.0, 100.0, 120.0, 140.0, 160.0, 190.0, 210.0, 400.0};
+    std::size_t compared = 0;
+    std::size_t same = 0;
+    for (const double t : times) {
+        now_s = t;
+        for (const auto& p : places) {
+            for (const double h : heights) {
+                const glideslope::sim::Conditions a = server_air.at(p[0], p[1], h, 1.0);
+                const glideslope::sim::Conditions b = joiner_air.at(p[0], p[1], h, 77.0);
+                same += a.wind_north_mps == b.wind_north_mps &&
+                                a.wind_east_mps == b.wind_east_mps &&
+                                a.wind_down_mps == b.wind_down_mps &&
+                                a.temperature_offset_c == b.temperature_offset_c &&
+                                a.sea_level_pressure_hpa == b.sea_level_pressure_hpa &&
+                                a.turbulence_severity == b.turbulence_severity &&
+                                a.wind_at_20ft_mps == b.wind_at_20ft_mps &&
+                                a.gust_factor_kt == b.gust_factor_kt &&
+                                a.runway_condition == b.runway_condition
+                            ? 1U
+                            : 0U;
+                ++compared;
+            }
+        }
+    }
+    // 32 stations, 28 neighbours east and 24 south: 84 places.
+    const std::size_t expected = (32 + 28 + 24) * heights.size() * times.size();
+    std::printf("  %zu told to a joiner at 95 s: its air the server's at %zu of %zu points\n",
+                told.size(), same, compared);
+    check(compared == expected, "every point compared: " + std::to_string(compared) + " of " +
+                                    std::to_string(expected));
+    check(same == compared, "the joiner flies the server's air at every point");
 }
 
 // **The stations flown keep only the changes that still reach the air**,
