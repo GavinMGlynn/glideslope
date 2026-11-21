@@ -1816,8 +1816,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       2026-11-17: an end-to-end test judges each word's step against the
       difference the word itself shows: none out but by the estimate, none
       late; the large worst errors are the estimate moving, in steady air
-      too. Still missing: up to half the steps are flown one to three steps
-      early, until inputs name their step.
+      too. 2026-11-21, inputs naming their step: the median is within the
+      steady bound (0.030-0.033 m against steady air's 0.029 m, bound
+      0.25 m), but 75, 133 and 321 of about 540 steps are still flown one or
+      two steps early. Still missing: the server flies each input from the
+      step due when it arrives, not from the step its client named, so the
+      server needs to hold inputs to their named step (an input buffer the
+      client steers, as Overwatch's), which costs input latency.
 - [x] **Every aircraft trims in the session's air**: she was trimmed in
       the standard atmosphere and still air, and the METAR's temperature,
       pressure and wind reached her on her first step - a C182 in a calm
