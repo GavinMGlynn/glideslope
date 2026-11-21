@@ -639,6 +639,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             }
             word.wrecked =
                 own != state.aircraft.end() && own->condition == net::Condition::wrecked;
+            own_wrecked_words_ += word.wrecked ? 1 : 0;
             // **Every word read is placed, steers the pace, and is held
             // against where this client had flown by its own step** - at
             // once, or once that step is flown (frontend::OwnWords) - as

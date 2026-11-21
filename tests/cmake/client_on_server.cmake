@@ -113,6 +113,11 @@ file(REMOVE "${_ready}")
 # **A server behind real time by a set factor**, built on purpose with
 # `-DSERVER_PACE=<fraction>` (the server's `--test-pace`).
 set(_shot_at 1200)
+# **The aircraft asked for**: the F-15C, or `-DAIRCRAFT=<id>`.
+set(_aircraft f15c)
+if(DEFINED AIRCRAFT)
+    set(_aircraft ${AIRCRAFT})
+endif()
 if(DEFINED SHOT_AT)
     set(_shot_at ${SHOT_AT})
 endif()
@@ -134,7 +139,7 @@ execute_process(
             --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}" ${_pace}
     ${_other_player}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at ${_shot_at} --view behind --aircraft f15c --slow-start 5
+            --shot "${_shot}" --shot-at ${_shot_at} --view behind --aircraft ${_aircraft} --slow-start 5
             ${_slow} --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 port_listened("${_out}" "${_err}")
@@ -155,15 +160,15 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
 endif()
 
-if(NOT _out MATCHES "the server gave this client aircraft ([0-9]+), the f15c")
-    message(FATAL_ERROR "the client was not given the F-15C it asked for:\n${_out}")
+if(NOT _out MATCHES "the server gave this client aircraft ([0-9]+), the ${_aircraft}")
+    message(FATAL_ERROR "the client was not given the ${_aircraft} it asked for:\n${_out}")
 endif()
 set(_mine "${CMAKE_MATCH_1}")
 # **The server's word is what it flies**: the F-15C the server gave it for
 # asking. (A client that took its own `--aircraft` over the server's word
 # flew one model and was put right by another's motion.)
-if(NOT _out MATCHES "flying the [^\n]* \\(f15c\\)")
-    message(FATAL_ERROR "the client did not fly the server's F-15C:\n${_out}")
+if(NOT _out MATCHES "flying the [^\n]* \\(${_aircraft}\\)")
+    message(FATAL_ERROR "the client did not fly the server's ${_aircraft}:\n${_out}")
 endif()
 
 string(REGEX MATCHALL "drew aircraft [0-9]+, the [a-z0-9_-]+, [0-9]+ m away" _drew "${_out}")
@@ -251,6 +256,17 @@ if(PREDICTED)
     # How many were a metre or more is said, not judged: the 95th
     # percentile is.
     set(_over ${CMAKE_MATCH_8})
+    # **Flown, not a wreck**: a wreck's error is nought, and one flown again
+    # from its start is put right by the whole way there - 7,064 m on CI's
+    # Ubuntu release, the F-15C flown into the ground by the test pilot
+    # (docs/status, 2026-11-22).
+    if(NOT _out MATCHES "([0-9]+) words on its own aircraft said it was a wreck")
+        message(FATAL_ERROR "the client did not say whether its aircraft was a wreck:\n${_out}")
+    endif()
+    if(NOT CMAKE_MATCH_1 EQUAL 0)
+        message(FATAL_ERROR "its aircraft was a wreck in ${CMAKE_MATCH_1} words: what it "
+                            "predicted was not flown:\n${_out}")
+    endif()
     if(NOT _out MATCHES "paced: flown at ([0-9]+)\\.([0-9][0-9][0-9]) of this machine's clock")
         message(FATAL_ERROR "the client did not say its pace:\n${_out}")
     endif()
