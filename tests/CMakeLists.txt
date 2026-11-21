@@ -3467,7 +3467,7 @@ add_test(NAME a_client_predicting_over_hills_in_a_strong_wind_flies_the_servers_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ground_lift -DPORT=25010 -DSAME_M=0.25
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ground_lift -DPORT=24838 -DSAME_M=0.25
         -DLIFT_SHARE=0.7
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ground_lift.cmake)
 set_tests_properties(a_client_predicting_over_hills_in_a_strong_wind_flies_the_servers_ground_lift_within_the_seas_bound
