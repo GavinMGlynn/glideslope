@@ -90,8 +90,9 @@ list(GET _runs ${RUN} _run)
 # own program, run --headless as every window test runs it, waiting with no
 # aircraft and told why, then given hers; or the second, the command-line
 # client begun again on the same key while it waits - its first session
-# going silent, as a client killed does - after the third has joined, and
-# it must keep its place ahead of the third. `+ai`: an AI aircraft is put
+# still running, as a client given up on but not killed is - after the
+# third has joined, and it must keep its place ahead of the third, and its
+# first session be told it was taken over. `+ai`: an AI aircraft is put
 # on the final first (`--ai-on-final`), and every player waits for it as she
 # would for a player. `+circle`: the first player's copilot route orbits
 # where the next would start (data/copilot/route-orbit-over-the-16r-start.txt),
@@ -188,12 +189,17 @@ foreach(_i RANGE ${_last})
         continue()
     endif()
     if(_i EQUAL 1 AND _how STREQUAL "restart")
-        # Its first session: given up on, silent, eight seconds in; begun
-        # again once the third has joined behind it.
+        # Its first session, waiting; begun again on its key once the third
+        # has joined behind it. **It stays until the server ends it for the
+        # newer** (`LEAVING`, on which it exits), however long the third
+        # and the second take to start - not for a time on the clock. It
+        # stayed 8 s until 2026-11-22, and on a slow runner (CI run
+        # 44904071384) it had gone before the second was in: the server's
+        # word went to nobody, and the test failed.
         set(_secret "1111111111111111111111111111111111111111111111111111111111111111")
         file(REMOVE "${WORK}/heard_first.txt")
-        list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8
-             --after-ready "${_after}" --aircraft ${_a} --key ${_secret} --no-goodbye
+        list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 900
+             --after-ready "${_after}" --aircraft ${_a} --key ${_secret}
              --heard "${WORK}/heard_first.txt")
         set(_after "${WORK}/heard2.txt")
         set(_again --key ${_secret})
@@ -336,8 +342,8 @@ if(_how STREQUAL "window")
     endif()
 endif()
 # **The session begun again kept her turn**: its first session was told to
-# wait, and went silent; the second, on its key, begun after the third had
-# joined, was given her - and before the third (her place, asserted below
+# wait, and was ended for the newer; the second, on its key, begun after
+# the third had joined, was given her - and before the third (her place, asserted below
 # as each follower is given hers only after the one ahead is handed over).
 if(_how STREQUAL "restart")
     file(READ "${WORK}/heard1.txt" _heard)
