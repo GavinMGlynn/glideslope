@@ -1,6 +1,13 @@
 # A client's gusts are still a step early in up to half its steps, with inputs naming their step, 2026-11-21
 
-**Still open, first.** Inputs naming their step (protocol 19,
+**Closed on the bound, 2026-11-21 (the owner's call):** the item's
+verification - gusting air within the steady air's bound - is met. The steps
+flown early are a named limit, not fixed: holding each input to its named
+step (a server input buffer) would cost one or two steps of input latency
+and rework the held-up server's rules, for an error already inside the
+bound.
+
+**The named limit.** Inputs naming their step (protocol 19,
 2026-11-17) did not close the Phase 12a item "A client's gusts are not the
 server's while its clocks' difference settles". The prediction's median
 error in gusts is within the steady air's bound, as it was before. But in
