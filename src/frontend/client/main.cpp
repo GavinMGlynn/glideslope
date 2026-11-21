@@ -3295,6 +3295,8 @@ static int run_program(int argc, char** argv) {
                             "the server's time, in %zu frames\n",
                             online->own_words_heard(), online->own_words_span_s(),
                             online->frames_that_heard_own());
+                std::printf("glideslope: %zu words on its own aircraft said it was a wreck\n",
+                            online->own_wrecked_words());
                 // **Every word it read compared**, at its own step, or
                 // named, and only the newest compared put it right
                 // (frontend/own_words.hpp), said as glideslope_cli says it.

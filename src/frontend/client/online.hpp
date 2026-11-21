@@ -373,6 +373,11 @@ public:
     // counted. A test holds the words to the server's rate, whatever the
     // frame rate.
     std::size_t own_words_heard() const { return own_words_; }
+    // **Of them, how many said its own aircraft was a wreck**: a test of
+    // its prediction must fly, not sit as a wreck - whose error is nought -
+    // nor be put right by the way to its start when the wreck flies again
+    // from there (docs/status, 2026-11-22: 7,064 m on CI).
+    std::size_t own_wrecked_words() const { return own_wrecked_words_; }
     double own_words_span_s() const {
         return own_words_ > 0 ? last_own_word_s_ - first_own_word_s_ : 0.0;
     }
@@ -545,6 +550,7 @@ private:
     std::size_t watched_heard_ = 0;
     std::size_t corrections_ = 0;
     std::size_t own_words_ = 0;
+    std::size_t own_wrecked_words_ = 0;
     double first_own_word_s_ = 0.0;
     double last_own_word_s_ = 0.0;
     std::size_t frames_heard_own_ = 0;
