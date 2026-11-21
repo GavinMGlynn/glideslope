@@ -95,3 +95,5 @@ the new test pushed a night's run over the 75% limit.
 `every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
 failed on draft run 44894429415 with 33.9 of the 45 minutes in each of the
 5 shards. windows-clang now has 6 shards (`.github/workflows/ci.yml`).
+
+2026-11-22: the test now judges the error off the path flown, not at the placed step, after a CI failure on a loaded runner; see 2026-11-22-a-client-joining-with-no-tiles-is-judged-off-the-path.md.
