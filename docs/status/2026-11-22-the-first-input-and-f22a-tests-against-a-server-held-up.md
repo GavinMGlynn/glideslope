@@ -2,7 +2,9 @@
 
 Phase 12a, "A server that falls behind real time puts its clients'
 prediction off by metres": its last named gap, "the first-input test and the
-F-22A's still run alone, not yet seen on CI held up".
+F-22A's still run alone, not yet seen on CI held up". **The item stays
+open**: held up, the F-35B's and F-22A's 95th percentile is now and then a
+step's travel, over the item's metre (cause below).
 
 **What is still not true first.**
 - The plain first-input and F-22A tests still run alone (RUN_SERIAL). They
@@ -15,6 +17,35 @@ F-22A's still run alone, not yet seen on CI held up".
   item's metre and under this test's bound of four steps' travel (5.51 and
   5.14 m). This test's bound is not the paced test's metre; the C172P's
   every 95th percentile was under half a metre.
+
+**Why a step off, measured** (from the review: the item stays open on it).
+glideslope_cli was run with `--track` in the F-22A's case, by hand as the
+test runs it, Linux debug, unloaded. The server also said each step it let
+slip (`--test-say-slipped`).
+- **Not the server's stamping or owed steps**: no step slipped in any run,
+  and every update a step off lay on the path flown. The off-path 95th
+  percentile was 0.2 and 0.3 mm held up (0.0 plain), and the worst under
+  0.5 mm. In the test runs above, the worst off the path was 9 mm.
+- **The clocks' difference following a widened spread**: each word's sample
+  (the server's step where it flew the input, less this client's step
+  where it sent it) took two values, 341 and 342, in the plain run, with
+  no change of the held figure. Held up, it took six or seven: 343 to 349,
+  and 345 to 353. The least of each second wandered a step or two
+  (347, 346, 345, 346, 347, 348 over 30 s). The held figure (sim::
+  ClockDifference) followed it: down once, after ten of fifty samples were
+  below, and up at once each time the window's least rose (346 to 347 to
+  348). Each hold-up is not a slip the figure follows; nothing slipped.
+  The least the window sees moves.
+- **Each move puts a round trip of words a step off**: every update over
+  half a metre came in the five or six words right after a move, each
+  exactly one step's travel (1.378 m), at 12.2, 23.8 and 27.8 s. That run
+  had three moves and 16 words (2.3%); another had one move and 8 words
+  (1.2%). A run with six or more moves puts over 5% a step off, and its
+  95th percentile is a step's travel.
+- **Not fixed here**: placing each word by the clocks' difference its kept
+  steps were flown under, or holding the figure against up-moves too, is a
+  change to the prediction's placement that every prediction test measures.
+  That needs its own round.
 
 **What now works.** Two tests run `server_first_input.cmake` against a server
 held up every second of its clock for 150, 300, 450 and 600 ms in turn
