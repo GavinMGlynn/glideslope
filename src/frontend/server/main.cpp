@@ -6329,9 +6329,14 @@ int run(const Options& o) {
             fleet->now_s() >= held_up_next_s) {
             held_up_next_s = fleet->now_s() + o.test_held_up_every_s;
             // A quarter, a half, three quarters, all - and round again.
-            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(
-                o.test_held_up_ms * static_cast<double>(held_up_times % 4 + 1) / 4.0));
+            const double held_ms =
+                o.test_held_up_ms * static_cast<double>(held_up_times % 4 + 1) / 4.0;
+            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(held_ms));
             ++held_up_times;
+            // Said, so that a test counts the hold-ups it built rather than
+            // believing them; on the error stream, as `--test-say-slipped`.
+            std::fprintf(stderr, "held up %.0f ms at %.2f s, %d times in all\n", held_ms,
+                         fleet->now_s(), held_up_times);
             now = std::chrono::steady_clock::now();
             up_s = std::chrono::duration<double>(now - began).count();
         }
