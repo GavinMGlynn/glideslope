@@ -21,6 +21,7 @@
 // client's business.
 
 #include "sim/aircraft.hpp"
+#include "sim/clock_difference.hpp"
 #include "sim/controller.hpp"
 #include "sim/fixed_step.hpp"
 
@@ -49,19 +50,8 @@ inline constexpr double correction_blend_s = 0.25;
 // (PROJECT_STATUS.md, 2026-09-30).)
 inline constexpr std::size_t most_unacknowledged =
     static_cast<std::size_t>(4 * steps_per_second);
-// How many of the server's words the clocks' difference is the least of: two
-// seconds of updates at 25 a second, long enough that one input in it came
-// through with next to no jitter, short enough to follow a server whose clock
-// runs slow.
-inline constexpr std::size_t offset_window = 50;
-// **How many words before the clocks' difference is taken as known**: a
-// second of updates. Before then the least is still coming down as inputs
-// that waited less arrive, and each time it does the client is put right by
-// the steps it moved - two metres, three times, a second after joining at
-// 200 ms (PROJECT_STATUS.md). Those corrections are hidden like any other;
-// a prediction error measured before this is the estimate settling, not the
-// prediction.
-inline constexpr std::size_t offset_settled = 25;
+// `offset_window`, `offset_settled` and `offset_lowered_after` are in
+// sim/clock_difference.hpp, with the figure they make.
 // **How many of the newest words a pace is steered by** (sim::Pacing): ten,
 // four tenths of a simulated second - enough that one came through with
 // little jitter, few enough that the loop sees the difference move promptly.
@@ -147,9 +137,10 @@ public:
     // server step `server_steps - steps_into`, and began here at a step this
     // client knows: the difference is how far the server's clock is behind
     // this one, plus how late the network made that input. **The least of
-    // those over the last `offset_window` words is taken as the offset**: the
-    // input that waited least says the clocks' difference, and the others
-    // add jitter to it. The server's word is then this client's step
+    // those over the last `offset_window` words is taken as the offset**, held
+    // once settled against a sample now and then low (sim::ClockDifference):
+    // the input that waited least says the clocks' difference, and the
+    // others add jitter to it. The server's word is then this client's step
     // `server_steps - offset`, and the replay starts there, whichever inputs
     // those steps were flown on. Replayed from the input's end instead - or
     // from its arrival, with the jitter kept in - the client was off by the
@@ -281,28 +272,20 @@ public:
     std::size_t unacknowledged() const { return held_.size(); }
     // Whether the clocks' difference has been heard enough times to be known.
     bool settled() const { return offsets_.size() >= offset_settled; }
-    // **The clocks' difference, in steps**: the least of the last
-    // `offset_window` words', which places the server's word on this
-    // client's clock - and what a client paces itself by (sim::Pacing).
-    // Nothing before a word has said any.
-    std::optional<std::int64_t> clocks_difference() const {
-        if (offsets_.empty()) {
-            return std::nullopt;
-        }
-        return *std::min_element(offsets_.begin(), offsets_.end());
-    }
+    // **The clocks' difference, in steps** (sim::ClockDifference): the
+    // least of the last `offset_window` words' until settled, then held
+    // against a sample now and then a step low - which places the server's
+    // word on this client's clock. Nothing before a word has said any.
+    std::optional<std::int64_t> clocks_difference() const { return offsets_.value(); }
+    // How many of the window's samples are below `d`: fewer than
+    // `offset_lowered_after` below the figure, once it is settled.
+    std::size_t samples_below(std::int64_t d) const { return offsets_.below(d); }
     // **The same over the last `pace_window` words only** - what a pace is
     // steered by. The least of two seconds of the server's words is ten of
     // real time from a server at a fifth of it, and a loop steered through
     // that lag swung (sim::Pacing).
     std::optional<std::int64_t> recent_clocks_difference() const {
-        if (offsets_.empty()) {
-            return std::nullopt;
-        }
-        const auto from = offsets_.size() > pace_window
-                              ? offsets_.end() - static_cast<std::ptrdiff_t>(pace_window)
-                              : offsets_.begin();
-        return *std::min_element(from, offsets_.end());
+        return offsets_.recent_least(pace_window);
     }
     // How many steps this client has flown, which numbers them.
     std::uint64_t steps() const { return steps_; }
@@ -418,7 +401,7 @@ private:
     // Which of this client's steps is being flown, or was last.
     std::uint64_t flying_step_ = 0;
     // The clocks' difference each recent word implied, newest last.
-    std::deque<std::int64_t> offsets_;
+    ClockDifference offsets_;
 };
 
 // **The first control, or number of a motion, not finite**, by name - a

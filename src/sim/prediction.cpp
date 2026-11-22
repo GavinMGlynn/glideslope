@@ -422,17 +422,14 @@ std::optional<std::uint64_t> Prediction::hear_clock(std::uint32_t last_applied,
         newest_sample_ = Sample{difference, static_cast<std::int64_t>(from - began->second),
                                 static_cast<std::int64_t>(server_steps - steps_into) -
                                     static_cast<std::int64_t>(began->second)};
-        offsets_.push_back(difference);
-        while (offsets_.size() > offset_window) {
-            offsets_.pop_front();
-        }
+        offsets_.hear(difference);
     }
     // **And the step of this client's it places the word at**: the server's
     // step less the clocks' difference as now known.
     if (offsets_.empty()) {
         return std::nullopt;
     }
-    const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
+    const std::int64_t offset = *offsets_.value();
     const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
     return static_cast<std::uint64_t>(std::max<std::int64_t>(at, 0));
 }
@@ -441,7 +438,7 @@ std::optional<double> Prediction::session_time_s() const {
     if (offsets_.empty()) {
         return std::nullopt;
     }
-    const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
+    const std::int64_t offset = *offsets_.value();
     return static_cast<double>(static_cast<std::int64_t>(flying_step_) + offset + 1) /
            static_cast<double>(steps_per_second);
 }
@@ -460,7 +457,7 @@ std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) 
         aircraft_.set_motion(motion);
         return 0;
     }
-    const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
+    const std::int64_t offset = *offsets_.value();
     const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
     while (!held_.empty() && static_cast<std::int64_t>(held_.front().step) < at) {
         held_.pop_front();
