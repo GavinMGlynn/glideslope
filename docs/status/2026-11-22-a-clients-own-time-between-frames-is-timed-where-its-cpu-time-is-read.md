@@ -10,7 +10,10 @@ the client misplaced its own time, and the client now says what the
 longest of its own was made of and when; the next one will say which part
 it was. A virtual machine that stops the client while it works is still
 counted as the client's own, as on 2026-10-21: nothing portable tells the two
-apart.
+apart. So a repeat that the breakdown puts in CPU time still would not
+place it: telling a pause of the virtual machine from the client's own
+work needs the runner's steal time or its system logs for that moment.
+The plan keeps this open as a Phase 12a item until it is placed.
 
 ## What failed
 
