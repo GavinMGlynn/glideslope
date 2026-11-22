@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <array>
 #include <initializer_list>
+#include <iterator>
 #include <optional>
 #include <string>
+#include <utility>
 #include <cmath>
 
 namespace glideslope::sim {
@@ -174,6 +176,19 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
         began_.try_emplace(sequence, steps_);
     }
     flying_ = sequence;
+    // **The difference this step was flown under** (`compared_at`): the
+    // anchor, or the difference as known where nothing has been put right
+    // from yet.
+    if (const std::optional<std::int64_t> under = anchor_ ? anchor_ : offsets_.value()) {
+        if (flown_under_.empty() || flown_under_.back().second != *under) {
+            flown_under_.emplace_back(steps_, *under);
+        }
+    }
+    // Kept as far back as the steps a client keeps (most_unacknowledged),
+    // the newest run's beginning always.
+    while (flown_under_.size() > 1 && flown_under_[1].first + most_unacknowledged < steps_) {
+        flown_under_.pop_front();
+    }
     held_.push_back({sequence, controls, steps_, std::move(before), std::move(laws_before),
                      commanded_before});
     ++steps_;
@@ -271,6 +286,15 @@ Prediction::Correction Prediction::reconcile_placed(const Motion& server,
     const AircraftState was = aircraft_.state();
     Correction out;
     out.at_step = placed_at;
+    // **Placed by the difference the word was placed with**: the steps
+    // flown from here on are flown under it (`compared_at`).
+    if (placed_at) {
+        const auto placed = std::find_if(
+            placed_with_.rbegin(), placed_with_.rend(),
+            [&](const std::pair<std::uint64_t, std::int64_t>& p) { return p.first == *placed_at; });
+        anchor_ = placed != placed_with_.rend() ? std::optional<std::int64_t>(placed->second)
+                                                : offsets_.value();
+    }
     if (out.at_step) {
         while (!held_.empty() && held_.front().step < *out.at_step) {
             held_.pop_front();
@@ -431,7 +455,46 @@ std::optional<std::uint64_t> Prediction::hear_clock(std::uint32_t last_applied,
     }
     const std::int64_t offset = *offsets_.value();
     const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
-    return static_cast<std::uint64_t>(std::max<std::int64_t>(at, 0));
+    const auto placed = static_cast<std::uint64_t>(std::max<std::int64_t>(at, 0));
+    placed_with_.emplace_back(placed, offset);
+    while (placed_with_.size() > most_unacknowledged) {
+        placed_with_.pop_front();
+    }
+    return placed;
+}
+
+std::optional<std::int64_t> Prediction::flown_under(std::uint64_t step) const {
+    if (step >= steps_ || flown_under_.empty() || step < flown_under_.front().first) {
+        return std::nullopt;
+    }
+    // The last run begun at or before it.
+    const auto after = std::upper_bound(
+        flown_under_.begin(), flown_under_.end(), step,
+        [](std::uint64_t s, const std::pair<std::uint64_t, std::int64_t>& run) {
+            return s < run.first;
+        });
+    return std::prev(after)->second;
+}
+
+std::optional<std::uint64_t> Prediction::compared_at(std::uint64_t server_steps) const {
+    if (offsets_.empty()) {
+        return std::nullopt;
+    }
+    const std::int64_t now = *offsets_.value();
+    const auto server = static_cast<std::int64_t>(server_steps);
+    // The difference as now known first, then those either side of it: a
+    // difference moves a step at a time, and is kept a few seconds.
+    for (const std::int64_t by : {0, -1, 1, -2, 2, -3, 3}) {
+        const std::int64_t d = now + by;
+        const std::int64_t at = server - d;
+        if (at < 0) {
+            continue;
+        }
+        if (flown_under(static_cast<std::uint64_t>(at)) == d) {
+            return static_cast<std::uint64_t>(at);
+        }
+    }
+    return static_cast<std::uint64_t>(std::max<std::int64_t>(server - now, 0));
 }
 
 std::optional<double> Prediction::session_time_s() const {
@@ -459,6 +522,7 @@ std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) 
     }
     const std::int64_t offset = *offsets_.value();
     const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
+    anchor_ = offset;
     while (!held_.empty() && static_cast<std::int64_t>(held_.front().step) < at) {
         held_.pop_front();
     }

@@ -1876,6 +1876,81 @@ GLIDESLOPE_TEST(a_clocks_difference_is_held_against_a_sample_now_and_then_low_an
     check(word == 60 + 3000 + 60 + 3 * offset_window, "every word heard: " + std::to_string(word));
 }
 
+// **A word is compared at the step flown under the clocks' difference its
+// own step maps to** (sim::Prediction::compared_at), built: inputs of four
+// steps, each stamped as it is sent, the difference settled at 100 and the
+// prediction put right from a word placed by it. Then fifty words say 101 -
+// the window's least rises, and the figure with it, at once - while the steps
+// those words are about were flown under 100. A word about a step flown
+// under 100 must be compared at its server step less 100, not less 101 (the
+// placement by the difference as now known put it a step off, 1.38 m at an
+// F-22A's 300 kt); so must one about a step flown after the figure moved but
+// before anything was put right from under it - the prediction is placed by
+// the word last put right from, not by the figure. Put right from a word
+// placed at 101, the steps flown after are compared at less 101; and a step
+// not yet flown is placed as `hear_clock` places it. Five cases, counted.
+GLIDESLOPE_TEST(a_word_is_compared_at_the_step_flown_under_the_clocks_difference_its_step_maps_to_while_the_difference_moves) {
+    std::size_t cases = 0;
+    Aircraft a(data() / "jsbsim", "c172p");
+    set_up(a);
+    Controls c;
+    c.throttle = 0.7;
+    c.mixture = 1.0;
+    Prediction p(a);
+    const auto fly = [&](std::uint32_t from, std::uint32_t to) {
+        for (std::uint32_t i = from; i <= to; ++i) {
+            p.sent(i, p.steps());
+            for (int s = 0; s < 4; ++s) {
+                p.step(i, c);
+            }
+        }
+    };
+    const auto began = [&](std::uint32_t i) { return *p.began_at(i); };
+    fly(1, 60);
+    for (std::uint32_t i = 2; i <= 30; ++i) {
+        p.hear_clock(i, 0, began(i) + 100);
+    }
+    check(p.clocks_difference() == 100, "settled at 100");
+    (void)p.reconcile(a.motion(), 30, 0, began(30) + 100);
+    fly(61, 80);
+    for (std::uint32_t i = 31; i <= 80; ++i) {
+        p.hear_clock(i, 0, began(i) + 101);
+    }
+    check(p.clocks_difference() == 101,
+          "risen to 101, not " + std::to_string(p.clocks_difference().value_or(-1)));
+    ++cases;
+    // A step flown under 100, the figure now 101.
+    const std::uint64_t own = began(70) + 2;
+    check(p.compared_at(own + 100) == own,
+          "flown under 100: compared at " + std::to_string(p.compared_at(own + 100).value_or(0)) +
+              ", not its own " + std::to_string(own));
+    ++cases;
+    // Flown after the figure moved, nothing yet put right from under it.
+    fly(81, 85);
+    const std::uint64_t later = began(83) + 1;
+    check(p.flown_under(later) == 100 && p.compared_at(later + 100) == later,
+          "flown after the move, before a word placed by it: compared at " +
+              std::to_string(p.compared_at(later + 100).value_or(0)) + ", not " +
+              std::to_string(later));
+    ++cases;
+    // Put right from a word placed at 101; the steps flown after it are 101's.
+    const auto placed = p.hear_clock(85, 0, began(85) + 101);
+    check(placed == began(85), "placed by 101");
+    (void)p.reconcile_placed(a.motion(), 85, placed);
+    fly(86, 90);
+    const std::uint64_t after = began(88) + 3;
+    check(p.flown_under(after) == 101 && p.compared_at(after + 101) == after,
+          "flown under 101: compared at " + std::to_string(p.compared_at(after + 101).value_or(0)) +
+              ", not " + std::to_string(after));
+    ++cases;
+    // Not yet flown: by the difference as now known.
+    const std::uint64_t ahead = p.steps() + 5;
+    check(!p.flown_under(ahead) && p.compared_at(ahead + 101) == ahead,
+          "not yet flown: placed by the difference as now known");
+    ++cases;
+    check(cases == 5, "five cases: " + std::to_string(cases));
+}
+
 // **Through a gap without a word the pace flown is the one the loop has
 // learnt** (sim::Pacing::steered_without_a_word_s): steered 2% fast by a
 // difference two steps off, a client stopped 3 s flies the quarter second

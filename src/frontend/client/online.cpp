@@ -345,7 +345,7 @@ void Online::hear(Flight& flight) {
     const std::size_t let_go_before = flight.let_go();
     const auto settled = words_.settle(flight.steps_flown(), arrived_s_,
                                        [&](const Words::Placed& p) {
-                                           return flight.compare(p.word.motion, *p.at_step);
+                                           return flight.compare(p.word.motion, *p.at_step, p.word.server_steps);
                                        });
     if (!settled) {
         return;
@@ -651,7 +651,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                                                   : std::nullopt);
             words_.read(word, at, flight.steps_flown(), arrived_s_,
                         [&](const Words::Placed& p) {
-                            return flight.compare(p.word.motion, *p.at_step);
+                            return flight.compare(p.word.motion, *p.at_step, p.word.server_steps);
                         });
             if (own_words_ == 0) {
                 first_own_word_s_ = state.simulation_time_s;
