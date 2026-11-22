@@ -1766,12 +1766,14 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       requests leave it out (run 40770584919, train #387's 44716997224), and
       the nightly runs it five times a night (44418731482, 44832435697, all
       passed). Five tests are named now.
-- [ ] **On Windows the server's word is placed two steps off now and then**:
+- [x] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
-      percentile under a metre in ten runs.* 2026-10-29: the held-up-unevenly
-      test runs nightly until this is fixed; its red there is reported here
-      (CLAUDE.md: a named nightly test's red is not a red tree).
+      percentile under a metre in ten runs.* Done 2026-11-22: 7 mm in all
+      ten, by the clocks' difference held (the busy-machine item); the plain
+      least on the same build was 482 to 572 mm. The held-up-unevenly test is
+      back on pull requests (95th percentile 55 to 499 mm in ten Windows debug
+      runs). Figures: docs/status, 2026-11-22.
 - [x] **On a busy machine the server's word is placed a step off now and
       then**: a server held up unevenly moves the least of the clocks'
       difference, so the multi-process tests bound their 95th percentile by
