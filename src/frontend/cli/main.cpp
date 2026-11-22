@@ -2299,11 +2299,19 @@ public:
         resumed_from_ = sequence + 1;
         prediction_.reset();
         shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
-        words_.drop("let go of, not finite");
+        drop_words("let go of, not finite");
         keep_built();
         before_.clear();
         predicted_at_.clear();
         pacing_.hold();
+    }
+
+    // **The words held for a prediction let go of, dropped** - and the
+    // joined words compared in the pass, never to be put right from.
+    void drop_words(const std::string& why) {
+        words_.drop(why);
+        joined_let_go_ += joined_in_pass_.size();
+        joined_in_pass_.clear();
     }
 
     void heard(const glideslope::net::StatePacket& state, double local_s) {
@@ -2519,7 +2527,9 @@ public:
                            clock_.known() ? std::optional<double>(clock_.rate()) : std::nullopt);
         }
         words_.read(std::move(word), at, prediction_->steps(), local_s,
-                    [&](const Words::Placed& p) { return compare_word(p.word, *p.at_step); });
+                    [&](const Words::Placed& p) {
+                        return compare_word(p.word, *p.at_step, p.index);
+                    });
         answered_ = answered_ || state.last_input_applied > 0;
         if (resuming_ && state.last_input_applied >= resumed_from_) {
             resuming_ = false;
@@ -2533,7 +2543,8 @@ public:
     // - put back to each update and never flown forward again - would be
     // corrected by little at a time, and it is this, not the corrections,
     // that shows it.
-    glideslope::frontend::Held compare_word(const Unread& word, std::uint64_t at_step) {
+    glideslope::frontend::Held compare_word(const Unread& word, std::uint64_t at_step,
+                                            std::size_t index) {
         const glideslope::net::StatePacket& state = word.state;
         const double local_s = word.local_s;
         const bool across = word.across;
@@ -2561,6 +2572,12 @@ public:
                     worst_error_at_s_ = local_s;
                 }
                 ++compared_;
+                // Joined: in the pass it is put right in, it is the word
+                // put right from or one superseded (`joined words:`).
+                if (word.joined) {
+                    ++joined_compared_;
+                    joined_in_pass_.push_back(index);
+                }
                 // **The gust clock**: the moment this client met the air at,
                 // flying the step that is the word's own - found from the
                 // difference the word itself shows, not the estimate that
@@ -2836,10 +2853,24 @@ public:
         }
         const auto settled = words_.settle(
             prediction_->steps(), now_s ? *now_s : last_read_s_,
-            [&](const Words::Placed& p) { return compare_word(p.word, *p.at_step); });
+            [&](const Words::Placed& p) {
+                return compare_word(p.word, *p.at_step, p.index);
+            });
         if (!settled) {
             return;
         }
+        // **Every joined word compared this pass is the one put right from
+        // or superseded by it**, a newer word read with it: counted apart,
+        // so that a pass compared and not put right from is seen.
+        bool joined_put_right = false;
+        for (const std::size_t index : joined_in_pass_) {
+            if (index == settled->index) {
+                joined_put_right = true;
+            } else {
+                ++joined_superseded_;
+            }
+        }
+        joined_in_pass_.clear();
         const Unread& word = settled->word;
         const glideslope::net::StatePacket& state = word.state;
         const bool across = word.across;
@@ -2869,9 +2900,11 @@ public:
             glideslope::sim::Transition::Carried{
                 glideslope::net::stovl_pitch_integral(*state.yours)});
         if (prediction_->lost()) {
+            joined_let_go_ += joined_put_right ? 1 : 0;
             let_go(prediction_->newest());
             return;
         }
+        joined_put_right_from_ += joined_put_right ? 1 : 0;
         busy_for(static_cast<double>(c.replayed) * connect_slow_step_s);
         ++reconciled_in_pass_;
         replayed_in_pass_ += c.replayed;
@@ -2937,7 +2970,7 @@ public:
         resumed_from_ = sequence + 1;
         prediction_.reset();
         shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
-        words_.drop("a take-over");
+        drop_words("a take-over");
         keep_built();
         before_.clear();
         predicted_at_.clear();
@@ -2970,7 +3003,7 @@ public:
             resumed_from_ = sequence + 1;
             prediction_.reset();
             shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
-            words_.drop("a take-back");
+            drop_words("a take-back");
             keep_built();
             before_.clear();
             predicted_at_.clear();
@@ -2991,7 +3024,10 @@ public:
 
     // **The socket read dry**: the words put right since it last was, and
     // the steps flown again for them, counted (`report`, `reconciled:`).
-    void read_dry() {
+    void read_dry(double local_s = -1.0) {
+        if (track_ && local_s >= 0.0) {
+            *track_ << "pass " << local_s << ' ' << read_in_pass_ << '\n';
+        }
         ++read_dry_;
         most_reconciled_in_pass_ = std::max(most_reconciled_in_pass_, reconciled_in_pass_);
         most_replayed_in_pass_ = std::max(most_replayed_in_pass_, replayed_in_pass_);
@@ -3048,6 +3084,13 @@ public:
             (rendered_s_ < 0.0 && yours_ != glideslope::net::no_aircraft && !own_built())) {
             return;
         }
+        // **A frame drawn**: a joined word compared and still in the pass
+        // now was neither put right from nor superseded before it was
+        // (`joined words:`). Flying on before putting right is not this:
+        // the inputs flown since a word are flown again from it
+        // (`advance` before each input sent, mid-pass).
+        joined_left_ += joined_in_pass_.size();
+        joined_in_pass_.clear();
         // **How long between frames, and how much of it this client's**:
         // the CPU time its thread used, the sleeps it asked for and what its
         // files' writes waited. The rest is the machine's -
@@ -3295,6 +3338,18 @@ public:
         std::snprintf(line, sizeof line,
                       "predicted, joined: %zu corrections, the worst %.3f m, %zu too large to hide",
                       corrections_joined_, worst_correction_joined_m_, snapped_joined_);
+        lines.emplace_back(line);
+        // **Each joined word compared, put right from or superseded**: a
+        // client puts itself right once a pass, from the newest word read
+        // (frontend::OwnWords), so a pass of several words puts right from
+        // one; the rest are measured, and their corrections would be undone
+        // by the newest's before a frame was drawn. What this says is that
+        // no pass's words were compared and left without a putting right.
+        std::snprintf(line, sizeof line,
+                      "joined words: %zu compared, %zu put right from, %zu superseded by a "
+                      "newer read with them, %zu let go of, %zu drawn without either",
+                      joined_compared_, joined_put_right_from_, joined_superseded_,
+                      joined_let_go_, joined_left_);
         lines.emplace_back(line);
         std::snprintf(line, sizeof line,
                       "sent late: an input sent at most %llu steps after the step it is flown "
@@ -4332,6 +4387,16 @@ private:
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
     std::size_t corrections_joined_ = 0;
+    // Joined words compared (`joined words:`): in all; and of those, put
+    // right from, superseded by a newer read with them, in a pass whose
+    // prediction was let go of, or left unput right when a frame was drawn.
+    // The pass's, until it is put right.
+    std::size_t joined_compared_ = 0;
+    std::size_t joined_put_right_from_ = 0;
+    std::size_t joined_superseded_ = 0;
+    std::size_t joined_let_go_ = 0;
+    std::size_t joined_left_ = 0;
+    std::vector<std::size_t> joined_in_pass_;
     std::size_t snapped_joined_ = 0;
     double worst_correction_joined_m_ = 0.0;
     // **The work of putting it right**, per time the socket was read dry
@@ -5064,7 +5129,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         // replay nothing and fall a round trip behind: it stops predicting,
         // and measuring, there.
         if (predicting && drained && !finishing) {
-            predicting->read_dry();
+            predicting->read_dry(up_s);
             predicting->put_right(up_s);
             predicting->advance(up_s, sequence, stick);
             predicting->render(up_s);
