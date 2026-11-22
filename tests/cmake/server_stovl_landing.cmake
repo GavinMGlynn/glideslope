@@ -53,10 +53,11 @@
 # 200 KCAS), and within four steps' travel at the 330 kt she dives to at
 # worst (5.6 m: a step is 1.4 m there), over at least 3,000 updates; and her
 # predicted pitch within half a degree of the server's at every update
-# compared (0.154 at worst in 14 runs here, 0.190 on CI). Once
-# joined, the client must have been put right at least nine times in ten of
-# the updates compared, so that the 20 m is held over the prediction and
-# not over nothing.
+# compared (0.154 at worst in 14 runs here, 0.190 on CI). Nine in ten of
+# the words compared must be joined, and each put right from or superseded
+# by a newer word read with it, so that the 20 m is held over the
+# prediction and not over nothing (joined_words_check.cmake: how many are
+# put right from is how far apart the client's frames are).
 #
 # **A named limit, the one server_paced_prediction.cmake names: the clocks'
 # difference is known to a step, and on a busy machine some words are
@@ -218,14 +219,11 @@ set(_joined_worst "${CMAKE_MATCH_2}")
 if(NOT CMAKE_MATCH_3 EQUAL 0)
     message(FATAL_ERROR "${CMAKE_MATCH_3} corrections once joined were too large to hide:\n${_said}")
 endif()
-# **And the joined window is not empty**: the 20 m is held over at least
-# nine in ten of the updates compared - each compared update is a word heard
-# joined, so it is every one of them less a few heard together.
-math(EXPR _joined_least "${_compared} * 9 / 10")
-if(_joined LESS _joined_least)
-    message(FATAL_ERROR "only ${_joined} corrections once joined, under ${_joined_least} - nine in "
-                        "ten of the ${_compared} updates compared:\n${_said}")
-endif()
+# **And the joined window is not empty**: nine in ten of the words compared
+# were joined, and every one of them was put right from or superseded by a
+# newer word read with it (joined_words_check.cmake).
+include("${CMAKE_CURRENT_LIST_DIR}/joined_words_check.cmake")
+check_joined_words("${_said}" "${_compared}" _joined_words)
 if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its 95th percentile:\n${_said}")
 endif()
@@ -243,8 +241,8 @@ if(_median_mm GREATER 60)
 endif()
 message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
                "updates compared, the worst ${_worst_mm} mm, the 95th percentile ${_p95_mm} mm, "
-               "the median ${_median_mm} mm; ${_joined} corrections once joined (at least "
-               "${_joined_least}), the worst ${_joined_worst} m; her pitch within ${_pitch} "
+               "the median ${_median_mm} mm; ${_joined} corrections once joined, the "
+               "worst ${_joined_worst} m; ${_joined_words}; her pitch within ${_pitch} "
                "degrees of the server's")
 # **The machine's stalls**, capped and each recovered from
 # (machine_stalls_check.cmake): CI's Windows clang once went 5,214 ms between
