@@ -4238,11 +4238,15 @@ private:
         struct Kind {
             std::size_t count = 0;
             std::size_t later = 0;
+            // Later than the server, and for a word the estimate is held
+            // against (sim::ClockDifference): the rule's own, not a fault.
+            std::size_t excused = 0;
             std::int64_t most_steps = 0;
             double worst_m = 0.0;
             void add(std::int64_t steps, bool may_be_later, double error_m) {
                 ++count;
                 later += steps > 0 && may_be_later ? 1U : 0U;
+                excused += steps > 0 && !may_be_later ? 1U : 0U;
                 if (std::llabs(steps) > std::llabs(most_steps)) {
                     most_steps = steps;
                 }
@@ -4259,18 +4263,20 @@ private:
                 .add(off, may_be_later, error_m);
         }
         std::string said() const {
-            char line[512];
+            char line[640];
             std::snprintf(line, sizeof line,
                           "gust clock: %zu updates judged in air, %zu not; %zu flown at the "
                           "server's moment, the worst error %.3f m; %zu flown on another "
                           "estimate of the clocks' difference than the word's, %zu of them "
                           "later than the server with the estimate held above too many words, at most %lld steps out, the worst %.3f m; %zu "
-                          "out otherwise, at most %lld steps, the worst %.3f m",
+                          "out otherwise, at most %lld steps, the worst %.3f m; %zu later than "
+                          "the server for words the estimate is held against",
                           compared_, unjudged_, at_.count, at_.worst_m, estimate_off_.count,
                           estimate_off_.later,
                           static_cast<long long>(estimate_off_.most_steps),
                           estimate_off_.worst_m, wrong_.count,
-                          static_cast<long long>(wrong_.most_steps), wrong_.worst_m);
+                          static_cast<long long>(wrong_.most_steps), wrong_.worst_m,
+                          estimate_off_.excused);
             return line;
         }
     };

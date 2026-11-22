@@ -8,7 +8,7 @@ then".
   cores, on two checks the 95th percentile is not part of:
   - In every loaded run, before this change and after, fewer than nine in ten
     of the updates compared were corrections once joined: 1,999 to 2,198 of
-    3,000 before, 1,684 to 1,998 after. Under load, words come in batches of up
+    3,000 before, 1,684 to 2,122 after. Under load, words come in batches of up
     to 35, and all but the newest are compared without being put right from.
     This change does not cause it and does not cure it. It is named as a tail
     in the plan.
@@ -63,6 +63,12 @@ each new low too (508 to 457 in five changes over the same 0.7 s). That run
 was not repeated on the old code, so whether it would have been as far off is
 not shown. None of the ten runs before the change had such a slip.
 
+**After a slip the figure moves twice**: lowered to the 10th least on the
+10th slipped word, while the window still holds samples from before the slip,
+and again about the 20th, once ten more are below that. Each move puts the
+words of the round trip after it off again. The unit test does not pin this
+second move.
+
 ## The gust test's rule, rewritten
 
 `server_weather_gusts.cmake` asserted that no step was flown later than the
@@ -80,6 +86,18 @@ before it.
   would have lowered it.
 - The line said is now "... later than the server with the estimate held
   above too many words".
+- It also says how many later steps the rule excuses: "N later than the
+  server for words the estimate is held against". The test prints that count
+  but does not bound it, because an idle run may have none. Idle here, with
+  the committed code, one run had 0: 556 judged, 354 at the server's moment
+  and 202 early by one step. So the rule is not shown exercised by this test
+  idle. Its working is shown by the unit test, and by the loaded runs' 0 or
+  1 changes against 18 to 32.
+- **Seen red**: the figure set to the window's greatest sample plus 5 once
+  settled, which is held above every word. Then 553 of 553 steps were flown
+  later than the server "where its rule would have lowered it", and the test
+  failed on that check. Reverted. A first try, without returning before the
+  rule's own lowering, was undone by that lowering and stayed green.
 
 ## Verification
 
@@ -112,7 +130,7 @@ before it.
 
   The 95th percentile was under 10 cm in all ten runs, which meets the item's
   verification. All ten still failed the test, on the corrections-once-joined
-  check (1,684 to 2,122 of 3,000), and run 1 on its worst (the slip). The
+  check (1,684 to 2,122 of 3,000, against 1,999 to 2,198 before), and run 1 on its worst (the slip). The
   test's own bounds (3.4 m at the 95th percentile, 60 mm at the median) are
   left as they are: they are set from every platform's CI figures, and
   Windows' two-step spread is its own open item.
@@ -124,7 +142,15 @@ before it.
   - A run of 171 tests matching predict, pace, clock, gust, stovl, held_up,
     stopped_alone, behind_real_time, first_input, starved, weather and
     machine_stall: 152 passed and none failed when it was stopped for time.
-    The rest are left to CI.
+    After the review round, the other 19 and the unit test ran together at
+    `-j4`. 18 passed and 2 failed:
+    - `a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind`:
+      the wind changed by 0.080 m/s in a step, over 0.05.
+    - `prediction_interpolation_and_the_player_limit_hold_at_200_ms_with_jitter_and_loss`:
+      98 inputs were flown before the server applied one, over 90.
+
+    Run alone, each passed twice. They are not shown to be this change's,
+    nor shown not to be. A CI failure of either is to be read from its log.
   - The gust test with its new rule passed. It judged 554 updates in air: 279
     flown at the server's moment, 275 on another estimate, 0 later than the
     server, and 0 out otherwise. Its median was 0.029 m.
