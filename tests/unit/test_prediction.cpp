@@ -1787,6 +1787,95 @@ GLIDESLOPE_TEST(a_clocks_difference_is_sampled_from_where_each_input_was_sent_an
     check(cases == 3, "three cases: " + std::to_string(cases));
 }
 
+// **A clocks' difference is held against a sample now and then a step low,
+// and follows a server that slips, ten words late** (sim::ClockDifference).
+// Built as a busy machine makes it (docs/status, 2026-11-22): a server held
+// up unevenly reads most inputs one or two steps late and now and then one
+// at once, so most samples are 433 or 434 and about one in a hundred is 432.
+// Here, over 3,000 settled words: 433 and 434 by turns, every hundredth word
+// 432 - thirty lone lows - and three runs of two, three and four lows
+// together, as the loaded runs had them. A plain least changes at each low's
+// coming and going, and every change puts the next round trip's words a step
+// off; held, it must not change once. Then the server slips 30 steps: every
+// sample after is 30 lower, and the figure must follow on exactly the tenth
+// of them, no sooner and no later. Then its clock comes back 5 steps: the
+// figure must rise to the new least once the last of the lower samples has
+// left the window, fifty words on, as the least does. Four cases, counted.
+GLIDESLOPE_TEST(a_clocks_difference_is_held_against_a_sample_now_and_then_low_and_follows_a_server_that_slips_ten_words_late) {
+    using glideslope::sim::ClockDifference;
+    using glideslope::sim::offset_lowered_after;
+    using glideslope::sim::offset_window;
+    std::size_t cases = 0;
+    ClockDifference d;
+    std::size_t word = 0;
+    std::size_t lows = 0;
+    const auto settled_sample = [](std::size_t i) -> std::int64_t {
+        // Runs of lows together: 2 at 1,000, 3 at 1,700, 4 at 2,300.
+        const bool in_run = (i >= 1000 && i < 1002) || (i >= 1700 && i < 1703) ||
+                            (i >= 2300 && i < 2304);
+        if (in_run || i % 100 == 50) {
+            return 432;
+        }
+        return i % 2 == 0 ? 433 : 434;
+    };
+    // Settling: the first sixty words, no lows.
+    for (; word < 60; ++word) {
+        d.hear(word % 2 == 0 ? 433 : 434);
+    }
+    check(d.value() == 433, "settled at 433, not " + std::to_string(d.value().value_or(-1)));
+    ++cases;
+    std::size_t changes = 0;
+    std::int64_t was = *d.value();
+    for (std::size_t i = 60; i < 3060; ++i, ++word) {
+        const std::int64_t sample = settled_sample(i);
+        lows += sample == 432 ? 1U : 0U;
+        d.hear(sample);
+        if (*d.value() != was) {
+            ++changes;
+            was = *d.value();
+        }
+    }
+    check(lows == 30 + 9, "39 low samples built, not " + std::to_string(lows));
+    check(changes == 0, std::to_string(changes) + " changes over 3,000 words with " +
+                            std::to_string(lows) + " a step low, not none: figure " +
+                            std::to_string(*d.value()));
+    ++cases;
+    // Sixty words without a low, so that none is in the window when it slips
+    // (a low counts below the figure as a slipped sample does).
+    for (std::size_t i = 0; i < 60; ++i, ++word) {
+        d.hear(i % 2 == 0 ? 433 : 434);
+    }
+    // The server slips 30 steps.
+    std::size_t followed_on = 0;
+    for (std::size_t i = 1; i <= offset_window; ++i, ++word) {
+        d.hear(i % 2 == 0 ? 403 : 404);
+        if (followed_on == 0 && *d.value() < 433) {
+            followed_on = i;
+            check(*d.value() == 403 || *d.value() == 404,
+                  "lowered to the slipped clock's, not " + std::to_string(*d.value()));
+        }
+    }
+    check(followed_on == offset_lowered_after,
+          "a slip of 30 steps followed on word " + std::to_string(followed_on) + ", not the " +
+              std::to_string(offset_lowered_after) + "th");
+    ++cases;
+    // Its clock comes back 5 steps: 408 and 409. The figure stays 403 or 404
+    // until the last of the slipped samples has gone.
+    std::size_t risen_on = 0;
+    for (std::size_t i = 1; i <= 2 * offset_window; ++i, ++word) {
+        d.hear(i % 2 == 0 ? 408 : 409);
+        if (risen_on == 0 && *d.value() >= 408) {
+            risen_on = i;
+        }
+    }
+    check(risen_on == offset_window && d.value() == 408,
+          "risen on word " + std::to_string(risen_on) + " to " + std::to_string(*d.value()) +
+              ", not on the 50th to 408");
+    ++cases;
+    check(cases == 4, "four cases: " + std::to_string(cases));
+    check(word == 60 + 3000 + 60 + 3 * offset_window, "every word heard: " + std::to_string(word));
+}
+
 // **Through a gap without a word the pace flown is the one the loop has
 // learnt** (sim::Pacing::steered_without_a_word_s): steered 2% fast by a
 // difference two steps off, a client stopped 3 s flies the quarter second

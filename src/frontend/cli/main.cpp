@@ -2219,7 +2219,13 @@ public:
                                      shown_window_.empty()
                                          ? std::nullopt
                                          : std::optional<std::int64_t>(*std::min_element(
-                                               shown_window_.begin(), shown_window_.end()))});
+                                               shown_window_.begin(), shown_window_.end())),
+                                     difference ? std::count_if(shown_window_.begin(),
+                                                                shown_window_.end(),
+                                                                [d = *difference](std::int64_t v) {
+                                                                    return v < d;
+                                                                })
+                                                : 0});
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
@@ -2567,19 +2573,25 @@ public:
                         const std::int64_t off = std::llround(
                             (*truly->air_at_s - state.simulation_time_s) *
                             static_cast<double>(glideslope::sim::steps_per_second));
-                        // **Later than the server is a fault only for a word
-                        // not below the least of the words' own differences
-                        // when the step was flown** (`shown_least`): the
-                        // estimate is the least of the words before it, each
-                        // sampled no later than its own difference, and a
-                        // word setting a new least shows the server flew it
-                        // sooner than any of them.
-                        const bool not_a_new_least =
-                            truly->shown_least &&
-                            *word.shown_difference >= *truly->shown_least;
+                        // **Later than the server is a fault only where the
+                        // estimate stood above as many of the words' own
+                        // differences as would have lowered it**
+                        // (`shown_below`). Once settled the estimate is held
+                        // above fewer than `offset_lowered_after` of the
+                        // samples before the step (sim::ClockDifference), each
+                        // sampled no later than its own word's difference -
+                        // so above fewer of the words' own. A word under it is
+                        // one of the few it is held against, flown later than
+                        // the server by the gap: that is the estimate's
+                        // design, not a fault. Until 2026-11-22 the estimate
+                        // was the least, none was below it, and any later word
+                        // that set no new least was one.
+                        const bool a_fault_if_later =
+                            truly->shown_below >=
+                            static_cast<std::ptrdiff_t>(glideslope::sim::offset_lowered_after);
                         gust_clock_.compared(off,
                                              *truly->clocks_difference - *word.shown_difference,
-                                             not_a_new_least, error);
+                                             a_fault_if_later, error);
                     } else {
                         ++gust_clock_.unjudged_;
                     }
@@ -4115,6 +4127,10 @@ private:
         std::optional<std::int64_t> clocks_difference;
         // And the least of the words' own differences then (`shown_window_`).
         std::optional<std::int64_t> shown_least;
+        // And how many of them were below the clocks' difference it was flown
+        // with (sim::ClockDifference holds it above fewer than
+        // `offset_lowered_after`).
+        std::ptrdiff_t shown_below = 0;
     };
     // **A motion's pitch**, degrees, from its quaternion (north-east-down to
     // the body, scalar first) - the same sum for the server's word and this
@@ -4239,12 +4255,12 @@ private:
                 .add(off, may_be_later, error_m);
         }
         std::string said() const {
-            char line[448];
+            char line[512];
             std::snprintf(line, sizeof line,
                           "gust clock: %zu updates judged in air, %zu not; %zu flown at the "
                           "server's moment, the worst error %.3f m; %zu flown on another "
                           "estimate of the clocks' difference than the word's, %zu of them "
-                          "later than the server and not for a new least, at most %lld steps out, the worst %.3f m; %zu "
+                          "later than the server with the estimate held above too many words, at most %lld steps out, the worst %.3f m; %zu "
                           "out otherwise, at most %lld steps, the worst %.3f m",
                           compared_, unjudged_, at_.count, at_.worst_m, estimate_off_.count,
                           estimate_off_.later,
