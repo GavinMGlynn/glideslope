@@ -482,16 +482,23 @@ std::optional<std::uint64_t> Prediction::compared_at(std::uint64_t server_steps)
     }
     const std::int64_t now = *offsets_.value();
     const auto server = static_cast<std::int64_t>(server_steps);
-    // The difference as now known first, then those either side of it: a
-    // difference moves a step at a time, and is kept a few seconds.
-    for (const std::int64_t by : {0, -1, 1, -2, 2, -3, 3}) {
-        const std::int64_t d = now + by;
+    // The difference as now known first, then every one a kept step was
+    // flown under, newest first: a difference may move by many steps at
+    // once - the least of the window rising with a client paced slow - and
+    // a word about a step flown before is still placed by that step's.
+    const auto maps = [&](std::int64_t d) -> std::optional<std::uint64_t> {
         const std::int64_t at = server - d;
-        if (at < 0) {
-            continue;
+        if (at < 0 || flown_under(static_cast<std::uint64_t>(at)) != d) {
+            return std::nullopt;
         }
-        if (flown_under(static_cast<std::uint64_t>(at)) == d) {
-            return static_cast<std::uint64_t>(at);
+        return static_cast<std::uint64_t>(at);
+    };
+    if (const auto at = maps(now)) {
+        return at;
+    }
+    for (auto run = flown_under_.rbegin(); run != flown_under_.rend(); ++run) {
+        if (const auto at = maps(run->second)) {
+            return at;
         }
     }
     return static_cast<std::uint64_t>(std::max<std::int64_t>(server - now, 0));

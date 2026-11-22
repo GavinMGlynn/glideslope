@@ -1892,7 +1892,9 @@ GLIDESLOPE_TEST(a_clocks_difference_is_held_against_a_sample_now_and_then_low_an
 // a server step that maps to no step here is placed by the difference as now
 // known; fallen, one that maps to two is placed by the difference as now
 // known first; a word adopted anchors the steps after it; and a step older
-// than the steps a client keeps is no longer known. Nine cases, counted.
+// than the steps a client keeps is no longer known; and a difference risen
+// five steps at once still places a step flown under the old one by it.
+// Ten cases, counted.
 GLIDESLOPE_TEST(a_word_is_compared_at_the_step_flown_under_the_clocks_difference_its_step_maps_to_while_the_difference_moves) {
     std::size_t cases = 0;
     Aircraft a(data() / "jsbsim", "c172p");
@@ -2008,7 +2010,23 @@ GLIDESLOPE_TEST(a_word_is_compared_at_the_step_flown_under_the_clocks_difference
               p.flown_under(p.steps() - 1) == 102,
           "trimmed: the first step still known");
     ++cases;
-    check(cases == 9, "nine cases: " + std::to_string(cases));
+    // **Risen five steps at once**: fifty words at 107 - a client paced slow
+    // whose window's least rose by five together (macOS release, train #406:
+    // placed 9 steps off). A step flown under 102 is compared under 102, not
+    // by the figure or the three either side of it.
+    const std::uint32_t next = p.newest() + 1;
+    fly(next, next + 60);
+    const std::uint64_t under_102 = *p.began_at(next + 55) + 1;
+    for (std::uint32_t i = next; i < next + 50; ++i) {
+        p.hear_clock(i, 0, began(i) + 107);
+    }
+    check(p.clocks_difference() == 107 && p.flown_under(under_102) == 102 &&
+              p.compared_at(under_102 + 102) == under_102,
+          "risen five at once: compared at " +
+              std::to_string(p.compared_at(under_102 + 102).value_or(0)) + ", not " +
+              std::to_string(under_102));
+    ++cases;
+    check(cases == 10, "ten cases: " + std::to_string(cases));
 }
 
 // **Through a gap without a word the pace flown is the one the loop has

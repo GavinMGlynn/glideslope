@@ -51,7 +51,9 @@ slip (`--test-say-slipped`).
   placed by the difference as it was then. That is the difference the step
   was flown under, kept by step for the steps a client keeps. A word is
   compared at the step whose difference maps it to its own server step,
-  trying the figure as now known first, then up to three either side. The
+  trying the figure as now known first, then every difference a kept
+  step was flown under, newest first (at first only three either side; see
+  train #406 below). The
   estimate, and where the prediction is put right from, are as before.
   Both clients compare so (glideslope_cli's `compare_word`, the window
   client's `Flight::compare`). glideslope_cli now also says the off-path
@@ -129,6 +131,29 @@ tests.
   step is placed by the newest figure. Fallen: a step mapped twice takes
   the newest figure's. Adopt anchors the steps after it. A step older than
   the four seconds kept is no longer known.
+
+**From train #406 (run 44986945608, macOS macos-release): the F-22A's
+held-up twin failed the 0.1 m bound.** Its 95th percentile was 1.379 m,
+the 99th 12.4 m and the worst 13.8 m. Off the path, the worst was 1 mm.
+Some words were placed up to 9 steps along the path. Its client flew 3,347
+steps while the server flew 3,360, and the clocks' difference moved 13
+steps. Linux release here, by hand with `--track`, three runs beside 10
+busy loops: the figure moved 7, 11 and 20 times, once five steps at once
+(259 to 264), and six times in a third of a second. Debug's three moves a
+run were each one step. `compared_at` tried only the figure and three
+either side of it. A step flown under a difference more than three from
+the figure was placed by the figure: a jump of five or more, or several
+moves inside a round trip. **Fixed**: it now tries every difference a
+kept step was flown under. Seen red with the ±3 search on a new unit case
+(fifty words at once risen five steps): "compared at 1408, not 1413".
+Linux release, the three runs with the fix: 95th percentile 0.000, 0.001
+and 0.001 m; off-path 95th 0.4 to 0.5 mm; 0.6, 0.7 and 1.6% of words over
+half a metre. Through ctest on Linux release, twice beside 10 busy loops,
+both twins passed: every 95th percentile 0.000 or 0.001 m, the worst 6.9 m.
+**Still not fixed**: those words are the server steps a
+rising difference maps to no step here (named above). Their share grows
+with the figure's moves. macOS's own share is not measured here, and CI is
+its run.
 
 **Before the fix** (the figures that kept the item open):
 - Unloaded, one run:
