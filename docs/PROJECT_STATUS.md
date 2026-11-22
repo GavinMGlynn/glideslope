@@ -214,7 +214,9 @@ are held two seconds holding its clocks' difference within two steps in
 the pacing unit test (2026-11-21), and its clocks' difference held
 against a sample now and then a step low, so that beside twice as many
 busy loops as cores the STOVL selector's 95th percentile is 1 to 3 mm, not
-0.87 m, and on Windows the paced test's 99th percentile is 7 mm, not the
+0.87 m, and every word there is put right from or superseded by a newer
+one before a frame is drawn - but the test still fails 3 runs in 10 there,
+on a server's slip or a machine's stall - and on Windows the paced test's 99th percentile is 7 mm, not the
 half-metre to 1.1 m of words placed two steps off by its 15.6 ms timers
 (2026-11-22); a prediction
 given a NaN as an input, or left with one by a step, is let go of and
