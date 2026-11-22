@@ -30,13 +30,20 @@
 #   out by exactly as much - which a client cannot know until the word says
 #   so, and is the open part of COMPLETION_PLAN.md's item; or out otherwise,
 #   which is a wrong gust clock. At least 300 judged; none out otherwise; and
-#   none flown later than the server flew it, but for a word setting a new
-#   least: a step is flown on the least of the samples of the 50 words
-#   before it (sim::offset_window), which leaves out the word judged and
-#   drops old words - so a word is judged late only if its own difference
-#   is not below the least of those words' own differences when the step was
-#   flown (each sample is no more than its word's difference, being taken
-#   from when the input was sent, not begun). **Not caught**:
+#   none flown later than the server flew it where the estimate it was flown
+#   on stood above ten or more of the 50 words' own differences before it.
+#   Since 2026-11-22 the estimate is held, once settled, against a sample now
+#   and then a step low: it is lowered only when ten of the window's samples
+#   are below it (sim::ClockDifference, offset_lowered_after), so it stands
+#   above up to nine, and a step flown for one of those words is flown later
+#   than the server by design - that is how it stops moving on a busy
+#   machine. What is asserted is the estimate's own rule seen from outside:
+#   each sample is no more than its word's difference (taken from when the
+#   input was sent, not begun), so fewer than ten samples below means fewer
+#   than ten words' own differences below, and a later step with ten or more
+#   below is an estimate held where its rule would have lowered it. Until
+#   2026-11-22 the estimate was the least and this asserted that no step was
+#   flown later but for a word setting a new least. **Not caught**:
 #   an estimate wrong early, by a step or more - it is out that way by
 #   design in about half the updates, by 1 to 3 steps. Those not judged (an
 #   input not begun here, a step no longer kept) are counted and said;
@@ -119,7 +126,7 @@ set(_median ${CMAKE_MATCH_1})
 set(_clock_said "gust clock: ([0-9]+) updates judged in air, ([0-9]+) not; ([0-9]+) flown at ")
 string(APPEND _clock_said "the server's moment, the worst error ([0-9.]+) m; ([0-9]+) flown on ")
 string(APPEND _clock_said "another estimate of the clocks' difference than the word's, ([0-9]+) of ")
-string(APPEND _clock_said "them later than the server and not for a new least, at most ")
+string(APPEND _clock_said "them later than the server with the estimate held above too many words, at most ")
 string(APPEND _clock_said "(-?[0-9]+) steps out, the worst ([0-9.]+) m; ([0-9]+) out otherwise, ")
 string(APPEND _clock_said "at most (-?[0-9]+) steps")
 if(NOT _said MATCHES "${_clock_said}")
@@ -148,10 +155,10 @@ if(_judged LESS 300)
                         "20 s gives:\n${_said}")
 endif()
 if(NOT _later EQUAL 0)
-    message(FATAL_ERROR "${_later} steps were flown later than the server flew them, not "
-                        "for a word setting a new least: the estimate a step was flown on is "
-                        "the least of the samples of the words before it, each no more than "
-                        "its word's own difference:\n${_said}")
+    message(FATAL_ERROR "${_later} steps were flown later than the server flew them on an "
+                        "estimate standing above ten or more of the 50 words' own differences "
+                        "before it - where its rule (sim::ClockDifference) would have lowered "
+                        "it:\n${_said}")
 endif()
 if(NOT _wrong EQUAL 0)
     message(FATAL_ERROR "${_wrong} of ${_judged} steps judged met the gusts at another moment "

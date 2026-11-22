@@ -71,6 +71,11 @@
 # 1.22 and 1.28 m with the worst 2.99 and 3.56 m (runs 38517430777,
 # 38531751565). The bound was 10 cm for 95 in a hundred, set from idle runs,
 # and no busy runner met it: one update in twenty a step off is 0.86 m.
+# Since 2026-11-22 the difference is held once settled, lowered only when
+# ten of the fifty are below it (sim::ClockDifference): beside twice as many
+# busy loops as cores the 95th percentile went to 1 to 3 mm in ten runs, from
+# 0.87 m in six of ten. The bounds below are left at every platform's CI
+# figures until Windows' two-step spread, its own item, is done.
 # Lowest 778 to 1,013 ft above the ground, 200 KCAS at the end.
 #
 # **The bounds are CI's figures, every platform's, with headroom

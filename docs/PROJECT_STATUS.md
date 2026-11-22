@@ -211,7 +211,10 @@ slow start no longer owed and caught up after it, and one whose every
 frame is held a second paced by each frame's words as one look, put right
 by 7 m at worst beside 24 busy loops (2026-11-19), and one whose frames
 are held two seconds holding its clocks' difference within two steps in
-the pacing unit test (2026-11-21); a prediction
+the pacing unit test (2026-11-21), and its clocks' difference held
+against a sample now and then a step low, so that beside twice as many
+busy loops as cores the STOVL selector's 95th percentile is 1 to 3 mm, not
+0.87 m (2026-11-22); a prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only

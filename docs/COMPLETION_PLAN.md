@@ -1778,33 +1778,28 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       percentile under a metre in ten runs.* 2026-10-29: the held-up-unevenly
       test runs nightly until this is fixed; its red there is reported here
       (CLAUDE.md: a named nightly test's red is not a red tree).
-- [ ] **On a busy machine the server's word is placed a step off now and
+- [x] **On a busy machine the server's word is placed a step off now and
       then**: a server held up unevenly moves the least of the clocks'
       difference, so the multi-process tests bound their 95th percentile by
       steps' travel, not centimetres. *Verification: with twice as many busy
       loops as cores beside it, the STOVL selector test's 95th percentile
-      under 10 cm in ten runs.* 2026-10-16: until then that test holds it
-      to four steps (3.4 m) and its median to 60 mm, from CI's figures.
-      2026-10-23: CI's Windows placed the first-input test's words 5 and 18
-      steps off (24.7 m), no client frame over 171 ms; that test holds its
-      updates to the path flown instead. 2026-10-29: the STOVL join with its
-      first datagrams lost reached a 77 mm median on Windows, along her
-      path, its cause unknown; it is held to 120 mm. 2026-10-29: under load the
-      STOVL join's pitch went 0.5 to 0.9 degrees off at the right step (not
-      placement): her jet-borne law's state, which no word carries, drifts
-      from the server's, mostly during B's 150 unselected inputs. CI 0.592
-      once; the tests stay on pull requests until a second CI failure.
-      2026-10-30: CI's Windows debug placed the STOVL at-once test's words 11
-      steps off (run 40829041494), 0.032 degree of pitch; it judges pitch
-      where she was. 2026-10-30: the lost-datagram STOVL join test (four CI
-      failures) and the starved F-35B's placement (twice) run nightly, named
-      in tests/cmake/nightly_tests.cmake, until this item is done.
-      2026-11-01: the mid-bank STOVL join (no datagrams lost) reached a
-      64 mm median on CI's Windows debug, run 41284303752, its first
-      failure; 2026-11-02: 61 mm on #298's run 41397416052, its second, and
-      it moved to nightly (tests/cmake/nightly_tests.cmake), the 60 mm bound
-      kept; its nightly result is reported here. 2026-11-20 nightly
-      44832435697: the lost-datagram STOVL join failed (shard 4 of 8).
+      under 10 cm in ten runs.* Done 2026-11-22: the clocks' difference is
+      held once settled, lowered only when 10 of its 50 words are below it;
+      the 95th percentile was 0.001 to 0.003 m in ten loaded runs, against
+      0.87 m in six of ten before. Named: a server that really slips is
+      followed 10 words late, and a slip of 50 steps over 0.7 s put one run
+      39 m off. History and figures: docs/status, 2026-11-22.
+- [ ] **The F-35B tests moved to nightly under the busy-machine item come
+      back to pull requests**: three (tests/cmake/nightly_tests.cmake), two
+      of them her jet-borne law's state drifting, which no word carries, not
+      placement. *Verification: each passes in seven nights in a row and
+      moves back, or its own cause is named and fixed.* The 2026-11-20
+      nightly failed the lost-datagram join (shard 4 of 8).
+- [ ] **Under load fewer than nine in ten of the STOVL selector test's
+      updates are corrections once joined**: words come in batches of up to
+      35 and all but the newest are compared, not put right from (1,684 to
+      2,198 of 3,000). *Verification: with twice as many busy loops as cores
+      beside it, the STOVL selector test passes in ten runs.*
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
       enough for a predicting client. *Verification: a client predicting over hills
