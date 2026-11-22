@@ -233,7 +233,8 @@ agrees: the F-35B, C172P and F-22A within the first-input test's bounds,
 every hold-up counted; each word is compared at the step flown under the
 clocks' difference it maps to, and the 95th percentile is under 2 mm
 (was a step's travel, 1.38 m, as the difference moved). The worst word is
-still up to 2.76 m: when the difference rises, one server step maps to no
+still up to 2.76 m in debug and 6.9 m in release, and 0.6 to 1.6% of words
+are over half a metre: when the difference rises, a server step maps to no
 step here and is placed by the newest figure (2026-11-22).
 The window client is held to the command-line client's bound by a test too:
 in the C172P, flying a pilot's changing controls against a server at 0.6 of
