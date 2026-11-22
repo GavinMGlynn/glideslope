@@ -1888,7 +1888,11 @@ GLIDESLOPE_TEST(a_clocks_difference_is_held_against_a_sample_now_and_then_low_an
 // before anything was put right from under it - the prediction is placed by
 // the word last put right from, not by the figure. Put right from a word
 // placed at 101, the steps flown after are compared at less 101; and a step
-// not yet flown is placed as `hear_clock` places it. Five cases, counted.
+// not yet flown is placed as `hear_clock` places it. And the edges: risen,
+// a server step that maps to no step here is placed by the difference as now
+// known; fallen, one that maps to two is placed by the difference as now
+// known first; a word adopted anchors the steps after it; and a step older
+// than the steps a client keeps is no longer known. Nine cases, counted.
 GLIDESLOPE_TEST(a_word_is_compared_at_the_step_flown_under_the_clocks_difference_its_step_maps_to_while_the_difference_moves) {
     std::size_t cases = 0;
     Aircraft a(data() / "jsbsim", "c172p");
@@ -1948,7 +1952,63 @@ GLIDESLOPE_TEST(a_word_is_compared_at_the_step_flown_under_the_clocks_difference
     check(!p.flown_under(ahead) && p.compared_at(ahead + 101) == ahead,
           "not yet flown: placed by the difference as now known");
     ++cases;
-    check(cases == 5, "five cases: " + std::to_string(cases));
+    // **Risen, one server step maps to none of these**: the first step flown
+    // under 101 is began(86); the server's step began(86) + 100 is neither
+    // that step under 100 nor the one before under 101, and is placed by the
+    // difference as now known - a step before.
+    const std::uint64_t first_101 = began(86);
+    check(p.flown_under(first_101) == 101 && p.flown_under(first_101 - 1) == 100 &&
+              p.compared_at(first_101 + 100) == first_101 - 1,
+          "risen, unmapped: placed at " +
+              std::to_string(p.compared_at(first_101 + 100).value_or(0)) + ", not " +
+              std::to_string(first_101 - 1));
+    ++cases;
+    // **Fallen, one server step maps to two**: ten words at 100 lower the
+    // figure; put right from a word placed by it, the steps after are
+    // 100's. The server's step began(106) + 100 is that step under 100 and
+    // the one before under 101; the difference as now known is tried first.
+    fly(91, 105);
+    for (std::uint32_t i = 91; i <= 100; ++i) {
+        p.hear_clock(i, 0, began(i) + 100);
+    }
+    check(p.clocks_difference() == 100,
+          "fallen to 100, not " + std::to_string(p.clocks_difference().value_or(-1)));
+    const auto fallen = p.hear_clock(101, 0, began(101) + 100);
+    (void)p.reconcile_placed(a.motion(), 101, fallen);
+    fly(106, 110);
+    const std::uint64_t first_100 = began(106);
+    check(p.flown_under(first_100) == 100 && p.flown_under(first_100 - 1) == 101 &&
+              p.compared_at(first_100 + 100) == first_100,
+          "fallen, mapped twice: placed at " +
+              std::to_string(p.compared_at(first_100 + 100).value_or(0)) + ", not " +
+              std::to_string(first_100));
+    ++cases;
+    // **A word adopted anchors the steps after it**: fifty words at 102
+    // raise the figure; adopted (a take-over's word), the steps flown after
+    // are 102's, where the last put right from was placed by 100.
+    fly(111, 165);
+    for (std::uint32_t i = 111; i <= 160; ++i) {
+        p.hear_clock(i, 0, began(i) + 102);
+    }
+    check(p.clocks_difference() == 102, "risen to 102");
+    fly(166, 166);
+    const std::uint64_t before_adopt = p.steps() - 1;
+    (void)p.adopt(a.motion(), began(160) + 102);
+    fly(167, 167);
+    const std::uint64_t after_adopt = p.steps() - 1;
+    check(p.flown_under(before_adopt) == 100 && p.flown_under(after_adopt) == 102,
+          "adopted: flown under " + std::to_string(p.flown_under(after_adopt).value_or(-1)) +
+              ", not 102");
+    ++cases;
+    // **Kept as far back as the steps a client keeps**: four seconds and
+    // more on, the step compared at first is no longer known, and is placed
+    // by the difference as now known.
+    fly(168, 168 + static_cast<std::uint32_t>(glideslope::sim::most_unacknowledged / 4) + 10);
+    check(!p.flown_under(own) && p.compared_at(own + 102) == own &&
+              p.flown_under(p.steps() - 1) == 102,
+          "trimmed: the first step still known");
+    ++cases;
+    check(cases == 9, "nine cases: " + std::to_string(cases));
 }
 
 // **Through a gap without a word the pace flown is the one the loop has
