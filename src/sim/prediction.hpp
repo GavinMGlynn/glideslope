@@ -277,9 +277,6 @@ public:
     // against a sample now and then a step low - which places the server's
     // word on this client's clock. Nothing before a word has said any.
     std::optional<std::int64_t> clocks_difference() const { return offsets_.value(); }
-    // How many of the window's samples are below `d`: fewer than
-    // `offset_lowered_after` below the figure, once it is settled.
-    std::size_t samples_below(std::int64_t d) const { return offsets_.below(d); }
     // **The same over the last `pace_window` words only** - what a pace is
     // steered by. The least of two seconds of the server's words is ten of
     // real time from a server at a fifth of it, and a loop steered through

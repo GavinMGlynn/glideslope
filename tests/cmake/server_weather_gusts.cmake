@@ -141,9 +141,17 @@ set(_later ${CMAKE_MATCH_6})
 set(_most_estimate_off ${CMAKE_MATCH_7})
 set(_worst_estimate_off ${CMAKE_MATCH_8})
 set(_wrong ${CMAKE_MATCH_9})
+# CMake keeps nine groups, so the later steps the estimate's rule excuses
+# are matched apart: said, to show the rule exercised, not bounded - an idle
+# run may have none.
+if(NOT _said MATCHES "gust clock: [^\n]*; ([0-9]+) later than the server for words the estimate is held against")
+    message(FATAL_ERROR "the client did not say the later steps its estimate excuses:\n${_said}")
+endif()
+set(_excused ${CMAKE_MATCH_1})
 message(STATUS "in gusts, ${_judged} updates judged in air (${_unjudged} not): ${_at_moment} "
                "flown at the server's moment, the worst error ${_worst_at_moment} m; "
-               "${_estimate_off} on another estimate than the word's (${_later} later than the server, at most "
+               "${_estimate_off} on another estimate than the word's (${_later} later than the server where "
+               "its rule would have lowered it, ${_excused} later for words it is held against, at most "
                "${_most_estimate_off} steps out), the worst ${_worst_estimate_off} m; ${_wrong} "
                "out otherwise. The median ${_median} m, the worst ${_worst} m at ${_worst_at} s")
 math(EXPR _kinds "${_at_moment} + ${_estimate_off} + ${_wrong}")
