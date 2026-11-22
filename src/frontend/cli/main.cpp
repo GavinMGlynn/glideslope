@@ -3049,22 +3049,36 @@ public:
         // is counted as its own, since it cannot be told from that. A wait
         // of its own that is none of these - a blocking call it has not
         // timed - is counted the machine's; the test bounds that share.
+        // **Timed where its CPU time is read**, not at the top of the pass
+        // that draws it: what this pass did before drawing - the words it
+        // put right from, the steps it flew - was the CPU time of this
+        // frame and the wall time of the next, and a client busy 300 ms
+        // there of its own was said to be the machine's 300 ms.
         const double cpu_s = glideslope::platform::thread_cpu_s();
-        if (rendered_s_ >= 0.0) {
-            const double between = local_s - rendered_s_;
-            const double own = (cpu_s >= 0.0 && cpu_at_frame_s_ >= 0.0
-                                    ? cpu_s - cpu_at_frame_s_
-                                    : between) +
-                               asked_s_ +
-                               (own_writes_waited_s - writes_waited_at_frame_s_);
+        const double timed_s = since_began();
+        if (rendered_s_ >= 0.0 && timed_at_s_ >= 0.0) {
+            const double between = timed_s - timed_at_s_;
+            const double cpu = cpu_s >= 0.0 && cpu_at_frame_s_ >= 0.0
+                                   ? cpu_s - cpu_at_frame_s_
+                                   : between;
+            const double written = own_writes_waited_s - writes_waited_at_frame_s_;
+            const double own = cpu + asked_s_ + written;
             if (between > longest_between_frames_s_) {
                 longest_between_frames_s_ = between;
                 longest_machines_s_ = std::max(0.0, between - own);
             }
-            longest_own_between_frames_s_ =
-                std::max(longest_own_between_frames_s_, std::min(between, own));
+            // **And what the longest of its own was made of**, and when: a
+            // thread's CPU time on a virtual machine counts the machine not
+            // running it while it worked, which nothing here can tell from
+            // its own work - said, so that a long one is placed and read
+            // (nightly 44954156532: 401 ms of its own, no work known there).
+            if (std::min(between, own) > longest_own_between_frames_s_) {
+                longest_own_between_frames_s_ = std::min(between, own);
+                longest_own_parts_ = {cpu, asked_s_, written, timed_s};
+            }
         }
         cpu_at_frame_s_ = cpu_s;
+        timed_at_s_ = timed_s;
         writes_waited_at_frame_s_ = own_writes_waited_s;
         asked_s_ = 0.0;
         rendered_s_ = local_s;
@@ -3506,9 +3520,13 @@ public:
         std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn, %zu of them carried on "
                       "past the newest update; the longest between frames %.0f ms, %.0f ms of "
                       "it the machine's, not running it; the longest of this client's own %.0f "
-                      "ms",
+                      "ms, ending at %.3f s: %.0f ms of its thread's CPU time, %.0f ms asleep "
+                      "as it asked and %.0f ms waiting on its files' writes",
                       shown_, extrapolated_, longest_between_frames_s_ * 1000.0,
-                      longest_machines_s_ * 1000.0, longest_own_between_frames_s_ * 1000.0);
+                      longest_machines_s_ * 1000.0, longest_own_between_frames_s_ * 1000.0,
+                      longest_own_parts_.at_s, longest_own_parts_.cpu_s * 1000.0,
+                      longest_own_parts_.asked_s * 1000.0,
+                      longest_own_parts_.written_s * 1000.0);
         lines.emplace_back(line);
         for (const std::string& b : builds_) {
             lines.push_back("built: " + b);
@@ -4096,11 +4114,22 @@ private:
     glideslope::frontend::MachineStalls stalls_;
     // Of the longest between frames, the time that was not this client's.
     double longest_machines_s_ = 0.0;
-    // The longest of this client's own between two frames (`render`).
+    // The longest of this client's own between two frames (`render`), and
+    // its parts: its thread's CPU time, the sleeps it asked for and its
+    // files' writes' waits, and when on this machine's clock it ended.
     double longest_own_between_frames_s_ = 0.0;
+    struct OwnParts {
+        double cpu_s = 0.0;
+        double asked_s = 0.0;
+        double written_s = 0.0;
+        double at_s = 0.0;
+    };
+    OwnParts longest_own_parts_;
     // Since the last frame: its thread's CPU time then, and what its files'
     // writes had waited then; the sleep it asked for.
     double cpu_at_frame_s_ = -1.0;
+    // And on this machine's clock then (`render`), read with it.
+    double timed_at_s_ = -1.0;
     double writes_waited_at_frame_s_ = 0.0;
     double asked_s_ = 0.0;
     // The same since the last pass (`pass`), and when it began.
