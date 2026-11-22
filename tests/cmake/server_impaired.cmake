@@ -281,6 +281,8 @@ endif()
 # which are made for it, so that the guessing and the blending back were
 # drawn and judged, not only the plain interpolating between two updates.
 # (Left to random loss, a run at 100 ms on CI had none.)
+# Nine groups: CMAKE_MATCH_1 to _9 are all CMake keeps, so a tenth cannot be
+# added to this expression.
 if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's, not running it; the longest of this client's own ([0-9]+) ms, ending at ([0-9.]+) s: ([0-9]+) ms of its thread's CPU time, ([0-9]+) ms asleep as it asked and ([0-9]+) ms waiting on its files' writes")
     message(FATAL_ERROR "the predicting client did not say what it drew:\n${_said}")
 endif()
