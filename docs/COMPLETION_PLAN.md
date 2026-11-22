@@ -1751,7 +1751,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       by metres**. *Verification: a server slowed on purpose keeps a
       predicting client's error under a metre.* Done 2026-11-22: at 0.6 of real
       time, and held up every second, every 95th percentile is under 1 m (held
-      up, under 2 mm; the worst word 2.76 m, a server step no step here maps to).
+      up, under 2 mm). Still: 0.6-1.6% of words over half a metre (worst 6.9 m on
+      release), server steps a rising clocks' difference maps to no step here.
 - [x] **A test that fails twice on CI for the same cause has nowhere to go but
       the pull request's run**: a test labelled `nightly` is left out of every
       pull request's run and run by the nightly one, and each is named with its
