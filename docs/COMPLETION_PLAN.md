@@ -1791,8 +1791,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       nightly failed the lost-datagram join (shard 4 of 8).
 - [ ] **Under load fewer than nine in ten of the STOVL selector test's
       updates are corrections once joined**: words come in batches of up to
-      35 and all but the newest are compared, not put right from (1,684 to
-      2,198 of 3,000). *Verification: with twice as many busy loops as cores
+      35 and all but the newest are compared, not put right from (1,999 to
+      2,198 of 3,000 before 2026-11-22's fix, 1,684 to 2,122 after). *Verification: with twice as many busy loops as cores
       beside it, the STOVL selector test passes in ten runs.*
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
