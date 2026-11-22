@@ -209,6 +209,24 @@ public:
     // is known.
     std::optional<std::uint64_t> hear_clock(std::uint32_t last_applied, std::size_t steps_into,
                                             std::uint64_t server_steps);
+    // **The step of this client's a word is compared at**: the one flown
+    // under the clocks' difference the server's step `server_steps` maps to
+    // it by. Each step is flown on from the word last put right from, placed
+    // by the difference as it was then (`reconcile_placed`, `adopt`), and
+    // that is the difference it was flown under. When the difference moves
+    // a step, the words of the round trip after it are about steps flown
+    // under the old one; placed by the new, each was compared a step from
+    // the step that was its own - a step's travel, 1.38 m for an F-22A at
+    // 300 kt, for five or six words at each move against a server held up
+    // every second (docs/status, 2026-11-22). Placement only: the
+    // difference, and where the prediction is put right from, are as
+    // before. A step not yet flown, or one this client no longer knows the
+    // difference of, is placed by the difference as now known, as
+    // `hear_clock` places it. Nothing before the difference is known.
+    std::optional<std::uint64_t> compared_at(std::uint64_t server_steps) const;
+    // **The difference step `step` of this client's was flown under**, if
+    // it is still known.
+    std::optional<std::int64_t> flown_under(std::uint64_t step) const;
 
     // **The step of this client's at which input `sequence` was sent**, for
     // the clocks' difference to be taken from: the moment it left, not the
@@ -399,6 +417,16 @@ private:
     std::uint64_t flying_step_ = 0;
     // The clocks' difference each recent word implied, newest last.
     ClockDifference offsets_;
+    // **The difference the prediction is placed by**: the one the word
+    // last put right from was placed with; none before one has been.
+    std::optional<std::int64_t> anchor_;
+    // Each step a new difference was flown under from, oldest first: the
+    // runs of steps flown under one (`flown_under`).
+    std::deque<std::pair<std::uint64_t, std::int64_t>> flown_under_;
+    // The steps recent words were placed at by `hear_clock`, and the
+    // difference each was placed with, newest last: what `reconcile_placed`
+    // anchors by.
+    std::deque<std::pair<std::uint64_t, std::int64_t>> placed_with_;
 };
 
 // **The first control, or number of a motion, not finite**, by name - a

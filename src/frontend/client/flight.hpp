@@ -260,7 +260,11 @@ public:
     // (glideslope_cli's measure, frontend/own_words.hpp), and the steps
     // before it forgotten. A word not finite as heard - the server's, or a
     // test's (`give_nan_words_at`) - measures nothing, and is said so.
-    frontend::Held compare(const sim::Motion& motion, std::uint64_t at_step);
+    // Held against the step flown under the clocks' difference the word's
+    // own step maps to (sim::Prediction::compared_at), `at_step` where the
+    // prediction cannot say.
+    frontend::Held compare(const sim::Motion& motion, std::uint64_t at_step,
+                           std::uint64_t server_steps);
     // The clocks' difference alone, from a word not reconciled from and not
     // compared - one about another aircraft, taken over but not yet flown
     // (sim::Prediction::hear_clock).

@@ -369,8 +369,11 @@ sim::Motion Flight::as_heard(const sim::Motion& motion) const {
     return heard;
 }
 
-frontend::Held Flight::compare(const sim::Motion& motion, std::uint64_t at_step) {
-    const Predicted* p = frontend::flown_at(predicted_at_, at_step);
+frontend::Held Flight::compare(const sim::Motion& motion, std::uint64_t at_step,
+                               std::uint64_t server_steps) {
+    const std::uint64_t own =
+        prediction_ ? prediction_->compared_at(server_steps).value_or(at_step) : at_step;
+    const Predicted* p = frontend::flown_at(predicted_at_, own);
     // Kept from two seconds before that step on, as glideslope_cli keeps
     // them: a later word may be placed earlier, the clocks' difference having
     // moved, and is held against its own step too.

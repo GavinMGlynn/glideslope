@@ -2542,7 +2542,15 @@ public:
         // A word not finite measures nothing (sim::first_not_finite).
         const bool not_finite = glideslope::sim::first_not_finite(m).has_value();
         glideslope::sim::Prediction::Correction c;
-        c.at_step = at_step;
+        // **At the step flown under the clocks' difference its own step maps
+        // to** (sim::Prediction::compared_at), not the difference as now
+        // known: `at_step` where the prediction cannot say.
+        c.at_step = prediction_
+                        ? prediction_
+                              ->compared_at(glideslope::frontend::server_steps_of(
+                                  state.simulation_time_s))
+                              .value_or(at_step)
+                        : at_step;
             const Predicted* at = glideslope::frontend::flown_at(predicted_at_, c.at_step);
             if (at != nullptr && at->counted && !not_finite) {
                 const double error = glideslope::frontend::apart_m(at->where, m);
@@ -3362,6 +3370,15 @@ public:
                 std::snprintf(line, sizeof line,
                               "prediction error off the path median: %.3f m over %zu updates",
                               off[off.size() / 2], off.size());
+                lines.emplace_back(line);
+                // Its 95th percentile, taken as the error's below is.
+                const std::size_t off_95 = std::min(
+                    off.size() - 1,
+                    static_cast<std::size_t>(std::ceil(0.95 * static_cast<double>(off.size()))) - 1);
+                std::snprintf(line, sizeof line,
+                              "prediction error off the path 95th percentile: %.4f m over %zu "
+                              "updates",
+                              off[off_95], off.size());
                 lines.emplace_back(line);
             }
             // **And the 95th and 99th percentiles**: what all but five and
