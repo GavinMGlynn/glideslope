@@ -281,7 +281,7 @@ endif()
 # which are made for it, so that the guessing and the blending back were
 # drawn and judged, not only the plain interpolating between two updates.
 # (Left to random loss, a run at 100 ms on CI had none.)
-if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's, not running it; the longest of this client's own ([0-9]+) ms")
+if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's, not running it; the longest of this client's own ([0-9]+) ms, ending at ([0-9.]+) s: ([0-9]+) ms of its thread's CPU time, ([0-9]+) ms asleep as it asked and ([0-9]+) ms waiting on its files' writes")
     message(FATAL_ERROR "the predicting client did not say what it drew:\n${_said}")
 endif()
 # **A client that kept time**: drawing sixty frames a second, a quarter of a
@@ -299,6 +299,13 @@ endif()
 set(_longest "${CMAKE_MATCH_3}")
 set(_machines "${CMAKE_MATCH_4}")
 set(_own "${CMAKE_MATCH_5}")
+# What the longest of its own was made of, and where: its thread's CPU time
+# counts a virtual machine not running it while it worked (nightly
+# 44954156532, macOS: 401 ms, no work of the client's known there), so the
+# failure says which part it was and when, for the track to place.
+string(CONCAT _own_parts "ending at ${CMAKE_MATCH_6} s: ${CMAKE_MATCH_7} ms of its thread's "
+       "CPU time, ${CMAKE_MATCH_8} ms asleep as it asked, ${CMAKE_MATCH_9} ms waiting on "
+       "its files' writes")
 if(_machines GREATER 1000)
     message(FATAL_ERROR "the predicting client was not run ${_machines} ms of the ${_longest} "
                         "between two frames: more than a second, twice the most a macOS "
@@ -307,7 +314,8 @@ if(_machines GREATER 1000)
 endif()
 if(_own GREATER 250)
     message(FATAL_ERROR "the predicting client went ${_own} ms of its own without "
-                        "drawing a frame: it could not keep time on this machine\n${_said}")
+                        "drawing a frame (${_own_parts}): it could not keep time on this "
+                        "machine\n${_said}")
 endif()
 if(_longest GREATER 250)
     message(STATUS "the machine held the predicting client ${_machines} ms of the ${_longest} "
