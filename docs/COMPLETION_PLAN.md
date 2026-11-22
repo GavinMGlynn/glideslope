@@ -1770,10 +1770,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
       percentile under a metre in ten runs.* Done 2026-11-22: 7 mm in all
-      ten, by the clocks' difference held (the busy-machine item); the plain
-      least on the same build was 482 to 572 mm. The held-up-unevenly test is
-      back on pull requests (95th percentile 55 to 499 mm in ten Windows debug
-      runs). Figures: docs/status, 2026-11-22.
+      ten, by the clocks' difference held; the test now holds it to 250 mm.
+- [ ] **The held-up-unevenly test comes back to pull requests**: it went
+      nightly for windows-release's failures, and the held figure did not
+      change it; the nightly runs it on Linux debug alone. *Verification:
+      the nightly runs it on windows-release, windows-clang and macOS too,
+      within bound for seven nights, and it moves back.*
 - [x] **On a busy machine the server's word is placed a step off now and
       then**: a server held up unevenly moves the least of the clocks'
       difference, so the multi-process tests bound their 95th percentile by
