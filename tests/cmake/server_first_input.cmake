@@ -340,6 +340,17 @@ foreach(_id IN LISTS AIRCRAFT)
         else()
             set(_four_steps_c 185)
         endif()
+        # **Held up, the 95th percentile under 0.1 m**: each word compared
+        # at the step flown under the clocks' difference its own step maps to
+        # (sim::Prediction::compared_at). Placed by the difference as now
+        # known, each move of it put the round trip of words after it a step
+        # off, and the 95th percentile was a step's travel - 1.38 m for the
+        # F-35B and F-22A - inside four steps' travel
+        # (docs/status/2026-11-22-the-first-input-and-f22a-tests-against-a-server-held-up.md).
+        if(_held AND _p95_c GREATER 10)
+            message(FATAL_ERROR "the ${_id}, ${_touch}, held up: the prediction was off by "
+                                "${_p95} m at the 95th percentile, past 0.1 m:\n${_said}")
+        endif()
         if(_median_c GREATER 6 OR _p95_c GREATER _four_steps_c)
             message(FATAL_ERROR "the ${_id}, ${_touch}: the prediction was off by ${_median} m "
                                 "at the median and ${_p95} m at the 95th percentile, past "

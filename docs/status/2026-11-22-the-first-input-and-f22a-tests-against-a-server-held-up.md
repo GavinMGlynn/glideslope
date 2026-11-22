@@ -103,6 +103,33 @@ them.
   glideslope_cli's paced test, and the put-right-from-within-its-input
   test.
 
+**The plan item's history**, moved here from the plan (review of #405):
+against a server at 0.6 of real time and one keeping it, the window
+client's C172P is under 0.65 m (2026-11-22; unpaced, 2.2 m at the 95th
+percentile). Held up, a server flies every input from its step (2026-10-28,
+2026-11-17). Both clients fly at the server's pace and are held to it by
+tests.
+
+**From the review of #405.**
+- **The held-up bound**: held up, each case's 95th percentile must be
+  under 0.1 m (`server_first_input.cmake`). Before, only the four-step
+  bound held it, which passed at 1.38 m.
+  **Seen red** with `compared_at` placing by the newest figure (the old
+  placement, put in, built, run, taken out): the F-35B untouched failed, "off by
+  1.379 m at the 95th percentile, past 0.1 m". The F-22A's twin passed in
+  that run: its figure did not move often enough. Before the fix the
+  1.38 m was seen in one run in four, and under load in none of three. So
+  this bound is red only when the figure moves six times or more in a
+  case's thirty seconds. **The unit test above is what pins the rule every
+  time**; this bound guards the figure the item is ticked on.
+- **Costed in tests/ci_costs** at the plain twins' figures (129 to 137 s
+  and 34 to 38 s, preset by preset), not by COST: a COST of debug over
+  twelve was ten times low for a release runner. The dealing check passed.
+- **The unit test's edges**, now nine cases. Risen: the unmapped server
+  step is placed by the newest figure. Fallen: a step mapped twice takes
+  the newest figure's. Adopt anchors the steps after it. A step older than
+  the four seconds kept is no longer known.
+
 **Before the fix** (the figures that kept the item open):
 - Unloaded, one run:
 
