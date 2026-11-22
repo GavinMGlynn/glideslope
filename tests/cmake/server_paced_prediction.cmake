@@ -81,22 +81,19 @@
 # to the bounds below.
 # Not built: a server persistently behind, which the paced test is.
 #
-# **A named limit: on Windows about one update in a hundred is off by two
-# steps' travel.** A step's travel is 0.42 m at this aircraft's speed, and
-# the clocks' difference - the least of the last fifty words' - is known to a
-# step. Windows' sleeps are 15.6 ms, not the millisecond the server, relay
-# and client ask for, so each word carries up to two steps of spread; as a
-# word that came through quickest enters the fifty, or leaves it, the least
-# moves by two steps, and the server's word is placed two steps off - 1.1 m
-# on the update that does it, and the correction a player would see is that
-# far, hidden by the blend. Read from the client's track on Windows debug
-# (2026-10-08): the 1.1 m updates fell exactly where the least moved, -20 to
-# -22 and back, with centimetres between. On CI's Windows debug, 1 in 100
-# such updates or more put the 99th percentile at 1.105 m (run 37723785657),
-# so the metre bounds the 95th, the worst three metres - under seven steps'
-# travel. Tried and taken out: steering the pace by each word's difference,
-# smoothed, instead of the least of the newest ten - five in a hundred off
-# by a step instead (PROJECT_STATUS.md).
+# **Windows' two-step spread, and the clocks' difference held against it.**
+# A step's travel is 0.42 m at this aircraft's speed. Windows' sleeps are
+# 15.6 ms, not the millisecond the server, relay and client ask for, so each
+# word carries up to two steps of spread. While the clocks' difference was
+# the least of the last fifty words', a word that came through quickest moved
+# it by two steps as it entered the fifty and again as it left, and the
+# server's word was placed two steps off - 1.1 m (Windows debug's track,
+# 2026-10-08; CI's Windows debug's 99th percentile 1.105 m, run 37723785657).
+# Held once settled, lowered only when ten of the fifty are below it
+# (sim::ClockDifference), it no longer moves for them: on Windows debug the
+# 99th percentile was 7 mm in ten runs of ten, against 517 to 572 mm with the
+# plain least on the same build (docs/status, 2026-11-22). The bounds below
+# are kept as they were, set from every platform's CI.
 #
 # RUN_SERIAL: a runner busy beside it would put the server further behind
 # than its set pace, unsteadily, which is not what this builds.
