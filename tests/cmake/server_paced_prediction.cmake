@@ -91,9 +91,16 @@
 # 2026-10-08; CI's Windows debug's 99th percentile 1.105 m, run 37723785657).
 # Held once settled, lowered only when ten of the fifty are below it
 # (sim::ClockDifference), it no longer moves for them: on Windows debug the
-# 99th percentile was 7 mm in ten runs of ten, against 517 to 572 mm with the
-# plain least on the same build (docs/status, 2026-11-22). The bounds below
-# are kept as they were, set from every platform's CI.
+# 99th percentile was 7 mm in all ten runs, against 482 to 572 mm in the nine
+# that finished of ten with the plain least on the same build (docs/status,
+# 2026-11-22). **So the paced flight's 99th percentile is held to 250 mm**,
+# under one step's travel (0.42 m): a figure moving for the quickest words
+# puts it past that, and did in every run with the plain least. Not set from
+# CI's figures, which a passing test does not print: from Windows debug's
+# here, the platform the spread is worst on; this pull request's full run is
+# its first on every platform. The stall (`-DSTOPPED=ON`) and the server
+# held up (`-DSERVER_HELD`) are not held to it: what they build spreads more.
+# The other bounds are kept as they were, set from every platform's CI.
 #
 # RUN_SERIAL: a runner busy beside it would put the server further behind
 # than its set pace, unsteadily, which is not what this builds.
@@ -131,15 +138,18 @@ endif()
 set(_pace 0.6)
 set(_worst_allowed_mm 3000)
 set(_p95_allowed_mm 1000)
+set(_p99_allowed_mm 250)
 set(_server_held "")
 if(SERVER_HELD STREQUAL "alone")
     set(_pace 1)
     set(_server_held --test-stopped-once 12 3000)
     set(_worst_allowed_mm 5000)
     set(_p95_allowed_mm 3000)
+    set(_p99_allowed_mm 0)
 elseif(SERVER_HELD STREQUAL "unevenly")
     set(_pace 1)
     set(_server_held --test-held-up 1 600)
+    set(_p99_allowed_mm 0)
     # **Its worst update**: before inputs named their step, a stick moved
     # while the server was held up was flown as one move once it caught up,
     # and CI went past the paced test's 3 m - 3.3 m on Windows release (run
@@ -162,6 +172,7 @@ endif()
 # half a second after the server, as macOS's woke it late.
 set(_server_stopped "")
 if(STOPPED)
+    set(_p99_allowed_mm 0)
     list(APPEND _unpaced --stopped-once 12 4000)
     set(_server_stopped --test-stopped-once 12 3500)
 endif()
@@ -254,6 +265,12 @@ if(_compared LESS 600)
 endif()
 if(_p95_mm GREATER _p95_allowed_mm OR _worst_mm GREATER _worst_allowed_mm OR _median_mm GREATER 50)
     message(FATAL_ERROR "against a server behind real time the prediction was off: "
+                        "${_line}:\n${_said}")
+endif()
+# The 99th percentile, the paced flight's alone (0: not held).
+if(_p99_allowed_mm GREATER 0 AND _p99_mm GREATER _p99_allowed_mm)
+    message(FATAL_ERROR "the server's word was placed a step or more off for one update "
+                        "in a hundred: the 99th percentile over ${_p99_allowed_mm} mm: "
                         "${_line}:\n${_said}")
 endif()
 # **The pace in steps, counted, not timed**: the pace at the end is a real
