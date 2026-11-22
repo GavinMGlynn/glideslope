@@ -172,11 +172,11 @@ set(_joined_worst "${CMAKE_MATCH_2}")
 if(NOT CMAKE_MATCH_3 EQUAL 0)
     message(FATAL_ERROR "${CMAKE_MATCH_3} corrections once joined were too large to hide:\n${_said}")
 endif()
-math(EXPR _joined_least "${_compared} * 9 / 10")
-if(_joined LESS _joined_least)
-    message(FATAL_ERROR "only ${_joined} corrections once joined, under ${_joined_least} - nine in "
-                        "ten of the ${_compared} updates compared:\n${_said}")
-endif()
+# **And the joined window is not empty**: nine in ten of the words compared
+# were joined, and every one of them was put right from or superseded by a
+# newer word read with it (joined_words_check.cmake).
+include("${CMAKE_CURRENT_LIST_DIR}/joined_words_check.cmake")
+check_joined_words("${_said}" "${_compared}" _joined_words)
 if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its 95th percentile:\n${_said}")
 endif()
@@ -195,8 +195,8 @@ endif()
 message(STATUS "at ${_weight} lb: converted at ${_converted} s, hovering at ${_hovering} s, "
                "down at ${_down} s, the server's word hovering and at rest; ${_compared} "
                "updates compared, the worst ${_worst_mm} mm, the 95th percentile ${_p95_mm} mm, "
-               "the median ${_median_mm} mm; ${_joined} corrections once joined (at least "
-               "${_joined_least}), the worst ${_joined_worst} m; her pitch within ${_pitch} "
+               "the median ${_median_mm} mm; ${_joined} corrections once joined, the "
+               "worst ${_joined_worst} m; ${_joined_words}; her pitch within ${_pitch} "
                "degrees of the server's")
 # **The machine's stalls**, capped and each recovered from
 # (machine_stalls_check.cmake): CI's Windows clang once went 5,214 ms between
