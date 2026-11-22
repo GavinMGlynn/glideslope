@@ -1979,6 +1979,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       60 s; it now steers by the difference still to come, and is within one.
       *Verification: the pacing unit test with 2 s frames holds the difference
       within two steps over the last ten seconds.*
+- [ ] **A predicting client went 401 ms of its own without drawing a frame**
+      on nightly 44954156532's macOS 100 ms jitter check; what it did then is
+      not known. The client now says what its longest gap was made of.
+      *Verification: the cause is placed from a repeat's breakdown, or the
+      runner's steal time, and fixed or named.*
 
 ---
 
