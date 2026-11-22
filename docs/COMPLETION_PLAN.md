@@ -1755,10 +1755,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       it, the window client's C172P is under 0.65 m (2026-11-22; unpaced,
       2.2 m at the 95th percentile). Held up, a server flies every input from its step
       (2026-10-28, 2026-11-17). The first-input and F-22A tests now have
-      twins against a server held up 150-600 ms every second, their bounds
-      kept: the 95th percentile at most one step's travel, 0.46 m in the
-      C172P and 1.38 m in the F-35B and F-22A (2026-11-22). Still missing: those twins seen green
-      on CI. Windows' two-step placements are the next item's.
+      twins against a server held up every second. Still missing: held up,
+      the F-35B's and F-22A's 95th percentile is now and then a step's
+      travel (1.38 m). The hold-ups spread each word's clock sample over
+      six steps, not two, and the held clocks' difference follows that
+      spread's least a step at a time. Each move puts the next five or six
+      words a step off. Off the path, the error is under a millimetre
+      (2026-11-22). Windows' two-step placements are the next item's.
 - [x] **A test that fails twice on CI for the same cause has nowhere to go but
       the pull request's run**: a test labelled `nightly` is left out of every
       pull request's run and run by the nightly one, and each is named with its
