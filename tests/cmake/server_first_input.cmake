@@ -8,7 +8,17 @@
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
 #         -DIMPAIR=<glideslope_impair> -DDATA=<data dir> -DCACHE=<downloads dir>
 #         -DWORK=<scratch> -DPORT=<a port> [-DAIRCRAFT=f22 -DTOUCHES=untouched]
-#         -P server_first_input.cmake
+#         [-DSERVER_HELD=unevenly] -P server_first_input.cmake
+#
+# **Against a server held up** (`-DSERVER_HELD=unevenly`): every second on
+# its clock the server runs nothing for 150, 300, 450 and 600 ms in turn
+# (`--test-held-up 1 600`, as server_paced_prediction.cmake's held-up
+# test), while the relay and the client run on. It catches up every step it
+# owes and flies each input from the step its client sent it at
+# (net::HeldInputs), so the bounds below are not loosened: a word placed
+# steps off by the hold-ups is what they catch. The plain runs are alone
+# (RUN_SERIAL) because CI's shared runners held their servers up unbuilt;
+# this builds it.
 #
 # **The F-22A untouched, alone** (`-DAIRCRAFT=f22 -DTOUCHES=untouched`): the
 # server holds her on her held trim, a deflection after her pitch loop that
@@ -163,12 +173,18 @@ foreach(_id IN LISTS AIRCRAFT)
         if(_touch STREQUAL "nudged")
             set(_nudge "--nudge")
         endif()
+        set(_held "")
+        if(SERVER_HELD STREQUAL "unevenly")
+            set(_held --test-held-up 1 600)
+        elseif(DEFINED SERVER_HELD)
+            message(FATAL_ERROR "SERVER_HELD is unevenly or not given, not '${SERVER_HELD}'")
+        endif()
         execute_process(
             COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 600 --after 1
                     --aircraft ${_id} --predict --from-held ${_nudge} --until-held 30
                     --heard "${_heard}"
             COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
-                    --test-say-controls
+                    --test-say-controls ${_held}
                     --data "${DATA}" --timeout 30 --store "${_store}"
             COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
                     --loss 0 --seed 1 --until-input-ends --seconds 900
@@ -184,6 +200,17 @@ foreach(_id IN LISTS AIRCRAFT)
         # The server's stdout reaches standard error through the relay.
         if(NOT _err MATCHES "asked for ${_id}, and flies it\n")
             message(FATAL_ERROR "the server did not give the ${_id} asked for:\n${_err}")
+        endif()
+        # **The hold-ups counted, not believed**: one a second of the
+        # server's clock, and she is heard for thirty of them.
+        if(_held)
+            string(REGEX MATCHALL "held up [0-9]+ ms at [0-9.]+ s" _holdups "${_err}")
+            list(LENGTH _holdups _held_n)
+            message(STATUS "the ${_id}, ${_touch}: the server was held up ${_held_n} times")
+            if(_held_n LESS 30)
+                message(FATAL_ERROR "the ${_id}, ${_touch}: the server was held up ${_held_n} "
+                                    "times, not one a second for her thirty")
+            endif()
         endif()
         file(READ "${_heard}" _said)
         if(NOT _said MATCHES "my aircraft heard from ([0-9.]+) s to ([0-9.]+) s: ([-0-9.]+) m at first, ([-0-9.]+) m to ([-0-9.]+) m")

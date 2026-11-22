@@ -2882,6 +2882,33 @@ add_test(NAME a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_
 set_tests_properties(a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_tells_her_client_and_holds_height_and_attitude
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim)
+# **The same two against a server held up unevenly**: every second on its
+# clock it runs nothing for 150 to 600 ms (`--test-held-up 1 600`) while
+# its client and relay run on, as a shared runner held the plain ones up -
+# the plan's "A server that falls behind real time puts its clients'
+# prediction off by metres". The plain ones' bounds, not loosened, and the
+# hold-ups counted. Alone, so the hold-ups are the ones built. COST is a
+# release runner's seconds as debug's over twelve: each case is flown on the
+# session's clock, so a release runner takes about as long as a debug one.
+add_test(NAME a_players_f35b_and_c172p_flown_from_their_held_trim_against_a_server_held_up_every_second_hold_height_and_attitude_and_predict_alike
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_first_input_held_up -DPORT=24912
+        -DSERVER_HELD=unevenly -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
+set_tests_properties(a_players_f35b_and_c172p_flown_from_their_held_trim_against_a_server_held_up_every_second_hold_height_and_attitude_and_predict_alike
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE COST 13)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_first_input_held_up)
+add_test(NAME a_players_f22a_untouched_against_a_server_held_up_every_second_is_predicted_on_the_held_trim_it_tells_her_client_and_holds_height_and_attitude
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim_held_up -DPORT=24922
+        -DAIRCRAFT=f22 -DTOUCHES=untouched -DSERVER_HELD=unevenly
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
+set_tests_properties(a_players_f22a_untouched_against_a_server_held_up_every_second_is_predicted_on_the_held_trim_it_tells_her_client_and_holds_height_and_attitude
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE COST 4)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim_held_up)
 
 # **A predicting F-35B whose client stops 3 s between flying and sending, on a
 # machine slow at her prediction, is placed within four steps' travel**: her

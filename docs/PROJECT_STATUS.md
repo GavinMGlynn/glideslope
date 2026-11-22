@@ -228,6 +228,9 @@ catches up what it can, letting slip only what it cannot (2026-10-28): stopped
 alone 3 s its client is within 0.5 to 1.5 m for 95 updates in 100 (was 15 m);
 inputs name their step, and those that came in the stall are flown as far
 apart as they were sent, the worst 0.9 to 1.4 m (was 2.6 to 4.7 m, 2026-11-17).
+Held up so, a player's first input still keeps her trim and her prediction
+agrees: the F-35B, C172P and F-22A within the first-input test's bounds,
+every hold-up counted (2026-11-22).
 The window client is held to the command-line client's bound by a test too:
 in the C172P, flying a pilot's changing controls against a server at 0.6 of
 real time and against one keeping it, every update is under 0.65 m. Main's
