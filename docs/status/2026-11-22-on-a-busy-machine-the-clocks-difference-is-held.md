@@ -149,8 +149,28 @@ before it.
     - `prediction_interpolation_and_the_player_limit_hold_at_200_ms_with_jitter_and_loss`:
       98 inputs were flown before the server applied one, over 90.
 
-    Run alone, each passed twice. They are not shown to be this change's,
-    nor shown not to be. A CI failure of either is to be read from its log.
+    Run alone, each passed twice.
+
+    **A load flake that predates this change, by A-B.** Each test was run on
+    this branch's build and on the same build with the figure put back to
+    the plain least (main's rule), under the same load and nothing else:
+    - **The jitter/loss test** (`..._at_200_ms_with_jitter_and_loss`), five
+      runs each beside 10 busy loops. Inputs flown before the server applied
+      one: 69, 61, 69, 63, 67 on this branch; 66, 67, 65, 68, 66 with the
+      least. All passed (limit 90).
+    - **The same test beside 40 busy loops** failed 5 of 5 on both builds,
+      on the same check: exit codes 0;1;0;0;0, so a client other than the
+      fifth was the one refused.
+    - That count cannot depend on the estimate. It counts inputs flown before
+      the first applied one, when no sample has been taken, and for 25 words
+      after that the figure is the least on both builds.
+    - **The nearer-station wind test**, three runs each beside 40 busy loops.
+      The most the wind changed in a step: 0.00818, 0.00818 and 0.00862 m/s
+      on this branch; 0.00909, 0.00926 and 0.00893 m/s with the least. All
+      passed (limit 0.05).
+
+    Neither shows this change made worse. The two failures in the `-j4` run
+    were load, which the two builds take alike.
   - The gust test with its new rule passed. It judged 554 updates in air: 279
     flown at the server's moment, 275 on another estimate, 0 later than the
     server, and 0 out otherwise. Its median was 0.029 m.
