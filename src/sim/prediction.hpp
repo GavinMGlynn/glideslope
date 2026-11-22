@@ -220,9 +220,12 @@ public:
     // 300 kt, for five or six words at each move against a server held up
     // every second (docs/status, 2026-11-22). Placement only: the
     // difference, and where the prediction is put right from, are as
-    // before. A step not yet flown, or one this client no longer knows the
-    // difference of, is placed by the difference as now known, as
-    // `hear_clock` places it. Nothing before the difference is known.
+    // before. The difference as now known is tried first, then every one a
+    // kept step was flown under: it can move by several steps inside a
+    // round trip (macOS release, train #406). A step not yet flown, or one
+    // this client no longer knows the difference of, is placed by the
+    // difference as now known, as `hear_clock` places it. Nothing before
+    // the difference is known.
     std::optional<std::uint64_t> compared_at(std::uint64_t server_steps) const;
     // **The difference step `step` of this client's was flown under**, if
     // it is still known.
