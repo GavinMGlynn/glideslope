@@ -217,16 +217,23 @@ math(EXPR _worst_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
 if(_compared LESS 3000)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
-# **The worst, after a server's slip and apart from it**
-# (frontend::AfterASlip). A slip is seen in a word placed two steps or more
-# from where it falls on the path flown; it and the 60 words after it are
-# counted apart.
-# The rest are held to four steps' travel at 330 kt (5.6 m), as every word
-# was until a loaded machine's real slips went past it (6.7 and 17.4 m, two
-# of ten runs, 2026-11-22). A word after a slip is held to the same four
-# steps beyond the steps it was placed off - the held clocks' difference's
-# accepted cost, and no more - and to WORST_AFTER_A_SLIP_MM whole.
-if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
+# **After a server's slip, and apart from it** (frontend::AfterASlip). A
+# slip is seen in a word placed two steps or more from where it falls on the
+# path flown, and it and the 60 words after it - the clocks' difference's
+# window and the pace's - are counted apart, with the corrections once
+# joined made while they come. That is the held difference's accepted cost
+# (2026-11-22): a slip followed ten words late, and each move of the figure
+# after it putting the round trip's words off again. **The rest are held as
+# every word was** until a loaded machine's real slips went past it (6.7
+# and 17.4 m, two runs in ten, 2026-11-22): four steps' travel at 330 kt
+# (5.6 m), and no correction too large to hide. **The words after a slip are
+# held to measured figures** (docs/status, 2026-11-25): beside twice as many
+# busy loops as cores, a slip built of 24 to 26 steps, and the machine's own
+# slips besides.
+set(_worst_after_a_slip_mm @WORST_AFTER_A_SLIP_MM@)
+set(_worst_correction_after_a_slip_mm @WORST_CORRECTION_AFTER_A_SLIP_MM@)
+set(_most_after_a_slip @LONGEST_AFTER@)
+if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; corrections once joined after them: ([0-9]+), the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, ([0-9]+) too large to hide")
     message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
 endif()
 set(_slips_seen "${CMAKE_MATCH_1}")
@@ -236,18 +243,40 @@ set(_most_off "${CMAKE_MATCH_4}")
 math(EXPR _after_worst_mm "${CMAKE_MATCH_5} * 1000 + ${CMAKE_MATCH_6}")
 set(_rest "${CMAKE_MATCH_7}")
 math(EXPR _rest_worst_mm "${CMAKE_MATCH_8} * 1000 + ${CMAKE_MATCH_9}")
+set(_slip_corrections "${CMAKE_MATCH_10}")
+math(EXPR _slip_correction_mm "${CMAKE_MATCH_11} * 1000 + ${CMAKE_MATCH_12}")
+set(_slip_snapped "${CMAKE_MATCH_13}")
 if(_rest_worst_mm GREATER 5600)
     message(FATAL_ERROR "the worst prediction error apart from a slip was ${_rest_worst_mm} mm, "
                         "over four steps' travel at 330 kt (5.6 m):\n${_said}")
 endif()
-if(_after_worst_mm GREATER @WORST_AFTER_A_SLIP_MM@)
+if(_after_worst_mm GREATER _worst_after_a_slip_mm)
     message(FATAL_ERROR "the worst prediction error after a slip was ${_after_worst_mm} mm, "
-                        "over @WORST_AFTER_A_SLIP_MM@ mm:\n${_said}")
+                        "over ${_worst_after_a_slip_mm} mm:\n${_said}")
+endif()
+if(_slip_correction_mm GREATER _worst_correction_after_a_slip_mm)
+    message(FATAL_ERROR "a correction once joined after a slip was ${_slip_correction_mm} mm, "
+                        "over ${_worst_correction_after_a_slip_mm} mm:\n${_said}")
+endif()
+if(_longest_after GREATER _most_after_a_slip)
+    message(FATAL_ERROR "${_longest_after} updates after one slip, over ${_most_after_a_slip}: "
+                        "the clocks' difference was that long following it:\n${_said}")
+endif()
+if(NOT _said MATCHES "predicted, joined: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
+    message(FATAL_ERROR "the client did not say its corrections once joined:\n${_said}")
+endif()
+set(_joined "${CMAKE_MATCH_1}")
+set(_joined_worst "${CMAKE_MATCH_2}")
+math(EXPR _snapped_rest "${CMAKE_MATCH_3} - ${_slip_snapped}")
+if(NOT _snapped_rest EQUAL 0)
+    message(FATAL_ERROR "${_snapped_rest} corrections once joined, not after a slip, were too "
+                        "large to hide:\n${_said}")
 endif()
 set(_slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
                "${_longest_after} after one, placed at most ${_most_off} steps off), the "
-               "worst ${_after_worst_mm} mm; "
-               "the rest's worst ${_rest_worst_mm} mm over ${_rest}")
+               "worst ${_after_worst_mm} mm, ${_slip_corrections} corrections the worst "
+               "${_slip_correction_mm} mm, ${_slip_snapped} too large to hide; the rest's "
+               "worst ${_rest_worst_mm} mm over ${_rest}")
 # **Slipped, the slip is built and seen**: the server said it let at least
 # 20 steps go, and the client saw it.
 if(SLIPPED)
@@ -261,21 +290,10 @@ if(SLIPPED)
     if(_let LESS 20)
         message(FATAL_ERROR "the server let ${_let} steps slip, under the 20 built:\n${_err}")
     endif()
-    if(_slips_seen LESS 1 OR _most_off LESS 2)
+    if(_slips_seen LESS 1)
         message(FATAL_ERROR "the server let ${_let} steps slip and the client saw no slip:\n${_said}")
     endif()
-    if(_longest_after GREATER @LONGEST_AFTER@)
-        message(FATAL_ERROR "${_longest_after} updates after one slip, over @LONGEST_AFTER@:\n${_said}")
-    endif()
     string(APPEND _slip_said "; the server let ${_let} steps slip")
-endif()
-if(NOT _said MATCHES "predicted, joined: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
-    message(FATAL_ERROR "the client did not say its corrections once joined:\n${_said}")
-endif()
-set(_joined "${CMAKE_MATCH_1}")
-set(_joined_worst "${CMAKE_MATCH_2}")
-if(NOT CMAKE_MATCH_3 EQUAL 0)
-    message(FATAL_ERROR "${CMAKE_MATCH_3} corrections once joined were too large to hide:\n${_said}")
 endif()
 # **And the joined window is not empty**: nine in ten of the words compared
 # were joined, and every one of them was put right from or superseded by a
