@@ -4,15 +4,16 @@ Phase 12a, "Under load fewer than nine in ten of the STOVL selector test's
 updates are corrections once joined".
 
 **What is still not true first.**
-- **The item's verification is not met: 7 of 10 loaded runs passed.** All
-  ten passed the new check. Three failed on others:
+- **The item closes on its own check (owner, 2026-11-25).** All ten
+  loaded runs passed it. Three failed the test on other checks:
   - two on the worst error, 6.732 m and 17.438 m against 5.6 m. Each came
-    after the server slipped, with words 5 and 21 steps off. That is the
-    held clocks' difference's named cost (2026-11-22, "the cost"), whose
-    rule is the owner's and is not changed here.
+    after the server really slipped, with words 5 and 21 steps off. That
+    is the held clocks' difference's accepted cost (2026-11-22, "the
+    cost"). It is now its own Phase 12a item, whose rule is the owner's and
+    is not changed here.
   - one on the machine's stalls: an 8,865 ms stall 133.6 s in, then five
     more within 8 s. The stalls check refuses to judge that run (6 stalls,
-    at most 2 allowed).
+    at most 2 allowed). That is out of this item's scope.
 - Only glideslope_cli counts its joined words this way. The window client
   puts itself right in the same way (frontend::OwnWords), but it says
   nothing like this and no test holds it.
@@ -67,16 +68,22 @@ was for. Its comment said what it was for: that the "no correction too
 large to hide" bound is held over the prediction, not over nothing.
 
 **The rule now** (tests/cmake/joined_words_check.cmake, used by the STOVL
-selector test and the vertical landing test, which had the same check):
-- Nine in ten of the words compared were joined (the clocks' difference
-  known).
-- Every joined word compared was put right from, or superseded by a newer
-  word read with it, or in a pass whose prediction was let go of. None was
-  still waiting when a frame was drawn.
-
-glideslope_cli says it: `joined words: N compared, P put right from, S
+selector test and the vertical landing test, which had the same check).
+glideslope_cli says `joined words: N compared, P put right from, S
 superseded by a newer read with them, L let go of, D drawn without
-either`. The test requires P + S + L = N and D = 0.
+either`. Words still in a pass when its prediction is let go of, whether
+mid-pass, at a switch or while putting right, are counted in L.
+P + S + L + D = N holds by construction, so the sum guards nothing. What is
+guarded is:
+- **D = 0: no frame was drawn with a joined word of its pass compared and
+  not yet put right from or superseded.**
+- **Nine in ten of the words compared were joined** (the clocks'
+  difference known), so the corrections' bound is held over the
+  prediction.
+- **Every putting right was from the newest word** (frontend::OwnWords'
+  "neither" is 0), which own_words_check.cmake also asserts. That file is
+  not included whole, because it fails an idle run whose every pass read
+  one word ("the rule went untested").
 
 **First placed wrong, and the check found it.** The first count closed a
 pass when the client flew on (`advance`), not when it drew. In a loaded run
@@ -85,10 +92,15 @@ The client also flies on before each input it sends, mid-pass (2026-10-22),
 and puts right afterwards, replaying those steps. That is not a loss, so
 the pass is now closed when a frame is drawn.
 
-**Seen red**: put right only every other pass in the main loop. "of 3000
-joined words compared, 2825 were put right from, 0 superseded and 0 let go
-of - 175 were in a frame drawn before they were put right from or
-superseded" (idle). Reverted.
+**Seen red**, each in an idle run of the STOVL selector test, then
+reverted:
+- Put right only every other pass in the main loop: "175 were in a frame
+  drawn before they were put right from or superseded".
+- A word counted joined only 30 s after the prediction settled: "only 2296
+  words compared once joined, under 2700" (2026-11-25, on main with #405).
+- The oldest word of a pass offered to put right from, not the newest
+  (frontend::OwnWords::offer): "1 of 3036 puttings right were not from the
+  newest word" (2026-11-25).
 
 ## Verification
 
@@ -108,8 +120,10 @@ superseded" (idle). Reverted.
   | 9 | failed: worst | 3,000 | 1,533 | 1,467 | 0 | 78 | 0.002 m | 6.732 m |
   | 10 | failed: worst | 3,000 | 1,389 | 1,611 | 0 | 64 | 0.002 m | 17.438 m |
 
-  Every run had 0 let go of. Under the old check all ten would have
-  failed: 1,389 to 1,726 put right from, against 2,700.
+  Every run had 0 let go of, and every putting right was from the newest
+  word read (0 "neither"), so all ten pass the check as it now stands too.
+  These runs were made before the rebase onto #405. Under the old check
+  all ten would have failed: 1,389 to 1,726 put right from, against 2,700.
 - **Before the pass was closed at the frame drawn**, a first set of runs
   was stopped after run 1, which failed with 1,898 "flown on from" (above).
 
