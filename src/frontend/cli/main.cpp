@@ -3343,8 +3343,9 @@ public:
         // client puts itself right once a pass, from the newest word read
         // (frontend::OwnWords), so a pass of several words puts right from
         // one; the rest are measured, and their corrections would be undone
-        // by the newest's before a frame was drawn. What this says is that
-        // no pass's words were compared and left without a putting right.
+        // by the newest's before a frame was drawn. What this says is
+        // whether a frame was drawn with a pass's words compared and not
+        // yet put right from (the last figure).
         std::snprintf(line, sizeof line,
                       "joined words: %zu compared, %zu put right from, %zu superseded by a "
                       "newer read with them, %zu let go of, %zu drawn without either",
@@ -4388,8 +4389,10 @@ private:
     double worst_correction_m_ = 0.0;
     std::size_t corrections_joined_ = 0;
     // Joined words compared (`joined words:`): in all; and of those, put
-    // right from, superseded by a newer read with them, in a pass whose
-    // prediction was let go of, or left unput right when a frame was drawn.
+    // right from, superseded by a newer read with them, let go of with
+    // their prediction (mid-pass, at a switch, or while putting right), or
+    // still in the pass when a frame was drawn. The four add up to the
+    // first by construction; the test holds the last at none.
     // The pass's, until it is put right.
     std::size_t joined_compared_ = 0;
     std::size_t joined_put_right_from_ = 0;
