@@ -154,7 +154,10 @@ endif()
 # **Slipped** (`-DSLIPPED=ON`): the server runs nothing for 3.7 s at 60 s on
 # its clock (`--test-stopped-once 60 3700`), past the 3.5 s it catches up
 # (net::most_steps_caught_up), and lets the rest slip, for good - a real
-# slip, built, and said (`--test-say-slipped`).
+# slip, built, and said (`--test-say-slipped`). Run by hand for its plan
+# item (COMPLETION_PLAN, Phase 12a): not in ctest until it passes there -
+# even idle its first correction after the slip, 19 to 20 m, can come before
+# the slip is seen (docs/status, 2026-11-25).
 set(_slipped_args "")
 if(SLIPPED)
     set(_slipped_args --test-stopped-once 60 3700 --test-say-slipped)
@@ -276,7 +279,7 @@ if(NOT _snapped_rest EQUAL 0)
     message(FATAL_ERROR "${_snapped_rest} corrections once joined, not after a slip, were too "
                         "large to hide:\n${_said}")
 endif()
-set(_slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
+string(CONCAT _slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
                "${_longest_after} after one, placed at most ${_most_off} steps off), the "
                "worst ${_after_worst_mm} mm, ${_slip_corrections} corrections the worst "
                "${_slip_correction_mm} mm, ${_slip_snapped} too large to hide; the rest's "

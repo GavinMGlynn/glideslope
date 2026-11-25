@@ -1799,9 +1799,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       (docs/status, 2026-11-22). Not ticked here: the test's worst error
       after a slip (next item), and one run's 8.9 s machine stall.
 - [ ] **The STOVL selector test's worst error after a real server slip**:
-      6.7 and 17.4 m against its 5.6 m in two of ten loaded runs, words 5
-      and 21 steps off, the accepted cost of the held clocks' difference.
-      *Verification: to be measured figures.*
+      the words after a slip are counted apart and held to measured bounds
+      (50 m, corrections 60 m), the rest to 5.6 m. *Verification: the
+      slipped run (`-DSLIPPED=ON`) in ctest, passing ten times beside twice
+      as many busy loops as cores.* Not yet: there all ten put right not from
+      the newest word, and even idle its first correction (19 to 20 m) can
+      fall before the slip is seen (docs/status, 2026-11-25).
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
       enough for a predicting client. *Verification: a client predicting over hills
