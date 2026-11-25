@@ -67,7 +67,11 @@ thread collects lines into 64 KiB chunks and hands each chunk over under a
 lock. It never waits on the disk. The handing over is timed as the client's
 own time, as before. Whatever is still unwritten when the file is let go of
 is written then, and the thread is joined. The client also reports the
-longest single write ("its files' writes: the longest N ms").
+longest single write and how many writes failed ("its files' writes: the
+longest N ms, F failed"). A write that fails fails the stream, as a filebuf's
+did: once the writing thread has had one fail, every write after it is
+refused, so the stream's badbit is set and `if (track_out)` stops writing.
+The checks require F to be 0.
 
 ## The test, seen red
 
@@ -78,11 +82,16 @@ require the client to report a longest write of 500 ms or more, which proves
 the hold happened, and keep the existing bound of 250 ms of the client's own
 between two frames.
 
-- **Red**: with the hold built into the old writes, on the client's own
-  thread, the 100 ms check failed: "went 508 ms of its own without drawing a
+- **Red**: this red was **not** made on the committed write path. The
+  500 ms hold was put into the old `std::filebuf`, so the write still ran
+  on the client's own thread, and with that the 100 ms check failed: "went 508 ms of its own without drawing a
   frame (ending at 10.504 s: 2 ms of its thread's CPU time, 6 ms asleep ...
   500 ms waiting on its files' writes)". That is the macOS failure's
   signature. With the nesting fixed, the 500 ms is counted once.
+- **The hold's own check, seen red**: with `--slow-write` taken out of the
+  check, the 100 ms check failed: "the predicting client's longest write
+  was 0 ms: its track's write was never held up". The flag was then put
+  back.
 - **Green**: with the writes on their own thread, both checks pass. The
   longest writes were 500 ms, and the longest gaps of the client's own were
   53 and 41 ms, with 0 ms waiting on writes.
