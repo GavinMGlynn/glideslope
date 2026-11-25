@@ -3266,8 +3266,9 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction_slowed)
 # **And against a server held up for up to a second on purpose**, every
 # second on its clock - built on every platform (`--test-held-up 1 1000`),
 # as CI's loaded Windows runners held it up unbuilt. Serial, so the hold-ups
-# are the ones built. Costed in tests/ci_costs at its plain twin's figures
-# until CI measures it: flown on the session's clock, as its twin is.
+# are the ones built. Costed in tests/ci_costs at its slowed twin's figures
+# until CI measures it, the more of its twins' (the hold-ups, caught up,
+# took it 36 to 42 s on linux-debug against its plain twin's 36 to 45).
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_held_up_for_up_to_a_second_stops_its_engine_and_is_put_right_no_more
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
