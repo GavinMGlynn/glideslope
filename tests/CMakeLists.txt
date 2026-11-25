@@ -218,6 +218,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_run_stopped_where_it_is_owes_no_step_it_let_slip
     a_frame_is_a_machines_stall_only_when_the_machine_took_most_of_it_and_a_quarter_second_or_more
     overlapping_machine_stalls_each_keep_their_own_window_and_a_word_in_both_is_counted_apart_once
+    a_word_placed_two_steps_or_more_off_sees_a_slip_and_the_sixty_after_it_are_counted_apart
+    a_word_older_than_one_put_right_from_is_compared_and_superseded_never_put_right_from
     a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_write
     with_nothing_lost_every_input_frame_arrives_once_and_in_order
     every_input_frame_carries_the_step_it_was_sent_at_through_the_wire
@@ -3117,6 +3119,19 @@ add_test(NAME a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_
 set_tests_properties(a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing)
+# **And through a server that really slips**, built: every 5 s it is held up
+# for 5 to 20 steps' time and lets them slip. The words and corrections after
+# each slip are held to measured bounds, the rest as before.
+# See cmake/server_stovl_landing.cmake.
+add_test(NAME a_players_stovl_selector_through_a_server_that_slips_is_held_to_measured_bounds_after_each_slip
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing_slipped -DPORT=24934
+        -DSLIPPED=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_landing.cmake)
+set_tests_properties(a_players_stovl_selector_through_a_server_that_slips_is_held_to_measured_bounds_after_each_slip
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing_slipped)
 # **And a player's F-35B given a loading light enough to hover is converted,
 # hovered and landed vertically through a server**, the client's prediction
 # agreeing throughout. See cmake/server_stovl_vertical_landing.cmake.

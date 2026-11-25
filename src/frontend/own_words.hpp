@@ -218,6 +218,8 @@ public:
     std::size_t put_right_from_newest_read() const { return newest_read_; }
     std::size_t put_right_from_newer_held() const { return newer_held_; }
     std::size_t put_right_from_not_newest() const { return not_newest_; }
+    // Compared after a newer word was ready, and so never put right from.
+    std::size_t superseded_late() const { return superseded_late_; }
 
 private:
     template <class Compare>
@@ -246,11 +248,22 @@ private:
     }
     // A word ready to put right from - compared, or never placeable - is
     // the one to put right from if it is the newest read of those ready.
+    // **Not one older than a word already ready**, in this pass or one
+    // before: after a server's slip the clocks' difference moves down and a
+    // newer word is placed at an earlier step than an older one still held,
+    // flown and put right from first. Offered when its step came, the older
+    // was put right from after it - the prediction put back to a word the
+    // newer had superseded, placed by the difference from before the slip:
+    // 1 to 10 times a run, and corrections of 20 m, beside twice as many busy
+    // loops as cores with a slip built (docs/status, 2026-11-25). It is
+    // compared, and superseded.
     void offer(Placed placed) {
-        ready_ = std::max(ready_.value_or(0), placed.index);
-        if (!newest_ || placed.index > newest_->index) {
-            newest_ = std::move(placed);
+        if (ready_ && placed.index < *ready_) {
+            ++superseded_late_;
+            return;
         }
+        ready_ = placed.index;
+        newest_ = std::move(placed);
     }
     template <class Compare>
     void judge(const Placed& placed, Compare& compare) {
@@ -281,6 +294,7 @@ private:
     std::size_t newest_read_ = 0;
     std::size_t newer_held_ = 0;
     std::size_t not_newest_ = 0;
+    std::size_t superseded_late_ = 0;
     std::size_t unplaced_after_placed_ = 0;
     bool any_placed_ = false;
     std::optional<std::uint64_t> last_placed_;

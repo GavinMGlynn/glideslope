@@ -6,6 +6,7 @@
 
 #include "copilot/planner.hpp"
 #include "frontend/cli/fly_copilot.hpp"
+#include "frontend/after_a_slip.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/held_levers.hpp"
 #include "frontend/law_told.hpp"
@@ -2454,6 +2455,7 @@ public:
     // joined words compared in the pass, never to be put right from.
     void drop_words(const std::string& why) {
         words_.drop(why);
+        after_a_slip_.figure(std::nullopt);
         joined_let_go_ += joined_in_pass_.size();
         joined_in_pass_.clear();
     }
@@ -2622,6 +2624,10 @@ public:
         const std::size_t samples_before = prediction_->samples_taken();
         const auto at =
             prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
+        // **The clocks' difference as this word left it**, settled: moved
+        // two steps or more at once, a slip is seen (frontend::AfterASlip).
+        after_a_slip_.figure(prediction_->settled() ? prediction_->clocks_difference()
+                                                    : std::nullopt);
         if (const auto began = prediction_->began_at(applied);
             began && state.yours->steps_into_input <= server_steps) {
             word.shown_difference =
@@ -2885,7 +2891,12 @@ public:
                 } else if (ground_had_at_s_ && at_an_end) {
                     ++off_path_ground_had_at_an_end_;
                 }
+                // **After a server's slip, and otherwise**
+                // (frontend::AfterASlip): outside the machine's stalls, as
+                // the worst is. Nearest an end of the steps kept, the steps
+                // off are as many as it was placed off at least.
                 if (!across) {
+                    after_a_slip_.compared(std::llround(steps_off), error);
                     if (at_an_end) {
                         ++placed_at_an_end_;
                     } else {
@@ -2940,7 +2951,8 @@ public:
                             << (paced_ ? pacing_.pace() : 1.0) << ' ' << speed_error
                             << ' ' << off_path_m << ' ' << steps_off << ' '
                             << at->pitch_deg - pitch_of(m) << ' '
-                            << nearest->pitch_deg - pitch_of(m) << '\n';
+                            << nearest->pitch_deg - pitch_of(m) << ' '
+                            << state.simulation_time_s << ' ' << (across ? 1 : 0) << '\n';
                 }
                 // **Before and after an engine stopped**, apart.
                 if (engine_stopped_at_s_) {
@@ -3001,11 +3013,22 @@ public:
                 return compare_word(p.word, *p.at_step, p.index);
             });
         if (!settled) {
+            // **A word older than one already put right from** is superseded
+            // by it, compared and never put right from (frontend::OwnWords).
+            std::erase_if(joined_in_pass_, [&](std::size_t index) {
+                if (last_put_right_index_ && index < *last_put_right_index_) {
+                    ++joined_superseded_;
+                    return true;
+                }
+                return false;
+            });
             return;
         }
+        last_put_right_index_ = settled->index;
         // **Every joined word compared this pass is the one put right from
-        // or superseded by it**, a newer word read with it: counted apart,
-        // so that a pass compared and not put right from is seen.
+        // or superseded by it**, a newer word read with it - or by one put
+        // right from before it: counted apart, so that a pass compared and
+        // not put right from is seen.
         bool joined_put_right = false;
         for (const std::size_t index : joined_in_pass_) {
             if (index == settled->index) {
@@ -3080,6 +3103,18 @@ public:
                 ++corrections_joined_;
                 worst_correction_joined_m_ = std::max(worst_correction_joined_m_, c.moved_m);
                 snapped_joined_ += c.snapped ? 1 : 0;
+                // And apart, after a server's slip (frontend::AfterASlip).
+                after_a_slip_.corrected(c.moved_m, c.snapped);
+            }
+            // **Each putting right, for a test to read**: the server's moment
+            // of the word put right from, how far it moved her, whether too
+            // far to hide, joined, and across a machine's stall - so that a
+            // test can judge it against the moments its server said it
+            // slipped (server_stovl_landing.cmake).
+            if (track_) {
+                *track_ << "putright " << state.simulation_time_s << ' ' << c.moved_m << ' '
+                        << (c.snapped ? 1 : 0) << ' ' << (joined ? 1 : 0) << ' '
+                        << (across ? 1 : 0) << '\n';
             }
     }
 
@@ -3530,6 +3565,7 @@ public:
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
         lines.emplace_back(line);
+        lines.emplace_back(after_a_slip_.said());
         if (air_flown_.steps() > 0) {
             lines.emplace_back(air_flown_.said());
         }
@@ -3882,6 +3918,7 @@ private:
         ground_had_at_s_.reset();
         worst_error_m_ = 0.0;
         worst_error_at_s_ = 0.0;
+        after_a_slip_ = {};
         worst_pitch_error_deg_ = 0.0;
         worst_pitch_placed_deg_ = 0.0;
         worst_pitch_steps_off_ = 0.0;
@@ -4501,6 +4538,9 @@ private:
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
+    // **The words compared after a server's slip, apart from the rest**
+    // (frontend::AfterASlip).
+    glideslope::frontend::AfterASlip after_a_slip_;
     // **Each compared word's own step's moment in the air against the
     // server's**, the step found from the difference the word itself shows
     // (`Unread::shown_difference`): how many were flown at the server's
@@ -4578,6 +4618,8 @@ private:
     std::size_t joined_let_go_ = 0;
     std::size_t joined_left_ = 0;
     std::vector<std::size_t> joined_in_pass_;
+    // The index of the word last put right from (frontend::OwnWords).
+    std::optional<std::size_t> last_put_right_index_;
     std::size_t snapped_joined_ = 0;
     double worst_correction_joined_m_ = 0.0;
     // **The work of putting it right**, per time the socket was read dry

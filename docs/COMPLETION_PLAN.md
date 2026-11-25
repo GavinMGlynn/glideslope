@@ -1798,10 +1798,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       the new check passes in ten runs.* Done 2026-11-22: ten of ten
       (docs/status, 2026-11-22). Not ticked here: the test's worst error
       after a slip (next item), and one run's 8.9 s machine stall.
-- [ ] **The STOVL selector test's worst error after a real server slip**:
-      6.7 and 17.4 m against its 5.6 m in two of ten loaded runs, words 5
-      and 21 steps off, the accepted cost of the held clocks' difference.
-      *Verification: to be measured figures.*
+- [x] **The STOVL selector test's worst error after a real server slip**:
+      a slipped run judges words within 4 s after each slip the server says
+      it made apart: held to 28 m, the rest to 5.6 m. *Verification: it passes
+      ten times idle and ten beside twice as many busy loops as cores.* Done
+      2026-11-25, twenty of twenty, after a putting right from a stale word
+      was fixed; the plain run keeps 5.6 m on every word (docs/status).
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
       enough for a predicting client. *Verification: a client predicting over hills
