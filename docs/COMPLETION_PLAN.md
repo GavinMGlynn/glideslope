@@ -1981,11 +1981,14 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       60 s; it now steers by the difference still to come, and is within one.
       *Verification: the pacing unit test with 2 s frames holds the difference
       within two steps over the last ten seconds.*
-- [ ] **A predicting client went 401 ms of its own without drawing a frame**
-      on nightly 44954156532's macOS 100 ms jitter check; what it did then is
-      not known. The client now says what its longest gap was made of.
+- [x] **A predicting client went 401 ms of its own without drawing a frame**
+      on nightly 44954156532's macOS 100 ms jitter check. A repeat (315 ms,
+      3 of it CPU time) was a write to its track that the runner's disk
+      held up. Its files are now written on a thread of their own.
       *Verification: the cause is placed from a repeat's breakdown, or the
-      runner's steal time, and fixed or named.*
+      runner's steal time, and fixed or named. Done: 200 macOS breakdowns,
+      and the checks' 500 ms slow write fails before the fix and passes
+      after.*
 
 ---
 
