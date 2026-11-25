@@ -2888,11 +2888,10 @@ public:
                 }
                 // **After a server's slip, and otherwise**
                 // (frontend::AfterASlip): outside the machine's stalls, as
-                // the worst is; a word nearest an end of the steps kept
-                // says nothing of how far off it was placed.
+                // the worst is. Nearest an end of the steps kept, the steps
+                // off are as many as it was placed off at least.
                 if (!across) {
-                    after_a_slip_.compared(at_an_end ? 0 : std::llround(steps_off), error,
-                                           at->speed_mps);
+                    after_a_slip_.compared(std::llround(steps_off), error);
                 }
                 if (!across) {
                     if (at_an_end) {
