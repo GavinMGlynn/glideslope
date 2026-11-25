@@ -136,5 +136,13 @@ GLIDESLOPE_TEST(a_word_placed_two_steps_or_more_off_sees_a_slip_and_the_sixty_af
     AfterASlip none;
     check(!none.corrected(25.0, true) && none.corrections() == 0 && none.snapped() == 0,
           "a correction with no slip seen is the rest's");
+    none.compared(3, 1.0);
+    check(none.corrections() == 1 && none.snapped() == 1,
+          "until the next word compared sees one: put right from it before it was compared");
+    AfterASlip apart;
+    apart.corrected(25.0, true);
+    apart.compared(0, 0.1);
+    apart.compared(3, 1.0);
+    check(apart.corrections() == 0, "a correction before a word of the rest stays the rest's");
 }
 
