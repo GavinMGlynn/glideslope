@@ -101,7 +101,7 @@ execute_process(
             --heard "${_extra}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 20 --after 2
             --predict --heard "${_predicting}" --track "${_shown}" --long-frame-after-switch
-            --hand-over-at 8 --take-back-at 14 --watch-ai
+            --hand-over-at 8 --take-back-at 14 --watch-ai --slow-write 10 500
     # Hears everything, and outlasts the one that predicts.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 30 --after 1
             --track "${_truth}" --watch-ai
@@ -326,6 +326,18 @@ endif()
 if(CMAKE_MATCH_2 EQUAL 0)
     message(FATAL_ERROR "none of the ${CMAKE_MATCH_1} frames drawn was carried on past the "
                         "newest update: the guessing was never tested\n${_said}")
+endif()
+# **A slow disk is not a late frame**: its track's first write ten seconds
+# in is held half a second (`--slow-write`), as a macOS runner held one for
+# 297 ms (2026-11-25, a frame 315 ms late), and the frames go on. Said, so
+# that a run whose write was never held is not taken for one that drew
+# through it.
+if(NOT _said MATCHES "its files' writes: the longest ([0-9]+) ms")
+    message(FATAL_ERROR "the predicting client did not say its longest write:\n${_said}")
+endif()
+if(CMAKE_MATCH_1 LESS 500)
+    message(FATAL_ERROR "the predicting client's longest write was ${CMAKE_MATCH_1} ms: "
+                        "its track's write was never held up\n${_said}")
 endif()
 # And the AI's controls, which both clients ride along to watch (`--watch-ai`):
 # each frame's within half a hundredth of the truth at that moment - the HUD

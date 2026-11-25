@@ -83,6 +83,7 @@
 #include <fstream>
 #include <future>
 #include <mutex>
+#include <condition_variable>
 #include <iterator>
 #include <limits>
 #include <deque>
@@ -251,6 +252,13 @@ double connect_stopped_sending_ms = 0.0;
 // prediction, built on any machine, as a debug build on a starved runner is
 // (docs/status, 2026-10-23). Its own time, so never a machine's stall.
 double connect_slow_step_s = 0.0;
+// **(`--slow-write S MS`)**: the first write of its track (`--track`) to
+// reach the system S seconds or more after the file was opened is held MS
+// milliseconds, as a runner's disk holds one up (macOS, 2026-11-25: 297 ms
+// in a write, a frame 315 ms late). A test's slow disk, built rather than
+// waited for. Negative: none.
+double connect_slow_write_after_s = -1.0;
+double connect_slow_write_ms = 0.0;
 // **(`--test-nan-at S`)**: with `--predict`, the first step its prediction
 // flies at or after S seconds of this client's clock is given a NaN for its
 // elevator - put into the predicted aircraft's input path only, never sent -
@@ -675,6 +683,9 @@ void print_usage(std::FILE* out) {
         "                            --stopped-sending S MS (with --predict) the same,\n"
         "                            between flying the steps owed and sending the\n"
         "                            next input\n"
+        "                            --slow-write S MS holds the first write of its\n"
+        "                            track S seconds or more after it was opened MS\n"
+        "                            milliseconds, as a slow disk does\n"
         "                            --slow-steps US (with --predict) spends US\n"
         "                            microseconds busy on every step it flies, forward\n"
         "                            or again: a machine too slow for its prediction\n"
@@ -1801,44 +1812,159 @@ constexpr double inputs_every_s = 1.0 / 30.0;
 // updates it heard itself it could only agree with itself, since what it lost
 // it never knew. A test judges it against a client that heard everything
 // (tests/tools/interpolation_check.cpp).
-// **The time this client's own writing kept it waiting**, seconds: what its
-// files' writes took less the CPU time they used, which is already its own.
-// A write the system holds up - a slow disk, a full pipe - is this client's
-// time between frames, not the machine's not running it (`Predicting::render`).
+// **The time this client's own writing kept it waiting**, seconds: what
+// handing its files' lines over took less the CPU time it used, which is
+// already its own. A wait the system makes it - for the thread that writes
+// them, which it shares a lock with - is this client's time between frames,
+// not the machine's not running it (`Predicting::render`).
 double own_writes_waited_s = 0.0;
 
-// A file whose writes are timed into `own_writes_waited_s`: where its bytes
-// reach the system (overflow, a long write, a flush), the wall time less the
-// thread's CPU time.
-class TimedFileBuf : public std::filebuf {
+// **The longest one write of its files took**, seconds, on the thread that
+// writes them: a disk that holds a write up holds that thread, not this
+// client's frames.
+std::mutex longest_write_mutex;
+double longest_write_s = 0.0;
+double own_longest_write_s() {
+    const std::lock_guard<std::mutex> held(longest_write_mutex);
+    return longest_write_s;
+}
+
+// **A file written on a thread of its own**, its lines handed over in
+// chunks. Written on the client's thread, a write a macOS runner's disk held
+// up for 297 ms held its frames as long: a frame 315 ms late, its CPU time
+// 3 ms of it (2026-11-25, and very likely nightly 44954156532's 401 ms). The
+// handing over is timed into `own_writes_waited_s`; what is not yet written
+// as the file is let go of is written then, and the thread joined.
+class TimedFileBuf : public std::streambuf {
+public:
+    TimedFileBuf() = default;
+    TimedFileBuf(const TimedFileBuf&) = delete;
+    TimedFileBuf& operator=(const TimedFileBuf&) = delete;
+    ~TimedFileBuf() override { close(); }
+
+    bool open(const std::string& file, std::ios::openmode mode) {
+        close();
+        file_.open(file, std::ios::binary | std::ios::out |
+                             ((mode & std::ios::app) != 0 ? std::ios::app : std::ios::trunc));
+        if (!file_.is_open()) {
+            return false;
+        }
+        stopping_ = false;
+        writer_ = std::thread([this] { write_out(); });
+        return true;
+    }
+    // A test's slow disk (`--slow-write`): the first write `after_s` or more
+    // after now held `ms` milliseconds.
+    void slow_once(double after_s, double ms) {
+        const std::lock_guard<std::mutex> held(mutex_);
+        slow_from_ = std::chrono::steady_clock::now() +
+                     std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                         std::chrono::duration<double>(after_s));
+        slow_ms_ = ms;
+    }
+
 protected:
     int_type overflow(int_type c) override {
-        const Timing t;
-        return std::filebuf::overflow(c);
+        if (traits_type::eq_int_type(c, traits_type::eof())) {
+            return traits_type::not_eof(c);
+        }
+        chunk_.push_back(traits_type::to_char_type(c));
+        if (chunk_.size() >= chunk_bytes) {
+            hand_over();
+        }
+        return c;
     }
     std::streamsize xsputn(const char_type* s, std::streamsize n) override {
-        const Timing t;
-        return std::filebuf::xsputn(s, n);
+        chunk_.append(s, static_cast<std::size_t>(n));
+        if (chunk_.size() >= chunk_bytes) {
+            hand_over();
+        }
+        return n;
     }
     int sync() override {
-        const Timing t;
-        return std::filebuf::sync();
+        hand_over();
+        return 0;
     }
 
 private:
-    struct Timing {
-        std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
-        double cpu_s = glideslope::platform::thread_cpu_s();
-        Timing() = default;
-        Timing(const Timing&) = delete;
-        Timing& operator=(const Timing&) = delete;
-        ~Timing() {
+    static constexpr std::size_t chunk_bytes = 64 * 1024;
+
+    // The chunk so far, to the thread that writes, timed.
+    void hand_over() {
+        if (chunk_.empty() || !file_.is_open()) {
+            return;
+        }
+        const auto began = std::chrono::steady_clock::now();
+        const double cpu_s = glideslope::platform::thread_cpu_s();
+        {
+            const std::lock_guard<std::mutex> held(mutex_);
+            waiting_.push_back(std::move(chunk_));
+        }
+        chunk_.clear();
+        ready_.notify_one();
+        const double wall =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+        const double cpu = glideslope::platform::thread_cpu_s() - cpu_s;
+        own_writes_waited_s += std::max(0.0, wall - std::max(0.0, cpu));
+    }
+
+    void write_out() {
+        std::unique_lock<std::mutex> held(mutex_);
+        for (;;) {
+            ready_.wait(held, [this] { return stopping_ || !waiting_.empty(); });
+            if (waiting_.empty()) {
+                return; // stopping, and all written
+            }
+            std::deque<std::string> these;
+            these.swap(waiting_);
+            const bool slow =
+                slow_ms_ > 0.0 && std::chrono::steady_clock::now() >= slow_from_;
+            const double slow_ms = slow ? slow_ms_ : 0.0;
+            if (slow) {
+                slow_ms_ = 0.0;
+            }
+            held.unlock();
+            const auto began = std::chrono::steady_clock::now();
+            if (slow_ms > 0.0) {
+                std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(slow_ms));
+            }
+            for (const std::string& c : these) {
+                file_.write(c.data(), static_cast<std::streamsize>(c.size()));
+            }
+            file_.flush();
             const double wall =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-            const double cpu = glideslope::platform::thread_cpu_s() - cpu_s;
-            own_writes_waited_s += std::max(0.0, wall - std::max(0.0, cpu));
+            {
+                const std::lock_guard<std::mutex> longest(longest_write_mutex);
+                longest_write_s = std::max(longest_write_s, wall);
+            }
+            held.lock();
         }
-    };
+    }
+
+    void close() {
+        if (!file_.is_open()) {
+            return;
+        }
+        hand_over();
+        {
+            const std::lock_guard<std::mutex> held(mutex_);
+            stopping_ = true;
+        }
+        ready_.notify_one();
+        writer_.join();
+        file_.close();
+    }
+
+    std::ofstream file_;
+    std::string chunk_;
+    std::mutex mutex_;
+    std::condition_variable ready_;
+    std::deque<std::string> waiting_;
+    bool stopping_ = false;
+    std::chrono::steady_clock::time_point slow_from_{};
+    double slow_ms_ = 0.0;
+    std::thread writer_;
 };
 
 // An output file written through a TimedFileBuf.
@@ -1850,10 +1976,12 @@ public:
             setstate(std::ios::failbit);
         }
     }
+    void slow_once(double after_s, double ms) { buf_.slow_once(after_s, ms); }
 
 private:
     TimedFileBuf buf_;
 };
+
 
 class Predicting {
 public:
@@ -3610,6 +3738,9 @@ public:
         for (const std::string& b : begins_) {
             lines.push_back("prediction begun: " + b);
         }
+        std::snprintf(line, sizeof line, "its files' writes: the longest %.0f ms",
+                      own_longest_write_s() * 1000.0);
+        lines.emplace_back(line);
         if (prediction_held_trim_) {
             std::snprintf(line, sizeof line,
                           "held trim: the prediction's %.4f, told %.4f; its pitch loop's "
@@ -4639,6 +4770,9 @@ int stay(glideslope::platform::UdpSocket& socket,
     TimedFile track_out;
     if (!track_file.empty()) {
         track_out.open(track_file, std::ios::trunc);
+        if (connect_slow_write_after_s >= 0.0) {
+            track_out.slow_once(connect_slow_write_after_s, connect_slow_write_ms);
+        }
         track_out.precision(4);
         track_out.setf(std::ios::fixed);
         if (predicting) {
@@ -6812,6 +6946,14 @@ static int run_program(int argc, char** argv) {
                     connect_stopped_once_at_s =
                         std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     connect_stopped_once_ms =
+                        std::strtod(std::string(args[i + 2]).c_str(), nullptr);
+                    i += 2;
+                    continue;
+                }
+                if (args[i] == "--slow-write" && i + 2 < args.size()) {
+                    connect_slow_write_after_s =
+                        std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    connect_slow_write_ms =
                         std::strtod(std::string(args[i + 2]).c_str(), nullptr);
                     i += 2;
                     continue;
