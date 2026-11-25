@@ -135,6 +135,7 @@ The unit tests:
   `a_players_stovl_selector_through_a_server_that_slips_is_held_to_measured_bounds_after_each_slip`,
   port 24934, about 130 s. It is costed at its plain twin's figure.
 - The nightly's repeat job has nine shards: the shards test failed at eight.
+- macOS debug's scheduled tests have nine shards too: at eight, the full run's shards test on macOS (45625771007) found every shard at 33.9 min, over 75% of 45.
 - `--test-slip` is in server_flags.cmake's list and usage.
 
 The selftest hash is not touched: no simulation code changed. The fix is in
