@@ -151,16 +151,15 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
-# **Slipped** (`-DSLIPPED=ON`): the server runs nothing for 3.7 s at 60 s on
-# its clock (`--test-stopped-once 60 3700`), past the 3.5 s it catches up
-# (net::most_steps_caught_up), and lets the rest slip, for good - a real
-# slip, built, and said (`--test-say-slipped`). Run by hand for its plan
-# item (COMPLETION_PLAN, Phase 12a): not in ctest until it passes there -
-# even idle its first correction after the slip, 19 to 20 m, can come before
-# the slip is seen (docs/status, 2026-11-25).
+# **Slipped** (`-DSLIPPED=ON`): every 5 s on its clock the server runs
+# nothing for 5, 10, 15 and then 20 steps' time in turn and lets them slip
+# rather than catch them up (`--test-slip 5 20`), as a loaded debug server
+# too slow to catch up did - the item's slips placed words 5 and 21 steps
+# off (docs/status, 2026-11-22). Each is said (`--test-say-slipped`) and
+# counted, not believed.
 set(_slipped_args "")
 if(SLIPPED)
-    set(_slipped_args --test-stopped-once 60 3700 --test-say-slipped)
+    set(_slipped_args --test-slip 5 20 --test-say-slipped)
 endif()
 
 math(EXPR _relay "${PORT} + 1")
@@ -236,7 +235,7 @@ endif()
 set(_worst_after_a_slip_mm 50000)
 set(_worst_correction_after_a_slip_mm 60000)
 set(_most_after_a_slip 250)
-if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m;")
+if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the clocks' difference moved at most [0-9]+ steps at once, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m;")
     message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
 endif()
 set(_slips_seen "${CMAKE_MATCH_1}")
@@ -253,6 +252,10 @@ endif()
 set(_slip_corrections "${CMAKE_MATCH_1}")
 math(EXPR _slip_correction_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
 set(_slip_snapped "${CMAKE_MATCH_4}")
+if(NOT _said MATCHES "the clocks. difference moved at most ([0-9]+) steps at once")
+    message(FATAL_ERROR "the client did not say how far its clocks. difference moved:\n${_said}")
+endif()
+set(_most_moved "${CMAKE_MATCH_1}")
 if(_rest_worst_mm GREATER 5600)
     message(FATAL_ERROR "the worst prediction error apart from a slip was ${_rest_worst_mm} mm, "
                         "over four steps' travel at 330 kt (5.6 m):\n${_said}")
@@ -281,26 +284,38 @@ if(NOT _snapped_rest EQUAL 0)
 endif()
 string(CONCAT _slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
                "${_longest_after} after one, placed at most ${_most_off} steps off), the "
-               "worst ${_after_worst_mm} mm, ${_slip_corrections} corrections the worst "
+               "worst ${_after_worst_mm} mm, the difference moved at most ${_most_moved} steps, "
+               "${_slip_corrections} corrections the worst "
                "${_slip_correction_mm} mm, ${_slip_snapped} too large to hide; the rest's "
                "worst ${_rest_worst_mm} mm over ${_rest}")
-# **Slipped, the slip is built and seen**: the server said it let at least
-# 20 steps go, and the client saw it.
+# **Slipped, the slips are built and seen**: at least ten holds, every one
+# let slip whole - the server said so - and the client saw a slip.
 if(SLIPPED)
+    string(REGEX MATCHALL "held up to slip [0-9]+ steps" _holds "${_err}")
+    list(LENGTH _holds _n_holds)
+    set(_held_steps 0)
+    foreach(_h IN LISTS _holds)
+        string(REGEX REPLACE "held up to slip ([0-9]+) steps" "\\1" _h "${_h}")
+        math(EXPR _held_steps "${_held_steps} + ${_h}")
+    endforeach()
     string(REGEX MATCHALL "let [0-9]+ steps? slip, [0-9]+ in all" _lets "${_err}")
-    list(LENGTH _lets _n_lets)
     set(_let 0)
-    if(_n_lets GREATER 0)
+    if(_lets)
         list(GET _lets -1 _last_let)
         string(REGEX REPLACE ".*, ([0-9]+) in all" "\\1" _let "${_last_let}")
     endif()
-    if(_let LESS 20)
-        message(FATAL_ERROR "the server let ${_let} steps slip, under the 20 built:\n${_err}")
+    if(_n_holds LESS 10)
+        message(FATAL_ERROR "the server was held up to slip ${_n_holds} times, under the 10 "
+                            "asked:\n${_err}")
+    endif()
+    if(_let LESS _held_steps)
+        message(FATAL_ERROR "the server let ${_let} steps slip, under the ${_held_steps} it was "
+                            "held up for:\n${_err}")
     endif()
     if(_slips_seen LESS 1)
         message(FATAL_ERROR "the server let ${_let} steps slip and the client saw no slip:\n${_said}")
     endif()
-    string(APPEND _slip_said "; the server let ${_let} steps slip")
+    string(APPEND _slip_said "; the server held up ${_n_holds} times and let ${_let} steps slip")
 endif()
 # **And the joined window is not empty**: nine in ten of the words compared
 # were joined, and every one of them was put right from or superseded by a

@@ -25,6 +25,15 @@
 // pace's, as a machine's stall's are (frontend::MachineStalls) - begun again
 // by each word that sees one. The rest's worst is the prediction's own.
 //
+// **A slip is seen too when the clocks' difference moves by `from_steps` or
+// more at once** (`figure`), as the word is read, before it is put right
+// from. Words placed by the held figure before it moves are where the server
+// was - its aircraft did not fly the steps it let slip - and the cost comes
+// when it moves: the putting right from the first word it places, 22 m for a
+// slip of 20 steps, and the words of the round trip after. Seen only in the
+// words' steps off, that correction fell before the slip was seen in three
+// idle runs of nine (2026-11-25).
+//
 // Presentation-free: arithmetic on what each word says.
 
 #include "sim/prediction.hpp"
@@ -33,6 +42,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string>
 
 namespace glideslope::frontend {
@@ -47,22 +57,9 @@ public:
     // was placed, and its error.
     void compared(std::int64_t steps_off, double error_m) {
         if (steps_off >= from_steps) {
-            if (left_ == 0) {
-                ++slips_;
-                window_ = 0;
-                // The corrections since the last word compared are this
-                // slip's: put right from a slipped word before it was
-                // compared (an idle run, 20.2 m, 2026-11-25).
-                corrections_ += pending_;
-                snapped_ += pending_snapped_;
-                worst_correction_m_ = std::max(worst_correction_m_, pending_worst_m_);
-            }
-            left_ = words_after + 1;
+            seen();
             most_off_ = std::max(most_off_, steps_off);
         }
-        pending_ = 0;
-        pending_snapped_ = 0;
-        pending_worst_m_ = 0.0;
         if (left_ == 0) {
             ++rest_;
             worst_rest_m_ = std::max(worst_rest_m_, error_m);
@@ -75,19 +72,26 @@ public:
         worst_after_m_ = std::max(worst_after_m_, error_m);
     }
 
+    // **The clocks' difference a word was just read with**, settled; none
+    // when the prediction is let go of and begun again.
+    void figure(std::optional<std::int64_t> d) {
+        if (d && figure_ && (*d - *figure_ >= from_steps || *figure_ - *d >= from_steps)) {
+            seen();
+            most_moved_ = std::max(most_moved_, *d > *figure_ ? *d - *figure_ : *figure_ - *d);
+        }
+        figure_ = d;
+    }
+
     std::size_t slips() const { return slips_; }
+    std::int64_t most_moved() const { return most_moved_; }
     std::size_t after() const { return after_; }
     std::size_t rest() const { return rest_; }
     // **A correction once joined**: one made while the words after a slip
     // are still coming is counted with them - the figure moving to follow
     // the slip puts this client right by the steps it moved, which is the
-    // same cost - and so is one made since the last word compared, if the
-    // next sees a slip. Returns whether it is counted with them now.
+    // same cost. Returns whether it was.
     bool corrected(double moved_m, bool snapped) {
         if (left_ == 0) {
-            ++pending_;
-            pending_snapped_ += snapped ? 1 : 0;
-            pending_worst_m_ = std::max(pending_worst_m_, moved_m);
             return false;
         }
         ++corrections_;
@@ -108,16 +112,26 @@ public:
         char line[512];
         std::snprintf(line, sizeof line,
                       "after a slip: %zu seen, %zu updates compared after them, at most %zu "
-                      "after one, placed at most %lld steps off, the worst %.3f m; the rest: "
+                      "after one, placed at most %lld steps off, the clocks' difference moved "
+                      "at most %lld steps at once, the worst %.3f m; the rest: "
                       "%zu updates, the worst %.3f m; corrections once joined after them: %zu, "
                       "the worst %.3f m, %zu too large to hide",
                       slips_, after_, longest_, static_cast<long long>(most_off_),
-                      worst_after_m_, rest_, worst_rest_m_, corrections_, worst_correction_m_,
+                      static_cast<long long>(most_moved_), worst_after_m_, rest_, worst_rest_m_, corrections_, worst_correction_m_,
                       snapped_);
         return line;
     }
 
 private:
+    // A slip seen: its window begun, or begun again.
+    void seen() {
+        if (left_ == 0) {
+            ++slips_;
+            window_ = 0;
+        }
+        left_ = words_after + 1;
+    }
+
     std::size_t slips_ = 0;
     std::size_t after_ = 0;
     std::size_t rest_ = 0;
@@ -130,9 +144,8 @@ private:
     std::size_t corrections_ = 0;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
-    std::size_t pending_ = 0;
-    std::size_t pending_snapped_ = 0;
-    double pending_worst_m_ = 0.0;
+    std::optional<std::int64_t> figure_;
+    std::int64_t most_moved_ = 0;
 };
 
 } // namespace glideslope::frontend

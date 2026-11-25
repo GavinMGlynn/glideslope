@@ -247,6 +247,13 @@ struct Options {
     // busy machine holds a server up now and then; zero is never.
     double test_held_up_every_s = 0.0;
     double test_held_up_ms = 0.0;
+    // For a test: **a real slip** (`--test-slip EVERY_S STEPS`) - every
+    // EVERY_S seconds on the session's clock it runs nothing for a quarter, a
+    // half, three quarters and then all of STEPS steps' time in turn, and lets
+    // those steps slip rather than catching them up, as a loaded server too
+    // slow to catch up does (net::CatchingUp); zero is never.
+    double test_slip_every_s = 0.0;
+    std::int64_t test_slip_steps = 0;
     // For a test: how fast the simulation's clock runs against real time,
     // set - a server behind real time by a fixed factor, the same on every
     // machine fast enough to keep up with it, where one put behind by
@@ -437,6 +444,10 @@ void print_usage(std::FILE* out) {
         "                     clock run nothing for a quarter, a half, three\n"
         "                     quarters, then all of MS milliseconds in turn, as\n"
         "                     a busy machine holds it up, for tests\n"
+        "  --test-slip EVERY_S STEPS  every EVERY_S seconds on the session's\n"
+        "                     clock run nothing for a quarter, a half, three\n"
+        "                     quarters, then all of STEPS steps' time in turn,\n"
+        "                     and let them slip, for tests\n"
         "  --test-say-slipped  say each time steps owed are let slip, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
@@ -650,6 +661,17 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.test_first_update_lost = true;
         } else if (a == "--test-say-slipped") {
             o.test_say_slipped = true;
+        } else if (a == "--test-slip") {
+            if (!next(value)) return std::nullopt;
+            const auto every = number(value);
+            if (!next(value)) return std::nullopt;
+            const auto steps = number(value);
+            if (!every || *every <= 0.0 || !steps || *steps < 1.0 || *steps > 400.0) {
+                why = "--test-slip wants seconds between and the most steps let slip, 1 to 400";
+                return std::nullopt;
+            }
+            o.test_slip_every_s = *every;
+            o.test_slip_steps = static_cast<std::int64_t>(*steps);
         } else if (a == "--test-held-up") {
             if (!next(value)) return std::nullopt;
             const auto every = number(value);
@@ -6287,6 +6309,11 @@ int run(const Options& o) {
     // `--test-held-up`: when next, and how many times so far.
     double held_up_next_s = o.test_held_up_every_s;
     int held_up_times = 0;
+    // `--test-slip`: when next, how many times so far, and the steps to let
+    // slip once they have come due.
+    double slip_next_s = o.test_slip_every_s;
+    int slip_times = 0;
+    std::int64_t slip_due = 0;
     auto last = began;
     glideslope::sim::FixedStep clock;
     // Steps the clock says are due and the fleet has not yet taken - caught
@@ -6337,6 +6364,18 @@ int run(const Options& o) {
             // believing them; on the error stream, as `--test-say-slipped`.
             std::fprintf(stderr, "held up %.0f ms at %.2f s, %d times in all\n", held_ms,
                          fleet->now_s(), held_up_times);
+            now = std::chrono::steady_clock::now();
+            up_s = std::chrono::duration<double>(now - began).count();
+        }
+        if (o.test_slip_every_s > 0.0 && fleet && fleet->now_s() >= slip_next_s) {
+            slip_next_s = fleet->now_s() + o.test_slip_every_s;
+            slip_due = std::max<std::int64_t>(1, o.test_slip_steps * (slip_times % 4 + 1) / 4);
+            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(
+                1000.0 * static_cast<double>(slip_due) /
+                static_cast<double>(glideslope::sim::steps_per_second)));
+            ++slip_times;
+            std::fprintf(stderr, "held up to slip %lld steps at %.2f s, %d times in all\n",
+                         static_cast<long long>(slip_due), fleet->now_s(), slip_times);
             now = std::chrono::steady_clock::now();
             up_s = std::chrono::duration<double>(now - began).count();
         }
@@ -6450,9 +6489,15 @@ int run(const Options& o) {
             // At a set fraction of real time, for a test (`--test-pace`).
             const auto gap = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 (now - last) * o.test_pace);
-            const std::int64_t slipped = owed.came_due(
+            std::int64_t slipped = owed.came_due(
                 clock.advance(gap), std::chrono::duration<double>(gap).count(), steps_last_pass,
                 static_cast<double>(glideslope::sim::steps_per_second));
+            // `--test-slip`: the steps it was held up for, let slip.
+            if (slip_due > 0) {
+                const std::int64_t let = owed.let_slip(slip_due);
+                slipped += let;
+                slip_due -= let;
+            }
             if (slipped > 0 && o.test_say_slipped) {
                 // On the error stream: a test runs the server in a pipeline,
                 // whose output goes to the next program and is not read.

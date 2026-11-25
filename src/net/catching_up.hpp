@@ -103,6 +103,14 @@ public:
 
     // `n` of the steps owed taken.
     void took(std::int64_t n) { owed_ -= n; }
+    // **For a test, up to `n` of the steps owed let slip** at once, as a
+    // server too slow to catch them up would; returns how many were.
+    std::int64_t let_slip(std::int64_t n) {
+        const std::int64_t slip = std::clamp<std::int64_t>(n, 0, owed_);
+        owed_ -= slip;
+        slipped_ += slip;
+        return slip;
+    }
 
     // **Whether the server, flying flat out, has been taking steps faster
     // than they come due** - or has not flown flat out long enough to say.

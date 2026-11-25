@@ -98,7 +98,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --test-stopped-once --test-say-controls --test-first-update-lost
               --test-slow-start
               --test-wreck-waits-for-joins
-              --test-held-up --test-say-slipped
+              --test-held-up --test-slip --test-say-slipped
               --drop-once-flown --lose-goodbyes --stop-once-flown
               --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
