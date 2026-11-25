@@ -2,6 +2,7 @@
 
 #include "frontend/after_a_slip.hpp"
 #include "frontend/machine_stalls.hpp"
+#include "frontend/own_words.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -136,13 +137,61 @@ GLIDESLOPE_TEST(a_word_placed_two_steps_or_more_off_sees_a_slip_and_the_sixty_af
     AfterASlip none;
     check(!none.corrected(25.0, true) && none.corrections() == 0 && none.snapped() == 0,
           "a correction with no slip seen is the rest's");
-    none.compared(3, 1.0);
-    check(none.corrections() == 1 && none.snapped() == 1,
-          "until the next word compared sees one: put right from it before it was compared");
-    AfterASlip apart;
-    apart.corrected(25.0, true);
-    apart.compared(0, 0.1);
-    apart.compared(3, 1.0);
-    check(apart.corrections() == 0, "a correction before a word of the rest stays the rest's");
+
+    // The clocks' difference moving: by every amount from 3 steps down to 3
+    // up, a slip seen from two either way, none on the first figure or after
+    // a prediction let go of.
+    std::size_t moves = 0;
+    for (std::int64_t by = -3; by <= 3; ++by) {
+        AfterASlip f;
+        f.figure(433);
+        f.figure(433 + by);
+        const bool seen = by >= 2 || by <= -2;
+        check(f.slips() == (seen ? 1u : 0u),
+              "the difference moved " + std::to_string(by) + ": " + (seen ? "" : "no ") + "slip");
+        check(f.corrected(22.0, true) == seen, "and the correction after it counted apart if so");
+        ++moves;
+    }
+    check(moves == 7, "all seven moves from -3 to 3 covered");
+    AfterASlip begun;
+    begun.figure(433);
+    begun.figure(std::nullopt);
+    begun.figure(400);
+    check(begun.slips() == 0 && begun.most_moved() == 0, "a prediction begun again moves nothing");
+}
+
+// **A word older than one already put right from is never put right from**
+// (frontend::OwnWords): after a server's slip the clocks' difference moves
+// down, and a newer word is placed at an earlier step than an older one
+// still held. The newer is flown, compared and put right from first; the
+// older, when its step comes, is compared and superseded - in two passes,
+// and in one.
+GLIDESLOPE_TEST(a_word_older_than_one_put_right_from_is_compared_and_superseded_never_put_right_from) {
+    using glideslope::frontend::Held;
+    using glideslope::frontend::OwnWords;
+    std::size_t compared = 0;
+    auto compare = [&](const OwnWords<int>::Placed&) {
+        ++compared;
+        return Held::compared;
+    };
+    // Two passes: the older held past the steps flown, the newer placed
+    // earlier and put right from; the older's step flown in the next pass.
+    OwnWords<int> two;
+    two.read(0, 100, 50, 0.0, compare);
+    two.read(1, 40, 50, 0.0, compare);
+    const auto first = two.settle(50, 0.0, compare);
+    check(first && first->word == 1, "the newer, flown, is put right from");
+    const auto second = two.settle(100, 0.1, compare);
+    check(!second, "the older, flown later, is not put right from");
+    check(compared == 2 && two.superseded_late() == 1 && two.put_right_from_not_newest() == 0,
+          "both compared; the older superseded late; none put right from but the newest");
+    // One pass: both flown by the settle, the older released after the newer.
+    compared = 0;
+    OwnWords<int> one;
+    one.read(0, 100, 50, 0.0, compare);
+    one.read(1, 40, 50, 0.0, compare);
+    const auto only = one.settle(100, 0.0, compare);
+    check(only && only->word == 1 && compared == 2 && one.superseded_late() == 1,
+          "in one pass the newer is put right from and the older superseded");
 }
 

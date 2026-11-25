@@ -2455,6 +2455,7 @@ public:
     // joined words compared in the pass, never to be put right from.
     void drop_words(const std::string& why) {
         words_.drop(why);
+        after_a_slip_.figure(std::nullopt);
         joined_let_go_ += joined_in_pass_.size();
         joined_in_pass_.clear();
     }
@@ -2623,6 +2624,10 @@ public:
         const std::size_t samples_before = prediction_->samples_taken();
         const auto at =
             prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
+        // **The clocks' difference as this word left it**, settled: moved
+        // two steps or more at once, a slip is seen (frontend::AfterASlip).
+        after_a_slip_.figure(prediction_->settled() ? prediction_->clocks_difference()
+                                                    : std::nullopt);
         if (const auto began = prediction_->began_at(applied);
             began && state.yours->steps_into_input <= server_steps) {
             word.shown_difference =
@@ -3009,11 +3014,22 @@ public:
                 return compare_word(p.word, *p.at_step, p.index);
             });
         if (!settled) {
+            // **A word older than one already put right from** is superseded
+            // by it, compared and never put right from (frontend::OwnWords).
+            std::erase_if(joined_in_pass_, [&](std::size_t index) {
+                if (last_put_right_index_ && index < *last_put_right_index_) {
+                    ++joined_superseded_;
+                    return true;
+                }
+                return false;
+            });
             return;
         }
+        last_put_right_index_ = settled->index;
         // **Every joined word compared this pass is the one put right from
-        // or superseded by it**, a newer word read with it: counted apart,
-        // so that a pass compared and not put right from is seen.
+        // or superseded by it**, a newer word read with it - or by one put
+        // right from before it: counted apart, so that a pass compared and
+        // not put right from is seen.
         bool joined_put_right = false;
         for (const std::size_t index : joined_in_pass_) {
             if (index == settled->index) {
@@ -4593,6 +4609,8 @@ private:
     std::size_t joined_let_go_ = 0;
     std::size_t joined_left_ = 0;
     std::vector<std::size_t> joined_in_pass_;
+    // The index of the word last put right from (frontend::OwnWords).
+    std::optional<std::size_t> last_put_right_index_;
     std::size_t snapped_joined_ = 0;
     double worst_correction_joined_m_ = 0.0;
     // **The work of putting it right**, per time the socket was read dry
