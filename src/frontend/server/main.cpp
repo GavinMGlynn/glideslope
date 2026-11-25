@@ -6314,6 +6314,7 @@ int run(const Options& o) {
     double slip_next_s = o.test_slip_every_s;
     int slip_times = 0;
     std::int64_t slip_due = 0;
+    std::int64_t slip_let = 0;
     auto last = began;
     glideslope::sim::FixedStep clock;
     // Steps the clock says are due and the fleet has not yet taken - caught
@@ -6497,13 +6498,19 @@ int run(const Options& o) {
                 const std::int64_t let = owed.let_slip(slip_due);
                 slipped += let;
                 slip_due -= let;
+                slip_let += let;
+                // Said apart from what a slow machine lets slip, so that a
+                // test counts the steps its holds let go and no others.
+                std::fprintf(stderr, "let %lld held-up steps slip at %.4f s, %lld in all\n",
+                             static_cast<long long>(let), fleet->now_s(),
+                             static_cast<long long>(slip_let));
             }
             if (slipped > 0 && o.test_say_slipped) {
                 // On the error stream: a test runs the server in a pipeline,
                 // whose output goes to the next program and is not read.
-                std::fprintf(stderr, "let %lld step%s slip, %lld in all\n",
+                std::fprintf(stderr, "let %lld step%s slip at %.4f s, %lld in all\n",
                              static_cast<long long>(slipped), slipped == 1 ? "" : "s",
-                             static_cast<long long>(owed.slipped()));
+                             fleet->now_s(), static_cast<long long>(owed.slipped()));
             }
             std::int64_t n = std::min(owed.owed(), most_steps_between_looks);
             // The inputs read in this pass are due at the step due now, the

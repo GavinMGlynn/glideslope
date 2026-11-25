@@ -1799,12 +1799,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       (docs/status, 2026-11-22). Not ticked here: the test's worst error
       after a slip (next item), and one run's 8.9 s machine stall.
 - [x] **The STOVL selector test's worst error after a real server slip**:
-      the words after a slip are counted apart and held to 30 m (their
-      corrections 35 m), the rest to 5.6 m; slips of 5 to 20 steps are built.
-      *Verification: the slipped run in ctest passes ten times idle and ten
-      beside twice as many busy loops as cores.* Done 2026-11-25: twenty of
-      twenty, worst 23.4 m and 26.9 m, after a putting right from a stale
-      word after a slip was found and fixed (docs/status, 2026-11-25).
+      a slipped run judges words within 4 s after each slip the server says
+      it made apart: held to 28 m, the rest to 5.6 m. *Verification: it passes
+      ten times idle and ten beside twice as many busy loops as cores.* Done
+      2026-11-25, twenty of twenty, after a putting right from a stale word
+      was fixed; the plain run keeps 5.6 m on every word (docs/status).
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
       enough for a predicting client. *Verification: a client predicting over hills

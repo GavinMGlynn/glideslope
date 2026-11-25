@@ -151,15 +151,19 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
-# **Slipped** (`-DSLIPPED=ON`): every 5 s on its clock the server runs
+# **Slipped** (`-DSLIPPED=ON`): every 8 s on its clock the server runs
 # nothing for 5, 10, 15 and then 20 steps' time in turn and lets them slip
-# rather than catch them up (`--test-slip 5 20`), as a loaded debug server
+# rather than catch them up (`--test-slip 8 20`), as a loaded debug server
 # too slow to catch up did - the item's slips placed words 5 and 21 steps
 # off (docs/status, 2026-11-22). Each is said (`--test-say-slipped`) and
 # counted, not believed.
 set(_slipped_args "")
+set(_tracked "")
+set(_track "${WORK}/track.txt")
+file(REMOVE "${_track}")
 if(SLIPPED)
-    set(_slipped_args --test-slip 5 20 --test-say-slipped)
+    set(_slipped_args --test-slip 8 20 --test-say-slipped)
+    set(_tracked --track "${_track}")
 endif()
 
 math(EXPR _relay "${PORT} + 1")
@@ -167,7 +171,7 @@ port_lock_hold(${_relay})
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 900 --after 1
             --aircraft f35b --predict --stovl-land --until-compared 3000
-            --heard "${_heard}"
+            --heard "${_heard}" ${_tracked}
     COMMAND "${SERVER}" --port ${PORT} --seconds 1000 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 30 --store "${_store}" --plan "${_plan}"
             ${_slipped_args}
@@ -219,74 +223,59 @@ math(EXPR _worst_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
 if(_compared LESS 3000)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
-# **After a server's slip, and apart from it** (frontend::AfterASlip). A
-# slip is seen in a word placed two steps or more from where it falls on the
-# path flown, or in the clocks' difference moving two steps or more at once;
-# then it and the 60 words after it - the difference's window and the pace's
-# - are counted apart, with the corrections once joined made while they
-# come. That is the held difference's accepted cost (2026-11-22): a slip
-# followed ten words late, the putting right as the figure moves, and the
-# round trip's words after it placed off. **The rest are held as every word
-# was** until a loaded machine's real slips went past it (6.7 and 17.4 m, two
-# runs in ten, 2026-11-22): four steps' travel at 330 kt (5.6 m), and no
-# correction too large to hide. **The words after a slip are held to 30 m,
-# their corrections to 35 m**: slips of 5 to 20 steps built (`-DSLIPPED=ON`), twenty
-# runs idle and beside twice as many busy loops as cores, came to 23.4 m and
-# 26.9 m at worst; 20 steps at 330 kt is 28 m (docs/status, 2026-11-25).
-set(_worst_after_a_slip_mm 30000)
-set(_worst_correction_after_a_slip_mm 35000)
-if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the clocks' difference moved at most [0-9]+ steps at once, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m;")
-    message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
-endif()
-set(_slips_seen "${CMAKE_MATCH_1}")
-set(_after_slip "${CMAKE_MATCH_2}")
-set(_longest_after "${CMAKE_MATCH_3}")
-set(_most_off "${CMAKE_MATCH_4}")
-math(EXPR _after_worst_mm "${CMAKE_MATCH_5} * 1000 + ${CMAKE_MATCH_6}")
-set(_rest "${CMAKE_MATCH_7}")
-math(EXPR _rest_worst_mm "${CMAKE_MATCH_8} * 1000 + ${CMAKE_MATCH_9}")
-# (A CMake regular expression holds nine groups at most.)
-if(NOT _said MATCHES "corrections once joined after them: ([0-9]+), the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, ([0-9]+) too large to hide")
-    message(FATAL_ERROR "the client did not say its corrections after a slip:\n${_said}")
-endif()
-set(_slip_corrections "${CMAKE_MATCH_1}")
-math(EXPR _slip_correction_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
-set(_slip_snapped "${CMAKE_MATCH_4}")
-if(NOT _said MATCHES "the clocks. difference moved at most ([0-9]+) steps at once")
-    message(FATAL_ERROR "the client did not say how far its clocks. difference moved:\n${_said}")
-endif()
-set(_most_moved "${CMAKE_MATCH_1}")
-if(_rest_worst_mm GREATER 5600)
-    message(FATAL_ERROR "the worst prediction error apart from a slip was ${_rest_worst_mm} mm, "
-                        "over four steps' travel at 330 kt (5.6 m):\n${_said}")
-endif()
-if(_after_worst_mm GREATER _worst_after_a_slip_mm)
-    message(FATAL_ERROR "the worst prediction error after a slip was ${_after_worst_mm} mm, "
-                        "over ${_worst_after_a_slip_mm} mm:\n${_said}")
-endif()
-if(_slip_correction_mm GREATER _worst_correction_after_a_slip_mm)
-    message(FATAL_ERROR "a correction once joined after a slip was ${_slip_correction_mm} mm, "
-                        "over ${_worst_correction_after_a_slip_mm} mm:\n${_said}")
-endif()
+# **Every word within four steps' travel at 330 kt (5.6 m)**, and no
+# correction once joined too large to hide - in the plain run, as always.
+# The client's own guess at a slip (frontend::AfterASlip: a word placed two
+# steps or more off, or its clocks' difference moving two steps at once) is
+# said and not used here: on Windows a word two steps off is a known spread
+# of its own (Phase 12a), not a slip, and nothing in the plain run may be
+# excused by it.
 if(NOT _said MATCHES "predicted, joined: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
     message(FATAL_ERROR "the client did not say its corrections once joined:\n${_said}")
 endif()
 set(_joined "${CMAKE_MATCH_1}")
 set(_joined_worst "${CMAKE_MATCH_2}")
-math(EXPR _snapped_rest "${CMAKE_MATCH_3} - ${_slip_snapped}")
-if(NOT _snapped_rest EQUAL 0)
-    message(FATAL_ERROR "${_snapped_rest} corrections once joined, not after a slip, were too "
-                        "large to hide:\n${_said}")
+set(_snapped "${CMAKE_MATCH_3}")
+if(NOT _said MATCHES "after a slip: ([0-9]+) seen, [0-9]+ updates compared after them, at most [0-9]+ after one, placed at most ([0-9]+) steps off, the clocks' difference moved at most ([0-9]+) steps at once")
+    message(FATAL_ERROR "the client did not say what it took for slips:\n${_said}")
 endif()
-string(CONCAT _slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
-               "${_longest_after} after one, placed at most ${_most_off} steps off), the "
-               "worst ${_after_worst_mm} mm, the difference moved at most ${_most_moved} steps, "
-               "${_slip_corrections} corrections the worst "
-               "${_slip_correction_mm} mm, ${_slip_snapped} too large to hide; the rest's "
-               "worst ${_rest_worst_mm} mm over ${_rest}")
-# **Slipped, the slips are built and seen**: at least ten holds, every one
-# let slip whole - the server said so - and the client saw a slip.
+set(_slips_seen "${CMAKE_MATCH_1}")
+set(_most_off "${CMAKE_MATCH_2}")
+set(_most_moved "${CMAKE_MATCH_3}")
+set(_slip_said "the client saw ${_slips_seen} slips (placed at most ${_most_off} steps off, its "
+               "clocks' difference moved at most ${_most_moved} steps at once)")
+string(CONCAT _slip_said ${_slip_said})
+if(NOT SLIPPED)
+    if(_worst_mm GREATER 5600)
+        message(FATAL_ERROR "the worst prediction error was ${_worst_mm} mm, over four steps' "
+                            "travel at 330 kt (5.6 m):\n${_said}")
+    endif()
+    if(NOT _snapped EQUAL 0)
+        message(FATAL_ERROR "${_snapped} corrections once joined were too large to hide:\n${_said}")
+    endif()
+endif()
+# **Slipped** - the words after each slip the server says it made, and the
+# rest. The server says the moment of every slip it makes, held up or not
+# (`let N steps slip at T s`, `--test-say-slipped`); a word about a moment
+# within 4 s after one is after it, and so is a putting right from one. The
+# latest word over 5.6 m or correction too large to hide came 0.6 s after a
+# slip idle and 3.0 s beside twice as many busy loops as cores, while the
+# figure and the pace follow it (docs/status, 2026-11-25). Those words are
+# held to 28 m and their corrections to 28 m - 20 steps at 330 kt; 21.0 and
+# 21.7 m the most measured - and every other word to 5.6 m with no
+# correction too large to hide, as in the plain run. Their share is held to
+# 60% (49 to 51% measured: a slip every 8 s, 4 s after each), so that
+# windows chained one into the next cannot excuse the run. And the slips are
+# built as asked, and seen: at least ten holds, every held step let slip
+# (counted from the holds' own lines, not the server's total), and the
+# client's clocks' difference moved by 15 steps or more at once (17 to 19
+# measured for the 20-step slips).
 if(SLIPPED)
+    set(_window_ms 4000)
+    set(_worst_after_a_slip_mm 28000)
+    set(_worst_correction_after_a_slip_mm 28000)
+    set(_most_share_pct 60)
+    set(_least_moved 15)
     string(REGEX MATCHALL "held up to slip [0-9]+ steps" _holds "${_err}")
     list(LENGTH _holds _n_holds)
     set(_held_steps 0)
@@ -294,24 +283,171 @@ if(SLIPPED)
         string(REGEX REPLACE "held up to slip ([0-9]+) steps" "\\1" _h "${_h}")
         math(EXPR _held_steps "${_held_steps} + ${_h}")
     endforeach()
-    string(REGEX MATCHALL "let [0-9]+ steps? slip, [0-9]+ in all" _lets "${_err}")
+    # The steps its holds let go, and no others (`let N held-up steps slip`).
+    string(REGEX MATCHALL "let [0-9]+ held-up steps slip at [0-9.]+ s" _lets "${_err}")
     set(_let 0)
-    if(_lets)
-        list(GET _lets -1 _last_let)
-        string(REGEX REPLACE ".*, ([0-9]+) in all" "\\1" _let "${_last_let}")
-    endif()
+    foreach(_l IN LISTS _lets)
+        string(REGEX MATCH "let ([0-9]+) held-up steps slip" _m "${_l}")
+        math(EXPR _let "${_let} + ${CMAKE_MATCH_1}")
+    endforeach()
+    # And the moment of every slip it made, held up or by a machine too slow
+    # to catch up (`--test-say-slipped`), in milliseconds of its clock.
+    string(REGEX MATCHALL "let [0-9]+ steps? slip at [0-9.]+ s" _slips "${_err}")
+    list(LENGTH _slips _n_slips)
+    set(_slip_ms "")
+    foreach(_l IN LISTS _slips)
+        string(REGEX MATCH "slip at ([0-9]+)\\.([0-9][0-9][0-9])" _m "${_l}")
+        math(EXPR _at "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+        list(APPEND _slip_ms ${_at})
+    endforeach()
     if(_n_holds LESS 10)
         message(FATAL_ERROR "the server was held up to slip ${_n_holds} times, under the 10 "
                             "asked:\n${_err}")
     endif()
     if(_let LESS _held_steps)
-        message(FATAL_ERROR "the server let ${_let} steps slip, under the ${_held_steps} it was "
-                            "held up for:\n${_err}")
+        message(FATAL_ERROR "the server let ${_let} of its held-up steps slip, under the "
+                            "${_held_steps} it was held up for:\n${_err}")
     endif()
-    if(_slips_seen LESS 1)
-        message(FATAL_ERROR "the server let ${_let} steps slip and the client saw no slip:\n${_said}")
+    if(_most_moved LESS _least_moved)
+        message(FATAL_ERROR "the server let slips of up to 20 steps go, and the client's clocks' "
+                            "difference moved at most ${_most_moved} steps at once, under "
+                            "${_least_moved}:\n${_said}")
     endif()
-    string(APPEND _slip_said "; the server held up ${_n_holds} times and let ${_let} steps slip")
+    # A word's moment and size, from glideslope_cli's track; "x.yyy..." to
+    # whole milliseconds or millimetres (a figure in e-notation is under one).
+    function(_to_milli text out)
+        if(text MATCHES "e-")
+            set(${out} 0 PARENT_SCOPE)
+        elseif(text MATCHES "^([0-9]+)(\\.([0-9]*))?$")
+            set(_frac "${CMAKE_MATCH_3}000")
+            string(SUBSTRING "${_frac}" 0 3 _frac)
+            math(EXPR _v "${CMAKE_MATCH_1} * 1000 + 1${_frac} - 1000")
+            set(${out} ${_v} PARENT_SCOPE)
+        else()
+            message(FATAL_ERROR "not a number in the track: '${text}'")
+        endif()
+    endfunction()
+    # The slip a moment is after, if within the window: none is -1.
+    # How long after the latest slip before it a moment is, in ms.
+    function(_since_slip at_ms out)
+        set(_r -1)
+        foreach(_s IN LISTS _slip_ms)
+            math(EXPR _d "${at_ms} - ${_s}")
+            if(_d GREATER 0 AND (_r LESS 0 OR _d LESS _r))
+                set(_r ${_d})
+            endif()
+        endforeach()
+        set(${out} ${_r} PARENT_SCOPE)
+    endfunction()
+    function(_after_a_slip at_ms out)
+        set(_r 0)
+        foreach(_s IN LISTS _slip_ms)
+            math(EXPR _d "${at_ms} - ${_s}")
+            if(_d GREATER 0 AND _d LESS_EQUAL _window_ms)
+                set(_r 1)
+                break()
+            endif()
+        endforeach()
+        set(${out} ${_r} PARENT_SCOPE)
+    endfunction()
+    file(STRINGS "${_track}" _lines REGEX "^(compared|putright) ")
+    set(_n_after 0)
+    set(_n_rest 0)
+    set(_after_worst_mm 0)
+    set(_rest_worst_mm 0)
+    set(_n_corr_after 0)
+    set(_corr_after_mm 0)
+    set(_snapped_after 0)
+    set(_snapped_rest 0)
+    set(_latest_big_ms 0)
+    foreach(_line IN LISTS _lines)
+        string(REPLACE " " ";" _f "${_line}")
+        list(GET _f 0 _kind)
+        if(_kind STREQUAL "compared")
+            list(GET _f 14 _sim)
+            list(GET _f 15 _across)
+            list(GET _f 2 _e)
+            if(_across EQUAL 1)
+                continue()
+            endif()
+            _to_milli("${_sim}" _sim_ms)
+            _to_milli("${_e}" _e_mm)
+            _after_a_slip(${_sim_ms} _in)
+            if(_e_mm GREATER 5600)
+                _since_slip(${_sim_ms} _since)
+                if(_since LESS 0 OR _since GREATER _latest_big_ms)
+                    set(_latest_big_ms ${_since})
+                endif()
+            endif()
+            if(_in)
+                math(EXPR _n_after "${_n_after} + 1")
+                if(_e_mm GREATER _after_worst_mm)
+                    set(_after_worst_mm ${_e_mm})
+                endif()
+            else()
+                math(EXPR _n_rest "${_n_rest} + 1")
+                if(_e_mm GREATER _rest_worst_mm)
+                    set(_rest_worst_mm ${_e_mm})
+                endif()
+            endif()
+        else()
+            list(GET _f 1 _sim)
+            list(GET _f 2 _moved)
+            list(GET _f 3 _snap)
+            list(GET _f 4 _joined_one)
+            list(GET _f 5 _across)
+            if(_across EQUAL 1 OR _joined_one EQUAL 0)
+                continue()
+            endif()
+            _to_milli("${_sim}" _sim_ms)
+            _to_milli("${_moved}" _moved_mm)
+            _after_a_slip(${_sim_ms} _in)
+            if(_snap EQUAL 1)
+                _since_slip(${_sim_ms} _since)
+                if(_since LESS 0 OR _since GREATER _latest_big_ms)
+                    set(_latest_big_ms ${_since})
+                endif()
+            endif()
+            if(_in)
+                math(EXPR _n_corr_after "${_n_corr_after} + 1")
+                math(EXPR _snapped_after "${_snapped_after} + ${_snap}")
+                if(_moved_mm GREATER _corr_after_mm)
+                    set(_corr_after_mm ${_moved_mm})
+                endif()
+            else()
+                math(EXPR _snapped_rest "${_snapped_rest} + ${_snap}")
+            endif()
+        endif()
+    endforeach()
+    math(EXPR _all "${_n_after} + ${_n_rest}")
+    math(EXPR _share_pct "100 * ${_n_after} / (${_all} + 1)")
+    string(APPEND _slip_said "; the server held up ${_n_holds} times and let ${_let} held-up "
+                             "steps slip, ${_n_slips} slips in all; within ${_window_ms} ms after them ${_n_after} of ${_all} "
+                             "words (${_share_pct}%), the worst ${_after_worst_mm} mm, "
+                             "${_n_corr_after} corrections, the worst ${_corr_after_mm} mm, "
+                             "${_snapped_after} too large to hide; the rest's worst "
+                             "${_rest_worst_mm} mm, ${_snapped_rest} too large to hide; the latest word over 5.6 m or "
+                             "correction too large came ${_latest_big_ms} ms after a slip")
+    if(_rest_worst_mm GREATER 5600)
+        message(FATAL_ERROR "the worst prediction error apart from the server's slips was "
+                            "${_rest_worst_mm} mm, over four steps' travel at 330 kt (5.6 m):\n${_said}")
+    endif()
+    if(NOT _snapped_rest EQUAL 0)
+        message(FATAL_ERROR "${_snapped_rest} corrections once joined, apart from the server's "
+                            "slips, were too large to hide:\n${_said}")
+    endif()
+    if(_after_worst_mm GREATER _worst_after_a_slip_mm)
+        message(FATAL_ERROR "the worst prediction error after a slip was ${_after_worst_mm} mm, "
+                            "over ${_worst_after_a_slip_mm} mm:\n${_said}")
+    endif()
+    if(_corr_after_mm GREATER _worst_correction_after_a_slip_mm)
+        message(FATAL_ERROR "a correction once joined after a slip was ${_corr_after_mm} mm, "
+                            "over ${_worst_correction_after_a_slip_mm} mm:\n${_said}")
+    endif()
+    if(_share_pct GREATER _most_share_pct)
+        message(FATAL_ERROR "${_share_pct}% of the words were within ${_window_ms} ms after a slip, "
+                            "over ${_most_share_pct}%:\n${_said}")
+    endif()
 endif()
 # **And the joined window is not empty**: nine in ten of the words compared
 # were joined, and every one of them was put right from or superseded by a
