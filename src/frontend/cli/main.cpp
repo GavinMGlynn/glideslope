@@ -1828,6 +1828,8 @@ double own_longest_write_s() {
     const std::lock_guard<std::mutex> held(longest_write_mutex);
     return longest_write_s;
 }
+// And how many of its files' writes failed, there.
+std::atomic<int> writes_failed{0};
 
 // **A file written on a thread of its own**, its lines handed over in
 // chunks. Written on the client's thread, a write a macOS runner's disk held
@@ -1850,6 +1852,7 @@ public:
             return false;
         }
         stopping_ = false;
+        failed_ = false;
         writer_ = std::thread([this] { write_out(); });
         return true;
     }
@@ -1864,7 +1867,13 @@ public:
     }
 
 protected:
+    // **A write that failed fails the stream**, as a filebuf's does: once
+    // the thread that writes has had one fail, every write after it is
+    // refused, so the stream's badbit is set and `if (track_out)` stops.
     int_type overflow(int_type c) override {
+        if (failed_) {
+            return traits_type::eof();
+        }
         if (traits_type::eq_int_type(c, traits_type::eof())) {
             return traits_type::not_eof(c);
         }
@@ -1875,6 +1884,9 @@ protected:
         return c;
     }
     std::streamsize xsputn(const char_type* s, std::streamsize n) override {
+        if (failed_) {
+            return 0;
+        }
         chunk_.append(s, static_cast<std::size_t>(n));
         if (chunk_.size() >= chunk_bytes) {
             hand_over();
@@ -1883,7 +1895,7 @@ protected:
     }
     int sync() override {
         hand_over();
-        return 0;
+        return failed_ ? -1 : 0;
     }
 
 private:
@@ -1932,6 +1944,10 @@ private:
                 file_.write(c.data(), static_cast<std::streamsize>(c.size()));
             }
             file_.flush();
+            if (!file_ && !failed_) {
+                failed_ = true;
+                ++writes_failed;
+            }
             const double wall =
                 std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
             {
@@ -1957,6 +1973,7 @@ private:
     }
 
     std::ofstream file_;
+    std::atomic<bool> failed_{false};
     std::string chunk_;
     std::mutex mutex_;
     std::condition_variable ready_;
@@ -1981,7 +1998,6 @@ public:
 private:
     TimedFileBuf buf_;
 };
-
 
 class Predicting {
 public:
@@ -3738,8 +3754,8 @@ public:
         for (const std::string& b : begins_) {
             lines.push_back("prediction begun: " + b);
         }
-        std::snprintf(line, sizeof line, "its files' writes: the longest %.0f ms",
-                      own_longest_write_s() * 1000.0);
+        std::snprintf(line, sizeof line, "its files' writes: the longest %.0f ms, %d failed",
+                      own_longest_write_s() * 1000.0, writes_failed.load());
         lines.emplace_back(line);
         if (prediction_held_trim_) {
             std::snprintf(line, sizeof line,

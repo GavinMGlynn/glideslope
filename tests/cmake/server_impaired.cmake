@@ -332,8 +332,12 @@ endif()
 # 297 ms (2026-11-25, a frame 315 ms late), and the frames go on. Said, so
 # that a run whose write was never held is not taken for one that drew
 # through it.
-if(NOT _said MATCHES "its files' writes: the longest ([0-9]+) ms")
+if(NOT _said MATCHES "its files' writes: the longest ([0-9]+) ms, ([0-9]+) failed")
     message(FATAL_ERROR "the predicting client did not say its longest write:\n${_said}")
+endif()
+if(NOT CMAKE_MATCH_2 EQUAL 0)
+    message(FATAL_ERROR "${CMAKE_MATCH_2} of the predicting client's writes failed: what it "
+                        "wrote down is not whole\n${_said}")
 endif()
 if(CMAKE_MATCH_1 LESS 500)
     message(FATAL_ERROR "the predicting client's longest write was ${CMAKE_MATCH_1} ms: "
