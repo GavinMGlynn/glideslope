@@ -288,7 +288,7 @@ jobs:
             # passing run says nothing else, and a gap the check fails is
             # placed only against the runs that did not fail it.
             for d in 100 200; do
-              said=$(grep -hoE 'the longest between frames.*writes|built: .*' "build/macos-debug/tests/server_impaired_$d/predicting.txt" 2>/dev/null | paste -sd ';' - || true)
+              said=$(grep -hoE 'the longest between frames.*writes|built: .*|prediction begun: .*' "build/macos-debug/tests/server_impaired_$d/predicting.txt" 2>/dev/null | paste -sd ';' - || true)
               echo "  run $i, $d ms: ${said:-said nothing of its gaps}"
             done
             if (( p + f + s != 2 )); then echo "$out"; echo "run $i did not run both checks"; exit 1; fi
