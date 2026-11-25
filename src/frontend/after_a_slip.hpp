@@ -50,10 +50,19 @@ public:
             if (left_ == 0) {
                 ++slips_;
                 window_ = 0;
+                // The corrections since the last word compared are this
+                // slip's: put right from a slipped word before it was
+                // compared (an idle run, 20.2 m, 2026-11-25).
+                corrections_ += pending_;
+                snapped_ += pending_snapped_;
+                worst_correction_m_ = std::max(worst_correction_m_, pending_worst_m_);
             }
             left_ = words_after + 1;
             most_off_ = std::max(most_off_, steps_off);
         }
+        pending_ = 0;
+        pending_snapped_ = 0;
+        pending_worst_m_ = 0.0;
         if (left_ == 0) {
             ++rest_;
             worst_rest_m_ = std::max(worst_rest_m_, error_m);
@@ -72,9 +81,13 @@ public:
     // **A correction once joined**: one made while the words after a slip
     // are still coming is counted with them - the figure moving to follow
     // the slip puts this client right by the steps it moved, which is the
-    // same cost - and returns whether it was.
+    // same cost - and so is one made since the last word compared, if the
+    // next sees a slip. Returns whether it is counted with them now.
     bool corrected(double moved_m, bool snapped) {
         if (left_ == 0) {
+            ++pending_;
+            pending_snapped_ += snapped ? 1 : 0;
+            pending_worst_m_ = std::max(pending_worst_m_, moved_m);
             return false;
         }
         ++corrections_;
@@ -117,6 +130,9 @@ private:
     std::size_t corrections_ = 0;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
+    std::size_t pending_ = 0;
+    std::size_t pending_snapped_ = 0;
+    double pending_worst_m_ = 0.0;
 };
 
 } // namespace glideslope::frontend

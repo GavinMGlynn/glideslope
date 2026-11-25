@@ -3126,7 +3126,7 @@ add_test(NAME a_players_stovl_selector_through_a_server_that_slips_is_off_after_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing_slipped -DPORT=24882
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing_slipped -DPORT=24934
         -DSLIPPED=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_landing.cmake)
 set_tests_properties(a_players_stovl_selector_through_a_server_that_slips_is_off_after_it_by_the_steps_placed_off_and_no_more
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
