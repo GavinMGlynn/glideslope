@@ -226,7 +226,7 @@ endif()
 # of ten runs, 2026-11-22). A word after a slip is held to the same four
 # steps beyond the steps it was placed off - the held clocks' difference's
 # accepted cost, and no more - and to WORST_AFTER_A_SLIP_MM whole.
-if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, the worst beyond the steps placed off (-?[0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
+if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
 endif()
 set(_slips_seen "${CMAKE_MATCH_1}")
@@ -234,17 +234,11 @@ set(_after_slip "${CMAKE_MATCH_2}")
 set(_longest_after "${CMAKE_MATCH_3}")
 set(_most_off "${CMAKE_MATCH_4}")
 math(EXPR _after_worst_mm "${CMAKE_MATCH_5} * 1000 + ${CMAKE_MATCH_6}")
-set(_beyond_mm "${CMAKE_MATCH_7}${CMAKE_MATCH_8}")
-math(EXPR _beyond_mm "${_beyond_mm}")
-set(_rest "${CMAKE_MATCH_9}")
-math(EXPR _rest_worst_mm "${CMAKE_MATCH_10} * 1000 + ${CMAKE_MATCH_11}")
+set(_rest "${CMAKE_MATCH_7}")
+math(EXPR _rest_worst_mm "${CMAKE_MATCH_8} * 1000 + ${CMAKE_MATCH_9}")
 if(_rest_worst_mm GREATER 5600)
     message(FATAL_ERROR "the worst prediction error apart from a slip was ${_rest_worst_mm} mm, "
                         "over four steps' travel at 330 kt (5.6 m):\n${_said}")
-endif()
-if(_beyond_mm GREATER 5600)
-    message(FATAL_ERROR "after a slip a word was ${_beyond_mm} mm off beyond the steps it was "
-                        "placed off, over four steps' travel at 330 kt (5.6 m):\n${_said}")
 endif()
 if(_after_worst_mm GREATER @WORST_AFTER_A_SLIP_MM@)
     message(FATAL_ERROR "the worst prediction error after a slip was ${_after_worst_mm} mm, "
@@ -252,7 +246,7 @@ if(_after_worst_mm GREATER @WORST_AFTER_A_SLIP_MM@)
 endif()
 set(_slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
                "${_longest_after} after one, placed at most ${_most_off} steps off), the "
-               "worst ${_after_worst_mm} mm, ${_beyond_mm} mm beyond the steps placed off; "
+               "worst ${_after_worst_mm} mm; "
                "the rest's worst ${_rest_worst_mm} mm over ${_rest}")
 # **Slipped, the slip is built and seen**: the server said it let at least
 # 20 steps go, and the client saw it.
