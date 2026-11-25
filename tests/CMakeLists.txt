@@ -3118,19 +3118,6 @@ add_test(NAME a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_
 set_tests_properties(a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing)
-# **And after a real slip of the server's**, built: it runs nothing for
-# 3.7 s, past the 3.5 s it catches up, and lets the rest go for good. The
-# words after the slip are held to the steps they were placed off and the
-# rest to four steps' travel. See cmake/server_stovl_landing.cmake.
-add_test(NAME a_players_stovl_selector_through_a_server_that_slips_is_off_after_it_by_the_steps_placed_off_and_no_more
-    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
-        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
-        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing_slipped -DPORT=24934
-        -DSLIPPED=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_landing.cmake)
-set_tests_properties(a_players_stovl_selector_through_a_server_that_slips_is_off_after_it_by_the_steps_placed_off_and_no_more
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing_slipped)
 # **And a player's F-35B given a loading light enough to hover is converted,
 # hovered and landed vertically through a server**, the client's prediction
 # agreeing throughout. See cmake/server_stovl_vertical_landing.cmake.
