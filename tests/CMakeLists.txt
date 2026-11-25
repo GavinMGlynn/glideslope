@@ -3263,6 +3263,20 @@ add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time
 set_tests_properties(a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction_slowed)
+# **And against a server held up for up to a second on purpose**, every
+# second on its clock - built on every platform (`--test-held-up 1 1000`),
+# as CI's loaded Windows runners held it up unbuilt. Serial, so the hold-ups
+# are the ones built. Costed in tests/ci_costs at its plain twin's figures
+# until CI measures it: flown on the session's clock, as its twin is.
+add_test(NAME a_client_predicting_its_aircraft_against_a_server_held_up_for_up_to_a_second_stops_its_engine_and_is_put_right_no_more
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction_held_up -DPORT=24872
+        -DHELD_UP=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_engine_prediction.cmake)
+set_tests_properties(a_client_predicting_its_aircraft_against_a_server_held_up_for_up_to_a_second_stops_its_engine_and_is_put_right_no_more
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction_held_up)
 
 # **A client predicting against a server behind real time flies at its pace
 # and is off by centimetres.** See cmake/server_paced_prediction.cmake. Serial:
