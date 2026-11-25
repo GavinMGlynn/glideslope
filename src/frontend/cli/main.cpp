@@ -3601,8 +3601,11 @@ public:
                       longest_own_parts_.asked_s * 1000.0,
                       longest_own_parts_.written_s * 1000.0);
         lines.emplace_back(line);
-        for (const std::string& b : builds_) {
-            lines.push_back("built: " + b);
+        {
+            const std::lock_guard<std::mutex> said(builds_mutex_);
+            for (const std::string& b : builds_) {
+                lines.push_back("built: " + b);
+            }
         }
         if (prediction_held_trim_) {
             std::snprintf(line, sizeof line,
@@ -3778,8 +3781,6 @@ private:
             }
             Built built = coming->second.get();
             out = std::move(built.aircraft);
-            builds_.push_back(model + " on a thread of its own from " + seconds(built.from_s) +
-                              " to " + seconds(built.to_s) + " s");
             building_.erase(coming);
         } else {
             build_next(model);
@@ -3801,6 +3802,13 @@ private:
                               b.from_s = since_began();
                               b.aircraft = build(model);
                               b.to_s = since_began();
+                              // Said as it ends, flown or not: the one begun
+                              // at a take-back is built while the prediction
+                              // begins again, and is flown by nothing.
+                              const std::lock_guard<std::mutex> said(builds_mutex_);
+                              builds_.push_back(model + " on a thread of its own from " +
+                                                seconds(b.from_s) + " to " + seconds(b.to_s) +
+                                                " s");
                               return b;
                           }));
     }
@@ -4097,6 +4105,12 @@ private:
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::string aircraft_model_;
     std::uint8_t yours_ = glideslope::net::no_aircraft;
+    // **When each aircraft was built**, on this client's clock: said, so
+    // that a frame or an error can be laid beside them. Every one that
+    // ended, flown or not, said by the thread that built it; declared before
+    // the builds, so that a build still running as they are let go has them.
+    std::vector<std::string> builds_;
+    mutable std::mutex builds_mutex_;
     // Of each model introduced, one built and never flown (`spare`), or one
     // being built.
     std::map<std::string, std::unique_ptr<glideslope::sim::Aircraft>> built_;
@@ -4106,9 +4120,6 @@ private:
         double to_s = 0.0;
     };
     std::map<std::string, std::future<Built>> building_;
-    // **When each aircraft was built**, on this client's clock: said, so
-    // that a frame or an error can be laid beside them.
-    std::vector<std::string> builds_;
     std::chrono::steady_clock::time_point began_ = std::chrono::steady_clock::now();
     double since_began() const {
         return std::chrono::duration<double>(std::chrono::steady_clock::now() - began_).count();
