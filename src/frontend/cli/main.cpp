@@ -2897,8 +2897,6 @@ public:
                 // off are as many as it was placed off at least.
                 if (!across) {
                     after_a_slip_.compared(std::llround(steps_off), error);
-                }
-                if (!across) {
                     if (at_an_end) {
                         ++placed_at_an_end_;
                     } else {
@@ -2953,7 +2951,8 @@ public:
                             << (paced_ ? pacing_.pace() : 1.0) << ' ' << speed_error
                             << ' ' << off_path_m << ' ' << steps_off << ' '
                             << at->pitch_deg - pitch_of(m) << ' '
-                            << nearest->pitch_deg - pitch_of(m) << '\n';
+                            << nearest->pitch_deg - pitch_of(m) << ' '
+                            << state.simulation_time_s << ' ' << (across ? 1 : 0) << '\n';
                 }
                 // **Before and after an engine stopped**, apart.
                 if (engine_stopped_at_s_) {
@@ -3106,6 +3105,16 @@ public:
                 snapped_joined_ += c.snapped ? 1 : 0;
                 // And apart, after a server's slip (frontend::AfterASlip).
                 after_a_slip_.corrected(c.moved_m, c.snapped);
+            }
+            // **Each putting right, for a test to read**: the server's moment
+            // of the word put right from, how far it moved her, whether too
+            // far to hide, joined, and across a machine's stall - so that a
+            // test can judge it against the moments its server said it
+            // slipped (server_stovl_landing.cmake).
+            if (track_) {
+                *track_ << "putright " << state.simulation_time_s << ' ' << c.moved_m << ' '
+                        << (c.snapped ? 1 : 0) << ' ' << (joined ? 1 : 0) << ' '
+                        << (across ? 1 : 0) << '\n';
             }
     }
 
