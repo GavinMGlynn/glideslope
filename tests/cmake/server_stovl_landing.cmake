@@ -221,20 +221,20 @@ if(_compared LESS 3000)
 endif()
 # **After a server's slip, and apart from it** (frontend::AfterASlip). A
 # slip is seen in a word placed two steps or more from where it falls on the
-# path flown, and it and the 60 words after it - the clocks' difference's
-# window and the pace's - are counted apart, with the corrections once
-# joined made while they come. That is the held difference's accepted cost
-# (2026-11-22): a slip followed ten words late, and each move of the figure
-# after it putting the round trip's words off again. **The rest are held as
-# every word was** until a loaded machine's real slips went past it (6.7
-# and 17.4 m, two runs in ten, 2026-11-22): four steps' travel at 330 kt
-# (5.6 m), and no correction too large to hide. **The words after a slip are
-# held to measured figures** (docs/status, 2026-11-25): beside twice as many
-# busy loops as cores, a slip built of 24 to 26 steps, and the machine's own
-# slips besides.
-set(_worst_after_a_slip_mm 50000)
-set(_worst_correction_after_a_slip_mm 60000)
-set(_most_after_a_slip 250)
+# path flown, or in the clocks' difference moving two steps or more at once;
+# then it and the 60 words after it - the difference's window and the pace's
+# - are counted apart, with the corrections once joined made while they
+# come. That is the held difference's accepted cost (2026-11-22): a slip
+# followed ten words late, the putting right as the figure moves, and the
+# round trip's words after it placed off. **The rest are held as every word
+# was** until a loaded machine's real slips went past it (6.7 and 17.4 m, two
+# runs in ten, 2026-11-22): four steps' travel at 330 kt (5.6 m), and no
+# correction too large to hide. **The words after a slip are held to 30 m,
+# their corrections to 35 m**: slips of 5 to 20 steps built (`-DSLIPPED=ON`), twenty
+# runs idle and beside twice as many busy loops as cores, came to 23.4 m and
+# 26.9 m at worst; 20 steps at 330 kt is 28 m (docs/status, 2026-11-25).
+set(_worst_after_a_slip_mm 30000)
+set(_worst_correction_after_a_slip_mm 35000)
 if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the clocks' difference moved at most [0-9]+ steps at once, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m;")
     message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
 endif()
@@ -267,10 +267,6 @@ endif()
 if(_slip_correction_mm GREATER _worst_correction_after_a_slip_mm)
     message(FATAL_ERROR "a correction once joined after a slip was ${_slip_correction_mm} mm, "
                         "over ${_worst_correction_after_a_slip_mm} mm:\n${_said}")
-endif()
-if(_longest_after GREATER _most_after_a_slip)
-    message(FATAL_ERROR "${_longest_after} updates after one slip, over ${_most_after_a_slip}: "
-                        "the clocks' difference was that long following it:\n${_said}")
 endif()
 if(NOT _said MATCHES "predicted, joined: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
     message(FATAL_ERROR "the client did not say its corrections once joined:\n${_said}")
