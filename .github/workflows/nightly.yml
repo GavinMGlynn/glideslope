@@ -283,6 +283,13 @@ jobs:
             s=$(grep -cE 'Test +#[0-9]+: .*Skipped' <<<"$out" || true)
             passed=$((passed + p)) failed=$((failed + f)) skipped=$((skipped + s))
             echo "run $i of $runs: $p passed, $f failed, $s skipped"
+            # What every run's longest gaps were made of, passed or failed: a
+            # passing run says nothing else, and a gap the check fails is
+            # placed only against the runs that did not fail it.
+            for d in 100 200; do
+              said=$(grep -ho 'the longest between frames.*writes' "build/macos-debug/tests/server_impaired_$d/predicting.txt" 2>/dev/null || true)
+              echo "  run $i, $d ms: ${said:-said nothing of its gaps}"
+            done
             if (( p + f + s != 2 )); then echo "$out"; echo "run $i did not run both checks"; exit 1; fi
             if (( f > 0 )); then
               echo "$out"
