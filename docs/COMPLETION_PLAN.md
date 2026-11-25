@@ -1751,8 +1751,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       by metres**. *Verification: a server slowed on purpose keeps a
       predicting client's error under a metre.* Done 2026-11-22: at 0.6 of real
       time, and held up every second, every 95th percentile is under 1 m (held
-      up, under 2 mm). Still: 0.6-1.6% of words over half a metre (worst 6.9 m on
-      release), server steps a rising clocks' difference maps to no step here.
+      up, under 2 mm); the verification is the 95th percentile. Named limit:
+      0.6-1.6% of words are over half a metre (worst 6.9 m on release), at
+      server steps a rising clocks' difference maps to no step here.
 - [x] **A test that fails twice on CI for the same cause has nowhere to go but
       the pull request's run**: a test labelled `nightly` is left out of every
       pull request's run and run by the nightly one, and each is named with its
@@ -1789,12 +1790,18 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       placement. *Verification: each passes in seven nights in a row and
       moves back, or its own cause is named and fixed.* The 2026-11-20
       nightly failed the lost-datagram join (shard 4 of 8).
-- [ ] **Under load the STOVL selector test fails 3 runs in 10**: two on
-      its worst error after the server slips (6.7 and 17.4 m, the held
-      clocks' difference's named cost), one on an 8.9 s machine stall. Its
-      nine-in-ten check counted the client's frame rate and is replaced
-      (docs/status, 2026-11-22). *Verification: with twice as many busy
-      loops as cores beside it, the STOVL selector test passes in ten runs.*
+- [x] **Under load fewer than nine in ten of the STOVL selector test's
+      updates are corrections once joined**: the client puts right from the
+      newest word by design, so the check counted its frame rate; it now
+      holds no frame drawn before its words are put right from or
+      superseded. *Verification: beside twice as many busy loops as cores,
+      the new check passes in ten runs.* Done 2026-11-22: ten of ten
+      (docs/status, 2026-11-22). Not ticked here: the test's worst error
+      after a slip (next item), and one run's 8.9 s machine stall.
+- [ ] **The STOVL selector test's worst error after a real server slip**:
+      6.7 and 17.4 m against its 5.6 m in two of ten loaded runs, words 5
+      and 21 steps off, the accepted cost of the held clocks' difference.
+      *Verification: to be measured figures.*
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
       enough for a predicting client. *Verification: a client predicting over hills

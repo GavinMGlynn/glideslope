@@ -214,11 +214,13 @@ are held two seconds holding its clocks' difference within two steps in
 the pacing unit test (2026-11-21), and its clocks' difference held
 against a sample now and then a step low, so that beside twice as many
 busy loops as cores the STOVL selector's 95th percentile is 1 to 3 mm, not
-0.87 m, and every word there is put right from or superseded by a newer
-one before a frame is drawn - but the test still fails 3 runs in 10 there,
-on a server's slip or a machine's stall - and on Windows the paced test's 99th percentile is 7 mm, not the
+0.87 m, and on Windows the paced test's 99th percentile is 7 mm, not the
 half-metre to 1.1 m of words placed two steps off by its 15.6 ms timers
-(2026-11-22); a prediction
+(2026-11-22). Under that load every word the STOVL client compares is put
+right from, or superseded by a newer one, before a frame is drawn. The test
+still failed 3 runs in 10 there: twice on its worst error after a real
+server slip (6.7 and 17.4 m, its own open item), and once on an 8.9 s stall
+of the machine (2026-11-22). A prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only
