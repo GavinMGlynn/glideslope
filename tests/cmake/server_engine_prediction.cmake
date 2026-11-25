@@ -107,6 +107,16 @@ set(_slowed)
 if(SLOWED)
     set(_slowed --test-pace 0.6)
 endif()
+# **Held up** (`-DHELD_UP=ON`): every second on the session's clock the
+# server runs nothing for a quarter, a half, three quarters and then all of
+# a second in turn (`--test-held-up 1 1000`), as a loaded runner holds one up
+# by fits and starts - built on every platform, where a test's SIGSTOP is
+# Linux's alone. The hold-ups are counted from the server's word, not
+# believed: at least 10 from the engine's stop on, 2 of them a whole second.
+set(_held_up)
+if(HELD_UP)
+    set(_held_up --test-held-up 1 1000)
+endif()
 set(_unpaced)
 if(UNPACED)
     set(_unpaced --unpaced)
@@ -118,7 +128,7 @@ execute_process(
             --predict --until-engine-compared 300 --heard "${_heard}" ${_unpaced}
             --track "${WORK}/track.txt" --trap-nan
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 30 --store "${_store}" --fail-engine-at 20 ${_slowed}
+            --data "${DATA}" --timeout 30 --store "${_store}" --fail-engine-at 20 ${_slowed} ${_held_up}
             ${SERVER_EXTRA}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 250 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
@@ -126,6 +136,30 @@ execute_process(
 port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
+endif()
+if(HELD_UP)
+    string(REGEX MATCHALL "held up [0-9]+ ms at [0-9]+\\.[0-9]+ s" _holdups "${_err}")
+    list(LENGTH _holdups _held_n)
+    set(_held_after 0)
+    set(_held_full 0)
+    foreach(_h IN LISTS _holdups)
+        string(REGEX MATCH "held up ([0-9]+) ms at ([0-9]+)\\." _m "${_h}")
+        if(CMAKE_MATCH_2 GREATER_EQUAL 20)
+            math(EXPR _held_after "${_held_after} + 1")
+            if(CMAKE_MATCH_1 EQUAL 1000)
+                math(EXPR _held_full "${_held_full} + 1")
+            endif()
+        endif()
+    endforeach()
+    # 32 in all and 13 from the stop on, 4 of them a whole second, in
+    # every linux-debug run, loaded or not: the session's clock.
+    if(_held_after LESS 10 OR _held_full LESS 2)
+        message(FATAL_ERROR "the server was held up ${_held_after} times from the engine's stop "
+                            "on, ${_held_full} of them a whole second, not at least 10 and 2:\n"
+                            "${_err}")
+    endif()
+    message(STATUS "the server was held up ${_held_n} times, ${_held_after} from the engine's "
+                   "stop on, ${_held_full} of them a whole second")
 endif()
 file(READ "${_heard}" _said)
 if(NOT _said MATCHES "engine stopped for the server's word \\(([0-9]+) stopped here\\): ([0-9]+) updates compared after, the worst error ([0-9.]+) m and correction ([0-9.]+) m; before, ([0-9.]+) m and ([0-9.]+) m")

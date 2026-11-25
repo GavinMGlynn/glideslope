@@ -1865,17 +1865,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       inside the gate on FMA and x86-64-v2 builds alike: C182 and PA-28 8 kt,
       C172P 7, Cub 6 - her limits now, in her figures.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
-      server is held up**: its client, pacing 1.6 to 1.7 times its own clock
-      to catch up, is put right by metres and misses its speed bound - since
-      before 2026-10-09, on branches and on main. *Verification: the test
-      passes with the server held up for a second on purpose, on every
-      platform, and a month of CI runs.* 2026-10-16: its speed bound is
-      25 cm/s, from six Windows failures since 2026-10-08. 2026-10-17: the
-      cause found and the test no longer depends on it (below); the month of
-      CI runs is still owed. 2026-11-21: every failed CI job since
-      2026-10-20 searched (265 runs): it failed only on 2026-10-23, three
-      branches' linux-debug ("only 144 updates were compared"), none since;
-      the month is had on 2026-11-23.
+      server is held up**: its client, pacing to catch up, was put right by
+      metres and missed its speed bound. *Verification: the test passes with
+      the server held up for a second on purpose, on every platform, and a
+      month of CI runs.* 2026-11-25: a held-up variant now runs on every
+      platform; the month of CI runs with it starts the day it lands.
 - [x] **The engine-stop prediction test does not depend on the client's
       pacing**: it held the server's word against the step the clocks'
       difference named, which a server held up by fits and starts moves by

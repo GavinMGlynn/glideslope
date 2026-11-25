@@ -294,20 +294,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 14 }
-          - { preset: linux-debug, shard: 2, of: 14 }
-          - { preset: linux-debug, shard: 3, of: 14 }
-          - { preset: linux-debug, shard: 4, of: 14 }
-          - { preset: linux-debug, shard: 5, of: 14 }
-          - { preset: linux-debug, shard: 6, of: 14 }
-          - { preset: linux-debug, shard: 7, of: 14 }
-          - { preset: linux-debug, shard: 8, of: 14 }
-          - { preset: linux-debug, shard: 9, of: 14 }
-          - { preset: linux-debug, shard: 10, of: 14 }
-          - { preset: linux-debug, shard: 11, of: 14 }
-          - { preset: linux-debug, shard: 12, of: 14 }
-          - { preset: linux-debug, shard: 13, of: 14 }
-          - { preset: linux-debug, shard: 14, of: 14 }
+          - { preset: linux-debug, shard: 1, of: 15 }
+          - { preset: linux-debug, shard: 2, of: 15 }
+          - { preset: linux-debug, shard: 3, of: 15 }
+          - { preset: linux-debug, shard: 4, of: 15 }
+          - { preset: linux-debug, shard: 5, of: 15 }
+          - { preset: linux-debug, shard: 6, of: 15 }
+          - { preset: linux-debug, shard: 7, of: 15 }
+          - { preset: linux-debug, shard: 8, of: 15 }
+          - { preset: linux-debug, shard: 9, of: 15 }
+          - { preset: linux-debug, shard: 10, of: 15 }
+          - { preset: linux-debug, shard: 11, of: 15 }
+          - { preset: linux-debug, shard: 12, of: 15 }
+          - { preset: linux-debug, shard: 13, of: 15 }
+          - { preset: linux-debug, shard: 14, of: 15 }
+          - { preset: linux-debug, shard: 15, of: 15 }
     env:
       CXX: g++-14
       CC: gcc-14
