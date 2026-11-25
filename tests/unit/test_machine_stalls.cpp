@@ -127,5 +127,14 @@ GLIDESLOPE_TEST(a_word_placed_two_steps_or_more_off_sees_a_slip_and_the_sixty_af
     check(words.slips() == 2 && words.longest() == 92, "a slip seen after it is a second");
     check(words.most_off() == 10 && words.worst_after_m() == 12.0, "at most 10 off, 12 m");
     check(words.said().find("after a slip: 2 seen, 93 updates") == 0, "said as a test reads it");
+
+    // A correction once joined is counted with them while their words come,
+    // and not otherwise.
+    check(words.corrected(25.0, true), "a correction inside a slip's window is counted apart");
+    check(words.corrections() == 1 && words.snapped() == 1 && words.worst_correction_m() == 25.0,
+          "one, 25 m, too large to hide");
+    AfterASlip none;
+    check(!none.corrected(25.0, true) && none.corrections() == 0 && none.snapped() == 0,
+          "a correction with no slip seen is the rest's");
 }
 

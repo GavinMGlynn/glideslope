@@ -3088,6 +3088,8 @@ public:
                 ++corrections_joined_;
                 worst_correction_joined_m_ = std::max(worst_correction_joined_m_, c.moved_m);
                 snapped_joined_ += c.snapped ? 1 : 0;
+                // And apart, after a server's slip (frontend::AfterASlip).
+                after_a_slip_.corrected(c.moved_m, c.snapped);
             }
     }
 

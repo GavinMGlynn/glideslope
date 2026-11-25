@@ -69,7 +69,24 @@ public:
     std::size_t slips() const { return slips_; }
     std::size_t after() const { return after_; }
     std::size_t rest() const { return rest_; }
+    // **A correction once joined**: one made while the words after a slip
+    // are still coming is counted with them - the figure moving to follow
+    // the slip puts this client right by the steps it moved, which is the
+    // same cost - and returns whether it was.
+    bool corrected(double moved_m, bool snapped) {
+        if (left_ == 0) {
+            return false;
+        }
+        ++corrections_;
+        worst_correction_m_ = std::max(worst_correction_m_, moved_m);
+        snapped_ += snapped ? 1 : 0;
+        return true;
+    }
+
     std::size_t longest() const { return longest_; }
+    std::size_t corrections() const { return corrections_; }
+    std::size_t snapped() const { return snapped_; }
+    double worst_correction_m() const { return worst_correction_m_; }
     std::int64_t most_off() const { return most_off_; }
     double worst_after_m() const { return worst_after_m_; }
     double worst_rest_m() const { return worst_rest_m_; }
@@ -79,9 +96,11 @@ public:
         std::snprintf(line, sizeof line,
                       "after a slip: %zu seen, %zu updates compared after them, at most %zu "
                       "after one, placed at most %lld steps off, the worst %.3f m; the rest: "
-                      "%zu updates, the worst %.3f m",
+                      "%zu updates, the worst %.3f m; corrections once joined after them: %zu, "
+                      "the worst %.3f m, %zu too large to hide",
                       slips_, after_, longest_, static_cast<long long>(most_off_),
-                      worst_after_m_, rest_, worst_rest_m_);
+                      worst_after_m_, rest_, worst_rest_m_, corrections_, worst_correction_m_,
+                      snapped_);
         return line;
     }
 
@@ -95,6 +114,9 @@ private:
     std::int64_t most_off_ = 0;
     double worst_after_m_ = 0.0;
     double worst_rest_m_ = 0.0;
+    std::size_t corrections_ = 0;
+    std::size_t snapped_ = 0;
+    double worst_correction_m_ = 0.0;
 };
 
 } // namespace glideslope::frontend
