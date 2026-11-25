@@ -35,9 +35,11 @@ full second. The bounds are the plain run's, not loosened. It runs alone
 (RUN_SERIAL), so that the only hold-ups are the ones the test makes. Port
 24872.
 
-**Costs.** The new test is costed in every `tests/ci_costs/*.txt` table at its
-plain twin's figure (36 to 43 s) until CI measures it, since both fly on the
-session's clock. With it added, the fourteen Linux debug shards each held
+**Costs.** Until CI measures it, the new test is costed in every
+`tests/ci_costs/*.txt` table at its slowed twin's figure, 56 to 60 s, the
+larger of its two twins'. Measured here it took 36 to 42 s on linux-debug,
+against 36 to 45 for the plain twin: the server catches up each hold-up, so
+the run is no longer. With it added, the fourteen Linux debug shards each held
 45.0 minutes, past 75% of their hour, and
 `every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
 failed. Linux debug's tests now run in fifteen shards (`ci.yml`), and the
@@ -56,6 +58,16 @@ shards test passes.
   (`Prediction::hear_engine_stopped` not calling `fail_engine`), the
   held-up run fails. Its median speed error after the stop was 0.506 m/s,
   against the 0.1 m/s bound. Reverted, and it passes again.
+- **The hold-up count, seen red**: with `--test-held-up` dropped from the
+  variant, it fails with "the server was held up 0 times from the engine's
+  stop on". Reverted.
+- **A break that only the held-up run catches**: `net::CatchingUp::catching_up`
+  made to always return false, so the server never catches up what it owes
+  and lets everything past a quarter of a second slip. The held-up run fails
+  ("only 130 of 300 updates after the engine stopped were placed where it
+  was"). The plain and slowed twins both pass, because neither server ever
+  owes anything. Reverted. The engine left running (above) is a red all
+  three runs share.
 - windows-debug (`tools/windows_build.sh`): the held-up run passes, and so
   do the plain and slowed runs.
 - The plain and slowed runs pass on linux-debug, as does
