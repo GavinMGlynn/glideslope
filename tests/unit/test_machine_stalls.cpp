@@ -1,11 +1,15 @@
 #include "harness.hpp"
 
+#include "frontend/after_a_slip.hpp"
 #include "frontend/machine_stalls.hpp"
 
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 
+using glideslope::frontend::AfterASlip;
 using glideslope::frontend::MachineStalls;
 using glideslope::test::check;
 
@@ -84,3 +88,48 @@ GLIDESLOPE_TEST(overlapping_machine_stalls_each_keep_their_own_window_and_a_word
     check(!stalls.word(about), "a word after both windows is not across");
     check(s[1].words == 60, "the second counted its own 60");
 }
+
+// **A word placed two steps or more above its own difference sees a slip,
+// and it and the sixty after it are counted apart** (frontend::AfterASlip):
+// every placing from three steps below its own to forty above, each on its
+// own side; the window's length, begun again by a slip seen inside it; and
+// the error beyond the steps above's travel at her speed.
+GLIDESLOPE_TEST(a_word_placed_two_steps_or_more_above_its_own_difference_sees_a_slip_and_the_sixty_after_it_are_counted_apart) {
+    std::size_t covered = 0;
+    for (std::int64_t above = -3; above <= 40; ++above) {
+        AfterASlip one;
+        one.compared(above, 1.0, 120.0);
+        const bool seen = above >= 2;
+        check(one.slips() == (seen ? 1u : 0u) && one.after() == (seen ? 1u : 0u) &&
+                  one.rest() == (seen ? 0u : 1u),
+              "placed " + std::to_string(above) + " steps above its own difference, it " +
+                  (seen ? "sees" : "does not see") + " a slip");
+        ++covered;
+    }
+    check(covered == 44, "all 44 placings from 3 below to 40 above covered");
+    static_assert(AfterASlip::words_after == 60, "the figure's 50 words and the pace's 10");
+
+    // At 120 m/s a step is a metre: 12 m placed 10 steps above is 2 m beyond.
+    AfterASlip words;
+    words.compared(0, 0.5, 120.0);
+    words.compared(10, 12.0, 120.0);
+    for (int i = 0; i < 30; ++i) {
+        words.compared(0, i == 7 ? 3.0 : 0.1, 120.0);
+    }
+    words.compared(3, 3.5, 120.0); // seen again inside the window: begun again
+    for (int i = 0; i < 60; ++i) {
+        words.compared(1, 0.2, 120.0);
+    }
+    check(words.slips() == 1, "one slip: the second seen inside the first's window");
+    check(words.after() == 92 && words.longest() == 92,
+          "the word that saw it, 30 after, the second and its 60 after: 92 counted apart");
+    words.compared(0, 1.4, 120.0);
+    check(words.rest() == 2 && words.worst_rest_m() == 1.4, "after the window, the rest again");
+    words.compared(2, 2.0, 120.0);
+    check(words.slips() == 2 && words.longest() == 92, "a slip seen after it is a second");
+    check(words.most_above() == 10 && words.worst_after_m() == 12.0, "at most 10 above, 12 m");
+    check(std::abs(words.worst_beyond_m() - 3.0) < 1e-9,
+          "the worst beyond the steps above 3 m: a word placed where it was sent, 3 m off");
+    check(words.said().find("after a slip: 2 seen, 93 updates") == 0, "said as a test reads it");
+}
+

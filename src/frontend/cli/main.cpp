@@ -6,6 +6,7 @@
 
 #include "copilot/planner.hpp"
 #include "frontend/cli/fly_copilot.hpp"
+#include "frontend/after_a_slip.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/held_levers.hpp"
 #include "frontend/law_told.hpp"
@@ -2715,6 +2716,12 @@ public:
                     worst_error_m_ = error;
                     worst_error_at_s_ = local_s;
                 }
+                // **After a server's slip, and otherwise** (`after_a_slip`):
+                // outside the machine's stalls, as the worst is.
+                if (!across && word.shown_difference && at->clocks_difference) {
+                    after_a_slip_.compared(*at->clocks_difference - *word.shown_difference,
+                                           error, at->speed_mps);
+                }
                 ++compared_;
                 // Joined: in the pass it is put right in, it is the word
                 // put right from or one superseded (`joined words:`).
@@ -3530,6 +3537,7 @@ public:
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
         lines.emplace_back(line);
+        lines.emplace_back(after_a_slip_.said());
         if (air_flown_.steps() > 0) {
             lines.emplace_back(air_flown_.said());
         }
@@ -3882,6 +3890,7 @@ private:
         ground_had_at_s_.reset();
         worst_error_m_ = 0.0;
         worst_error_at_s_ = 0.0;
+        after_a_slip_ = {};
         worst_pitch_error_deg_ = 0.0;
         worst_pitch_placed_deg_ = 0.0;
         worst_pitch_steps_off_ = 0.0;
@@ -4501,6 +4510,9 @@ private:
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
+    // **The words compared after a server's slip, apart from the rest**
+    // (frontend::AfterASlip).
+    glideslope::frontend::AfterASlip after_a_slip_;
     // **Each compared word's own step's moment in the air against the
     // server's**, the step found from the difference the word itself shows
     // (`Unread::shown_difference`): how many were flown at the server's

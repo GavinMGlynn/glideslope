@@ -151,6 +151,15 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+# **Slipped** (`-DSLIPPED=ON`): the server runs nothing for 3.7 s at 60 s on
+# its clock (`--test-stopped-once 60 3700`), past the 3.5 s it catches up
+# (net::most_steps_caught_up), and lets the rest slip, for good - a real
+# slip, built, and said (`--test-say-slipped`).
+set(_slipped_args "")
+if(SLIPPED)
+    set(_slipped_args --test-stopped-once 60 3700 --test-say-slipped)
+endif()
+
 math(EXPR _relay "${PORT} + 1")
 port_lock_hold(${_relay})
 execute_process(
@@ -159,6 +168,7 @@ execute_process(
             --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 1000 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 30 --store "${_store}" --plan "${_plan}"
+            ${_slipped_args}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 1000
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -207,9 +217,62 @@ math(EXPR _worst_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
 if(_compared LESS 3000)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
-if(_worst_mm GREATER 5600)
-    message(FATAL_ERROR "the worst prediction error was ${_worst_mm} mm, over four steps' travel "
-                        "at 330 kt (5.6 m):\n${_said}")
+# **The worst, after a server's slip and apart from it**
+# (frontend::AfterASlip). A slip is seen in a word placed two steps or more
+# above its own difference; it and the 60 words after it are counted apart.
+# The rest are held to four steps' travel at 330 kt (5.6 m), as every word
+# was until a loaded machine's real slips went past it (6.7 and 17.4 m, two
+# of ten runs, 2026-11-22). A word after a slip is held to the same four
+# steps beyond the steps it was placed off - the held clocks' difference's
+# accepted cost, and no more - and to WORST_AFTER_A_SLIP_MM whole.
+if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps above their own, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, the worst beyond the steps above (-?[0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
+endif()
+set(_slips_seen "${CMAKE_MATCH_1}")
+set(_after_slip "${CMAKE_MATCH_2}")
+set(_longest_after "${CMAKE_MATCH_3}")
+set(_most_above "${CMAKE_MATCH_4}")
+math(EXPR _after_worst_mm "${CMAKE_MATCH_5} * 1000 + ${CMAKE_MATCH_6}")
+set(_beyond_mm "${CMAKE_MATCH_7}${CMAKE_MATCH_8}")
+math(EXPR _beyond_mm "${_beyond_mm}")
+set(_rest "${CMAKE_MATCH_9}")
+math(EXPR _rest_worst_mm "${CMAKE_MATCH_10} * 1000 + ${CMAKE_MATCH_11}")
+if(_rest_worst_mm GREATER 5600)
+    message(FATAL_ERROR "the worst prediction error apart from a slip was ${_rest_worst_mm} mm, "
+                        "over four steps' travel at 330 kt (5.6 m):\n${_said}")
+endif()
+if(_beyond_mm GREATER 5600)
+    message(FATAL_ERROR "after a slip a word was ${_beyond_mm} mm off beyond the steps it was "
+                        "placed off, over four steps' travel at 330 kt (5.6 m):\n${_said}")
+endif()
+if(_after_worst_mm GREATER @WORST_AFTER_A_SLIP_MM@)
+    message(FATAL_ERROR "the worst prediction error after a slip was ${_after_worst_mm} mm, "
+                        "over @WORST_AFTER_A_SLIP_MM@ mm:\n${_said}")
+endif()
+set(_slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
+               "${_longest_after} after one, placed at most ${_most_above} steps above), the "
+               "worst ${_after_worst_mm} mm, ${_beyond_mm} mm beyond the steps placed off; "
+               "the rest's worst ${_rest_worst_mm} mm over ${_rest}")
+# **Slipped, the slip is built and seen**: the server said it let at least
+# 20 steps go, and the client saw it.
+if(SLIPPED)
+    string(REGEX MATCHALL "let [0-9]+ steps? slip, [0-9]+ in all" _lets "${_err}")
+    list(LENGTH _lets _n_lets)
+    set(_let 0)
+    if(_n_lets GREATER 0)
+        list(GET _lets -1 _last_let)
+        string(REGEX REPLACE ".*, ([0-9]+) in all" "\\1" _let "${_last_let}")
+    endif()
+    if(_let LESS 20)
+        message(FATAL_ERROR "the server let ${_let} steps slip, under the 20 built:\n${_err}")
+    endif()
+    if(_slips_seen LESS 1 OR _most_above LESS 2)
+        message(FATAL_ERROR "the server let ${_let} steps slip and the client saw no slip:\n${_said}")
+    endif()
+    if(_longest_after GREATER @LONGEST_AFTER@)
+        message(FATAL_ERROR "${_longest_after} updates after one slip, over @LONGEST_AFTER@:\n${_said}")
+    endif()
+    string(APPEND _slip_said "; the server let ${_let} steps slip")
 endif()
 if(NOT _said MATCHES "predicted, joined: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
     message(FATAL_ERROR "the client did not say its corrections once joined:\n${_said}")
@@ -244,6 +307,7 @@ message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end;
                "the median ${_median_mm} mm; ${_joined} corrections once joined, the "
                "worst ${_joined_worst} m; ${_joined_words}; her pitch within ${_pitch} "
                "degrees of the server's")
+message(STATUS "after a slip: ${_slip_said}")
 # **The machine's stalls**, capped and each recovered from
 # (machine_stalls_check.cmake): CI's Windows clang once went 5,214 ms between
 # two of this client's frames and its worst went to 6.2 m (run 39701548318).
