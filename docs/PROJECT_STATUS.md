@@ -220,10 +220,10 @@ half-metre to 1.1 m of words placed two steps off by its 15.6 ms timers
 right from, or superseded by a newer one, before a frame is drawn. The test
 still failed 3 runs in 10 there: twice on its worst error after a real
 server slip (6.7 and 17.4 m, its own open item), and once on an 8.9 s stall
-of the machine (2026-11-22). The words after a slip are now counted apart
-and held to measured bounds, and a run builds a slip; under that load it
-still fails every time, putting right once or more not from the newest word
-(2026-11-25). A prediction
+of the machine (2026-11-22). After a slip a client no longer puts itself
+right from a word older than one it already has, and the words after a slip
+are held to 30 m apart from the rest's 5.6 m: a run with slips of 5 to 20
+steps built passed twenty of twenty, idle and loaded (2026-11-25). A prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only
