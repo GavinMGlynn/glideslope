@@ -2716,12 +2716,6 @@ public:
                     worst_error_m_ = error;
                     worst_error_at_s_ = local_s;
                 }
-                // **After a server's slip, and otherwise** (`after_a_slip`):
-                // outside the machine's stalls, as the worst is.
-                if (!across && word.shown_difference && at->clocks_difference) {
-                    after_a_slip_.compared(*at->clocks_difference - *word.shown_difference,
-                                           error, at->speed_mps);
-                }
                 ++compared_;
                 // Joined: in the pass it is put right in, it is the word
                 // put right from or one superseded (`joined words:`).
@@ -2891,6 +2885,14 @@ public:
                     ++off_path_ground_had_across_;
                 } else if (ground_had_at_s_ && at_an_end) {
                     ++off_path_ground_had_at_an_end_;
+                }
+                // **After a server's slip, and otherwise**
+                // (frontend::AfterASlip): outside the machine's stalls, as
+                // the worst is; a word nearest an end of the steps kept
+                // says nothing of how far off it was placed.
+                if (!across) {
+                    after_a_slip_.compared(at_an_end ? 0 : std::llround(steps_off), error,
+                                           at->speed_mps);
                 }
                 if (!across) {
                     if (at_an_end) {

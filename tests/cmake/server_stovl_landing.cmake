@@ -219,19 +219,20 @@ if(_compared LESS 3000)
 endif()
 # **The worst, after a server's slip and apart from it**
 # (frontend::AfterASlip). A slip is seen in a word placed two steps or more
-# above its own difference; it and the 60 words after it are counted apart.
+# from where it falls on the path flown; it and the 60 words after it are
+# counted apart.
 # The rest are held to four steps' travel at 330 kt (5.6 m), as every word
 # was until a loaded machine's real slips went past it (6.7 and 17.4 m, two
 # of ten runs, 2026-11-22). A word after a slip is held to the same four
 # steps beyond the steps it was placed off - the held clocks' difference's
 # accepted cost, and no more - and to WORST_AFTER_A_SLIP_MM whole.
-if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps above their own, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, the worst beyond the steps above (-?[0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
+if(NOT _said MATCHES "after a slip: ([0-9]+) seen, ([0-9]+) updates compared after them, at most ([0-9]+) after one, placed at most ([0-9]+) steps off, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m, the worst beyond the steps placed off (-?[0-9]+)\\.([0-9][0-9][0-9]) m; the rest: ([0-9]+) updates, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its words after a slip:\n${_said}")
 endif()
 set(_slips_seen "${CMAKE_MATCH_1}")
 set(_after_slip "${CMAKE_MATCH_2}")
 set(_longest_after "${CMAKE_MATCH_3}")
-set(_most_above "${CMAKE_MATCH_4}")
+set(_most_off "${CMAKE_MATCH_4}")
 math(EXPR _after_worst_mm "${CMAKE_MATCH_5} * 1000 + ${CMAKE_MATCH_6}")
 set(_beyond_mm "${CMAKE_MATCH_7}${CMAKE_MATCH_8}")
 math(EXPR _beyond_mm "${_beyond_mm}")
@@ -250,7 +251,7 @@ if(_after_worst_mm GREATER @WORST_AFTER_A_SLIP_MM@)
                         "over @WORST_AFTER_A_SLIP_MM@ mm:\n${_said}")
 endif()
 set(_slip_said "${_slips_seen} slips seen, ${_after_slip} updates after them (at most "
-               "${_longest_after} after one, placed at most ${_most_above} steps above), the "
+               "${_longest_after} after one, placed at most ${_most_off} steps off), the "
                "worst ${_after_worst_mm} mm, ${_beyond_mm} mm beyond the steps placed off; "
                "the rest's worst ${_rest_worst_mm} mm over ${_rest}")
 # **Slipped, the slip is built and seen**: the server said it let at least
@@ -266,7 +267,7 @@ if(SLIPPED)
     if(_let LESS 20)
         message(FATAL_ERROR "the server let ${_let} steps slip, under the 20 built:\n${_err}")
     endif()
-    if(_slips_seen LESS 1 OR _most_above LESS 2)
+    if(_slips_seen LESS 1 OR _most_off LESS 2)
         message(FATAL_ERROR "the server let ${_let} steps slip and the client saw no slip:\n${_said}")
     endif()
     if(_longest_after GREATER @LONGEST_AFTER@)
