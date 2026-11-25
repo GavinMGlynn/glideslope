@@ -3607,6 +3607,9 @@ public:
                 lines.push_back("built: " + b);
             }
         }
+        for (const std::string& b : begins_) {
+            lines.push_back("prediction begun: " + b);
+        }
         if (prediction_held_trim_) {
             std::snprintf(line, sizeof line,
                           "held trim: the prediction's %.4f, told %.4f; its pitch loop's "
@@ -3842,6 +3845,11 @@ private:
         if (!aircraft_) {
             return;
         }
+        // **How long beginning took**, on this thread: set up, and every
+        // step since the server's word flown, in the frame that began it.
+        const double began_at_s = since_began();
+        const double began_cpu_s = glideslope::platform::thread_cpu_s();
+        std::size_t caught_up = 0;
         trap_aircraft = aircraft_.get();
         aircraft_model_ = model;
         // **At the loading the server gave her**, before she is put
@@ -3932,6 +3940,7 @@ private:
             if (began != before_.end() ? i >= from : sequence > last_applied) {
                 const std::uint64_t step = prediction_->steps();
                 prediction_->step(sequence, controls);
+                ++caught_up;
                 // **Kept, as every step flown is**: the first words after
                 // are about these steps, and are held against them
                 // (frontend::OwnWords) - not counted in the error, flown
@@ -3945,6 +3954,14 @@ private:
             }
         }
         before_.clear();
+        const double ended_s = since_began();
+        char line[200];
+        std::snprintf(line, sizeof line,
+                      "at %.3f s, %zu steps caught up: %.0f ms, %.0f ms of its thread's CPU "
+                      "time",
+                      began_at_s, caught_up, (ended_s - began_at_s) * 1000.0,
+                      (glideslope::platform::thread_cpu_s() - began_cpu_s) * 1000.0);
+        begins_.emplace_back(line);
     }
 
     // Earth-centred to north-east-down about the first aircraft seen: a
@@ -4111,6 +4128,9 @@ private:
     // the builds, so that a build still running as they are let go has them.
     std::vector<std::string> builds_;
     mutable std::mutex builds_mutex_;
+    // **Each prediction begun** (`start`): when, and what it cost this
+    // thread, as a gap between frames is laid beside it.
+    std::vector<std::string> begins_;
     // Of each model introduced, one built and never flown (`spare`), or one
     // being built.
     std::map<std::string, std::unique_ptr<glideslope::sim::Aircraft>> built_;
