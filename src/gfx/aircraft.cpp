@@ -1,7 +1,5 @@
 #include "gfx/aircraft.hpp"
 
-#include "gfx/terrain_colour.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -78,21 +76,14 @@ std::string view_names() {
     return out;
 }
 
-Mesh mesh_from_model(const Model& model, const world::Ecef& sun_in_body) {
+Mesh mesh_from_model(const Model& model) {
     Mesh mesh;
     mesh.vertices.reserve(model.vertices.size());
     for (const ModelVertex& v : model.vertices) {
-        const world::Ecef normal{static_cast<double>(v.normal[0]),
-                                 static_cast<double>(v.normal[1]),
-                                 static_cast<double>(v.normal[2])};
-        const double light = light_on(normal, sun_in_body);
         Vertex out;
         out.position = v.position;
-        for (std::size_t i = 0; i < 3; ++i) {
-            out.colour[i] = static_cast<float>(
-                std::clamp(static_cast<double>(v.colour[i]) * light, 0.0, 1.0));
-        }
-        out.colour[3] = v.colour[3];
+        out.colour = v.colour;
+        out.normal = v.normal;
         mesh.vertices.push_back(out);
     }
     mesh.indices = model.indices;

@@ -25,8 +25,10 @@ struct Transform {
     std::array<float, 4> uv_transform{1.0f, 1.0f, 0.0f, 0.0f};
     std::array<float, 4> eye{};
     std::array<float, 16> station_from_local{};
+    // The sun in the mesh's own frame, and 1 to light by it; 0, unlit.
+    std::array<float, 4> light{};
 };
-static_assert(sizeof(Transform) == 160);
+static_assert(sizeof(Transform) == 176);
 
 // The fragment shader's: the haze's colour, then the extinction below its top
 // and above it, the top's height and the eye's.
@@ -144,7 +146,7 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering laye
     buffer.slot = 0;
     buffer.pitch = sizeof(Vertex);
     buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-    SDL_GPUVertexAttribute attributes[3]{};
+    SDL_GPUVertexAttribute attributes[4]{};
     attributes[0].location = 0;
     attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
     attributes[0].offset = offsetof(Vertex, position);
@@ -154,6 +156,9 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering laye
     attributes[2].location = 2;
     attributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
     attributes[2].offset = offsetof(Vertex, uv);
+    attributes[3].location = 3;
+    attributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
+    attributes[3].offset = offsetof(Vertex, normal);
 
     SDL_GPUColorTargetDescription colour{};
     colour.format = colour_format;
@@ -177,7 +182,7 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering laye
     info.vertex_input_state.vertex_buffer_descriptions = &buffer;
     info.vertex_input_state.num_vertex_buffers = 1;
     info.vertex_input_state.vertex_attributes = attributes;
-    info.vertex_input_state.num_vertex_attributes = 3;
+    info.vertex_input_state.num_vertex_attributes = 4;
     info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
     info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
@@ -611,6 +616,12 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
                              static_cast<float>(eye.z), 1.0f};
             transform.station_from_local =
                 station_from_local(haze.station, draw.placement).m;
+            if (draw.sun) {
+                // The sun along the mesh's own axes, where its normals are.
+                const world::Ecef sun = transpose(draw.placement.world_from_local) * *draw.sun;
+                transform.light = {static_cast<float>(sun.x), static_cast<float>(sun.y),
+                                   static_cast<float>(sun.z), 1.0f};
+            }
             SDL_PushGPUVertexUniformData(commands, 0, &transform, sizeof transform);
             SDL_DrawGPUIndexedPrimitives(pass, mesh.index_count, 1, 0, 0, 0);
         }

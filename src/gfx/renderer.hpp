@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -71,6 +72,14 @@ struct Draw {
     // Blended over what is behind it by its alpha, after everything opaque,
     // in the order given, and hiding nothing behind it.
     bool translucent = false;
+    // **Lit as it is drawn**: the unit vector towards the sun, in ECEF. Each
+    // vertex's colour is times how much light its normal catches
+    // (gfx::light_on), the normal turned with the placement, so a mesh lit so
+    // follows its placement's every turn without being made again - an
+    // aeroplane banking, a control surface about its hinge. Nothing, the
+    // default, draws the vertex colours as they are: terrain's, whose light
+    // is in them.
+    std::optional<world::Ecef> sun{};
 };
 
 class Renderer {

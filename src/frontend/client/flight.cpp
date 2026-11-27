@@ -671,12 +671,9 @@ std::vector<double> Flight::surface_angles_rad() const {
     return out;
 }
 
-world::Ecef sun_in_body_of(const gfx::Placement& placement) {
+world::Ecef sun_over(const gfx::Placement& placement) {
     const world::Geodetic g = world::to_geodetic(placement.origin);
-    const world::Ecef sun = gfx::sun_from(gfx::up_at(g.latitude_deg, g.longitude_deg));
-    // The same vector along the body's own axes: the transpose of the
-    // rotation that takes body to world.
-    return gfx::transpose(placement.world_from_local) * sun;
+    return gfx::sun_from(gfx::up_at(g.latitude_deg, g.longitude_deg));
 }
 
 ModelGeometry geometry_of(const std::filesystem::path& data, const sim::CatalogueEntry& entry) {
