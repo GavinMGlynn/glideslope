@@ -2222,6 +2222,15 @@ add_test(NAME a_stale_cached_tile_whose_fetch_gets_no_answer_is_answered_as_a_fa
     COMMAND $<TARGET_FILE:glideslope_cache_revalidation>
         ${CMAKE_CURRENT_BINARY_DIR}/cache_revalidation)
 
+# **The HUD tests fly recorded weather**, YSSY's METAR at 1600Z on 2026-09-17
+# and Open-Meteo's Sydney forecast of that day, answered by
+# glideslope_http_stub (frame_hud.cmake): on live weather the HUD tick test on
+# Metal skipped after 334 s when a weather service was not answering
+# (docs/status/2026-11-28-skipped-tests-say-why.md).
+set(_recorded_weather
+    -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+    -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-metars-2026-09-17T1600Z.json
+    -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json)
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
         COMMAND ${CMAKE_COMMAND}
@@ -2229,6 +2238,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCLI=$<TARGET_FILE:glideslope_cli>
             -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            ${_recorded_weather}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
@@ -2241,6 +2251,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCLI=$<TARGET_FILE:glideslope_cli>
             -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DFLY=--autopilot "-DFLYING=FLYING AI HOLD"
+            ${_recorded_weather}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_says_the_ai_holds_the_aircraft_and_shows_its_controls_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
@@ -2251,6 +2262,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} "-DFLY=--plan;sydney-harbour"
             "-DFLYING=FLYING AI NAV THE HEADS"
+            ${_recorded_weather}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_hud.cmake)
     set_tests_properties(the_hud_says_the_ai_flies_its_plan_and_shows_its_controls_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
