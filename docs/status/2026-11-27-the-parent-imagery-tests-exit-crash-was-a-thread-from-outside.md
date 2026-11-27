@@ -6,8 +6,18 @@ development machine".
 **What is not known, first.** Which program puts the thread in is not
 proved. Webroot is the likely one, but its log does not name it. The fix
 is in the program, not in Webroot, so it holds whoever starts the thread.
-Only windows-debug was run with the fix; windows-release never crashed
-(0 of 300 before the fix).
+windows-release did not crash in 300 runs before the fix.
+
+**Open: windows-release with this branch sometimes misses the last call.**
+Both exit tests sometimes failed this way on the development machine. The
+program printed its pass and exited 0, but nothing came from the loader's
+process-detach call. The allocation test passed 98 of 100 times and the
+locks test 97 of 100; the allocation test also failed once in ctest. A
+windows-release build of main from 2026-11-05 passed the allocation test
+100 of 100 and 60 of 60. Whether this branch's change caused it, or
+something that reached main after 2026-11-05, is not known. Building
+today's main for release on its own would settle it. windows-debug passed
+both tests.
 
 ## Reproduced: 65 of 300
 
