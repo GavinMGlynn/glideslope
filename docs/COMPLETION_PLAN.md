@@ -2119,15 +2119,14 @@ Joining, leaving, being dropped and coming back; the handshake, the reliable lay
 
 What the client with the window does that the command-line client does, and what it draws.
 
-- [ ] **The client with the window does not blend corrections to its
+- [x] **The client with the window does not blend corrections to its
       prediction**, as the command-line client does. *Verification:
       corrections are blended, and the largest step away from a switch is
-      held to a bound, failing clearly with the blend taken out.* The blend
-      is in and unit-tested (2026-09-29). Still missing: large corrections
-      built through the client itself, a bound on the hand-over test seen to
-      fail, and whether the older steps CI saw (6.2 and 24.5 m in the
-      hand-over test, 2.77 m at a take-over) were the session's clock,
-      which stepped under long, uneven frames and is now slewed (2026-10-09).
+      held to a bound, failing clearly with the blend taken out.* Done
+      2026-11-28: the hand-over test has the server move the aircraft 15 m
+      after the take-back and holds the step under 5 m; without the blend it
+      fails. Two of CI's old steps fit causes fixed 2026-09-30, not the
+      clock; the third's lines are gone.
 - [x] **A livery on the aeroplane, and its control surfaces moving.**
       *Verification: a shot shows a livery, and the ailerons move with the
       stick.* Done 2026-11-27: every aircraft's livery and hinged surfaces are
