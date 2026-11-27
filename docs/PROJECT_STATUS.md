@@ -645,10 +645,15 @@ are the risks the phase order is built around:
 - **A landplane on water ditches, and nothing more.** It is stopped where it
   meets the water and held there; nothing of a ditching - the airframe
   striking the water, floating, sinking - is modelled.
-- **The aeroplane is drawn, with no livery and nothing on it moving.** A
-  model carries no texture, so each surface is the flat diffuse colour of its
-  material, and no control surface, propeller or undercarriage moves: they
-  are welded where the model has them, gear down. Its light is baked into the
+- **The aeroplane is drawn in a livery of flat colours, its control surfaces
+  moving and nothing else.** A model carries no texture: each aircraft's
+  livery is a colour scheme of boxes painted over its materials'
+  flat colours (2026-11-27). Its ailerons, elevators and rudder are cut from
+  the mesh along hinge lines given in data and turned by what the flight
+  model reports, on every aircraft but the B-2's rudder, named left out; but
+  another aircraft on a server is drawn with its surfaces still, because no
+  update carries them. Propellers and undercarriage do not move: they are
+  welded where the model has them, gear down. Its light is baked into the
   mesh, which is made again when it has banked five degrees. The Learjet
   35A has no model at all and is drawn as nothing. All of that is tails in
   `COMPLETION_PLAN.md`. Where a model and its

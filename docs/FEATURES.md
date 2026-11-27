@@ -81,8 +81,9 @@ the controls to an AI pilot whenever you like, then take them back.
   bomber. Each flies to its published numbers and looks like the aircraft it
   flies like.
   *Not yet:* on a server a player flies the aircraft the server gives them,
-  not one they choose; the Learjet is not drawn at all; and no aircraft wears
-  a livery or moves its control surfaces.
+  not one they choose; the Learjet is not drawn at all; and another aircraft
+  on a server is drawn with its control surfaces still - only your own
+  aeroplane's move with its controls.
 
 - **Joysticks, HOTAS and yokes.** `DONE`
   Proper flight controls on every platform, not only a keyboard. F1 shows
