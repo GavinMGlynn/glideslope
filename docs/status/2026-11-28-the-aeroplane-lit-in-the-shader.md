@@ -64,7 +64,18 @@ pixel.
   56 and 278. It ran 330 to 344 s on the Windows debug machine, where the
   livery test took 197, so its time limit is 1,500 s.
 - **Every platform's figures**: it adds its ratios to figures.txt, which
-  CI's "The figures said" step prints, passed or not. FIGURES_CI
+  CI's "The figures said" step prints, passed or not. On the Windows debug
+  machine, Direct3D 12 and Vulkan alike: means 492.5 level and 331.9
+  banked, a ratio of 0.674 against the sun's 0.646, as Linux's Vulkan
+  drew (492.7 and 332.0). The 8% rests on those three; Metal's figure is
+  printed in figures.txt by the full run, which drafts do not run on
+  macOS.
+- **Other aircraft are lit by the same path.** Their parts, which #423 turns
+  by the deflections a state update carries, are drawn by the same
+  `draw_parts` with the sun, and their meshes made once.
+  `the_client_with_the_window_draws_another_players_ailerons_over_as_she_rolls`
+  now asserts that every one of the ridden Cessna's parts is drawn lit
+  ("drawn in N parts, N of them lit by the shader"), N at least 2.
 - `every_aircrafts_drawn_meshes_carry_a_unit_normal_at_every_vertex_and_unlit_colours`:
   all 16 of the catalogue's 16 (asserted against its count), body and every
   surface's part as the client makes them: each vertex's normal within 0.02
