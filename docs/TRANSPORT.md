@@ -127,7 +127,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `14` |
+| 4 | 1 | version | `15` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -174,7 +174,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, and `WRONG_LAYOUT`, after it, are refused as an unknown
 reason by a client older than each: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `14`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `15`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 

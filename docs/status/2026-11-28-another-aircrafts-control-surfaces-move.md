@@ -46,4 +46,45 @@ still".
 
 ## Verification
 
-RESULTS
+- `the_client_with_the_window_draws_another_players_ailerons_over_as_she_rolls`
+  (tests/cmake/client_sees_others_surfaces.cmake, port 24794,
+  tests/tools/ridden_surfaces_check.cpp): a server for two players; a
+  second player (`glideslope_cli connect --fly`) holds her Cessna's stick
+  full left; the window client rides along behind her
+  (`--ride-along-person --view behind`). At the shot it must say it drew her
+  left aileron below -5 degrees and her right above +5, and the frame drawn
+  as the updates have her must differ from the same frame with her surfaces
+  still by ten pixels at least. Locally: left -20.00 and right +20.00
+  degrees, her elevators -5.50; 1,705 pixels of her, 205 moved by her
+  surfaces.
+  - Seen red: the server writing every aircraft's surfaces as nought
+    (`out.surfaces = {}` before the packet takes it) - "her ailerons were not
+    drawn over the way the stick holds them, left +0.00"; and the check on
+    that run's frames, "its surfaces were drawn still: 0 pixels moved by
+    them". Reverted; green again, 205 pixels.
+- `every_aircrafts_every_surface_reaches_another_client_where_its_flight_model_has_it`:
+  each of the 16 aircraft, stick and pedals full one way then the other;
+  what the server writes of it goes through a state update written and
+  read and into the interpolation, and each surface its file names is
+  turned by the deflection its property is carried as. Within a quarter of
+  a degree of what was flown, and over by more than that. Counted against
+  the catalogue as the livery item's test is (the B-2's rudder named left
+  out there): 164 of 164.
+  - Seen red: `surfaces_on_the_wire` writing nought - "0 of 164 surfaces
+    drawn where flown". Reverted.
+- `a_surfaces_deflection_goes_on_the_wire_to_the_nearest_half_degree`: all
+  256 bytes read back as themselves; 2,401 deflections within a quarter of a
+  degree, held at the ends.
+- `a_velocity_goes_on_the_wire_to_the_nearest_sixteenth_of_a_metre_a_second`:
+  all 65,536 values; 33,601 velocities within a thirty-second of a metre a
+  second, held at the ends.
+- `a_state_update_carries_the_ailerons_elevator_and_rudder_by_their_properties`,
+  `another_aircrafts_surfaces_move_between_two_updates_and_hold_past_the_last`.
+- The state packet's own tests, moved to the new layout: the round trip at
+  every count from 0 to 20; every one-bit change read exactly or refused; the
+  NaN walk, 75 cases, of which the reader is given 66 - an aircraft's three
+  velocities cannot hold one on the wire, named; a full packet, 1,119 bytes
+  and 1,149 sealed, which TRANSPORT.md says and a test holds it to. The
+  version tests (`15`), the gearstick refusal (`474c4453150401`), and the
+  client written from the document, which completes a session.
+- Built on Windows (windows-debug, MSVC) with tools/windows_build.sh.
