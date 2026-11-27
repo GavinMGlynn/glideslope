@@ -3,6 +3,7 @@
 // The flight screen: one aircraft, standing on or flying over the DEM, seen
 // from its cockpit, with the HUD.
 
+#include "audio/heard.hpp"
 #include "gfx/aircraft.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/parts.hpp"
@@ -362,6 +363,10 @@ public:
     world::Ecef sun_in_body() const;
 
     gfx::HudReadings hud() const;
+    // **What the mix is told of her** (audio/heard.hpp), by her sound set.
+    audio::Heard heard(const audio::SoundSet& sounds) const {
+        return audio::heard_of(*aircraft_, sounds);
+    }
     // Where the controls are, as the flight model has them.
     gfx::ControlsShown controls_shown() const;
     // The geoid's height above the ellipsoid where it is, in metres: what

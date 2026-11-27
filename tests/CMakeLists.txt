@@ -125,10 +125,11 @@ add_executable(glideslope_tests
     unit/test_imagery.cpp
     unit/test_process_end.cpp
     unit/test_whole_lines.cpp
+    unit/test_sound.cpp
     ${PROJECT_SOURCE_DIR}/src/frontend/briefs.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_copilot
-                                               glideslope_input glideslope_model CesiumImage)
+                                               glideslope_input glideslope_audio glideslope_model CesiumImage)
 # The HTTP tests stand up a server on the loopback address, through Winsock there.
 if(WIN32)
     target_link_libraries(glideslope_tests PRIVATE ws2_32)
@@ -1409,7 +1410,14 @@ set(GLIDESLOPE_UNIT_TESTS
     tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_asked_again_a_minute_on
     a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
     a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone
-    a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone)
+    a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone
+    every_aircraft_in_the_catalogue_has_a_sound_set_that_matches_her_flight_model
+    a_sound_set_with_a_line_wrong_or_missing_is_refused
+    every_aircrafts_engine_heard_on_the_dummy_driver_rises_in_pitch_with_her_rpm
+    every_aircraft_heard_with_her_engines_stopped_on_the_ground_is_silent
+    the_wind_heard_grows_louder_with_airspeed_in_every_aircraft
+    every_event_is_heard_from_the_step_it_happens_in_every_aircraft
+    another_aircraft_is_heard_louder_nearer_and_on_the_side_she_is_on)
 # **The gust landings' seeds 9 to 40** (tests/unit/test_lesson.cpp),
 # labelled gust_sweep: the eight above run on every pull request, and these
 # in every other run - every night - but no pull request's (ci.yml leaves the
@@ -5602,4 +5610,11 @@ foreach(_t IN LISTS _all_tests)
     string(SUBSTRING "${_hash}" 0 7 _hash)
     math(EXPR _day "0x${_hash} % 7 + 1")
     set_property(TEST ${_t} APPEND PROPERTY LABELS sweep_day_${_day})
+endforeach()
+# **Every test is silent**: a window client a test starts, and the sound
+# tests (tests/unit/test_sound.cpp, which also ask for it by name), are heard
+# on SDL's dummy audio driver, never on the machine's speakers.
+get_property(_all_tests DIRECTORY PROPERTY TESTS)
+foreach(_t IN LISTS _all_tests)
+    set_property(TEST ${_t} APPEND PROPERTY ENVIRONMENT SDL_AUDIO_DRIVER=dummy)
 endforeach()

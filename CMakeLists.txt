@@ -367,6 +367,21 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
     glideslope_configure(glideslope_input)
 
     # ---------------------------------------------------------------------------
+    # Sound - the mix synthesised from a flight and each aircraft's sound set
+    # (assets/sound), played through SDL3's audio streams. The window client's
+    # alone: the simulation reads none of it, and cmake/Layering.cmake keeps
+    # SDL's audio out of src/sim/.
+    # ---------------------------------------------------------------------------
+    add_library(glideslope_audio STATIC
+        src/audio/device.cpp
+        src/audio/heard.cpp
+        src/audio/mixer.cpp
+        src/audio/sound_set.cpp)
+    target_include_directories(glideslope_audio PUBLIC src)
+    target_link_libraries(glideslope_audio PUBLIC glideslope_sim SDL3::SDL3-static)
+    glideslope_configure(glideslope_audio)
+
+    # ---------------------------------------------------------------------------
     # The drawing that draws nothing: the aircraft visual models tools/make_models.py
     # makes, where each sits on its aeroplane and the views of it, the scene's
     # geometry - placements, cameras and the projection - and the terrain's colours
@@ -415,12 +430,13 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
         src/frontend/client/main.cpp
         src/frontend/client/online.cpp
         src/frontend/client/scenes.cpp
+        src/frontend/client/sound.cpp
         src/frontend/client/terrain.cpp
         src/frontend/briefs.cpp
         src/frontend/players_copilot.cpp
         src/frontend/same_air.cpp
         src/frontend/shown.cpp)
-    target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_net glideslope_sim glideslope_world
+    target_link_libraries(glideslope PRIVATE glideslope_gfx glideslope_input glideslope_audio glideslope_net glideslope_sim glideslope_world
                                              glideslope_platform glideslope_copilot)
     glideslope_configure(glideslope)
 endif()
