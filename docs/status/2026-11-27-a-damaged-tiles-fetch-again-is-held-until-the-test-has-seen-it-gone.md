@@ -19,5 +19,14 @@ Nothing in `src/` changed.
   cannot land before the asking, because the bucket answers only when the
   test lets it.
 
+- **A check that fails fails; it does not hang.** A check throws, and a
+  TilesAhead whose fetch is held waits for it in its destructor. A guard
+  declared after the TilesAhead now lets the bucket answer however a block is
+  left; the first block had the same hazard and has the guard too (found by
+  the review). With the new check turned round on purpose it failed at the
+  check, in 60 s. Before the guard was declared after the TilesAhead, it hung
+  to ctest's 300 s limit.
+
 **Left as it was.** The test takes 60 s on every machine (CI 60.4 s, here
-60.05 s), before and after this change.
+60.05 s), before and after this change: its second block runs the real
+retries twice (five tries, 2 + 4 + 8 + 16 s between them).

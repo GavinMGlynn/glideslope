@@ -1723,9 +1723,26 @@ GLIDESLOPE_TEST(tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_a
         r.headers["etag"] = "\"parts-2\"";
         return r;
     };
+    // Lets the bucket answer however a block is left: a check that fails
+    // throws, and a TilesAhead whose fetch is held would wait for it forever
+    // in its destructor rather than the test failing at the check. Declared
+    // after the TilesAhead, so it is destroyed first.
+    struct LetGo {
+        std::mutex& mutex;
+        std::condition_variable& let;
+        bool& answer;
+        ~LetGo() {
+            {
+                const std::lock_guard<std::mutex> lock(mutex);
+                answer = true;
+            }
+            let.notify_all();
+        }
+    };
     {
         const auto cache = scratch("ahead");
         glideslope::world::TilesAhead ahead(coverage, cache, held);
+        const LetGo let_go{mutex, let, answer}; // after it, so it lets go first
         // Sydney's cell has a tile; the sea east of it has none.
         check(ahead.had(-33.5, 160.5), "a cell of the sea, with no tile, is had at once");
         check(!ahead.had(-33.5, 151.5),
@@ -1798,6 +1815,7 @@ GLIDESLOPE_TEST(tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_a
         }
         auto ahead = std::make_shared<glideslope::world::TilesAhead>(coverage, cache, held);
         glideslope::world::Dem dem(coverage, *ahead, nullptr);
+        const LetGo let_go{mutex, let, answer}; // after them, so it lets go first
         check(ahead->had(-33.5, 151.5), "a tile in the cache is had");
         bool refused = false;
         try {
