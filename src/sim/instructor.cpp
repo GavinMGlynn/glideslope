@@ -200,6 +200,13 @@ Instructor::Instructor(const std::filesystem::path& data, const CatalogueEntry& 
     : data_(data), entry_(entry), runway_(runway), speeds_(lesson_speeds(data, entry.model)),
       aircraft_(std::make_unique<Aircraft>(data / "jsbsim", entry.model)),
       run_(lesson, speeds_), demonstration_(demonstrated_as(lesson)) {
+    // **A lesson teaches a class**, and its bands are that class's: a
+    // fighter's stall lesson flown in a Cessna judges her against a jet's.
+    if (entry.aircraft_class != lesson.teaches) {
+        throw LessonError(entry.id + " is " + std::string(name_of(entry.aircraft_class)) +
+                          ", and " + lesson.id + " teaches " +
+                          std::string(name_of(lesson.teaches)));
+    }
     if (const std::string why = cannot_be_taught(lesson, speeds_); !why.empty()) {
         throw LessonError(entry.id + " cannot be taught " + lesson.id + ": " + why);
     }

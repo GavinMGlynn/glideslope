@@ -16,6 +16,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -120,60 +121,96 @@ Shown show(const Lesson& lesson, const glideslope::sim::CatalogueEntry& entry) {
     return out;
 }
 
-// **Every class's lesson for one exercise, demonstrated and handed over.**
-// The space is the lessons that say they are demonstrated so; each is
-// flown by the first aeroplane of its class that can be taught it, and a
-// lesson no aeroplane can be taught is named, never quietly skipped.
-void every_lesson_demonstrated(Demonstration exercise) {
+// **The lessons the roster's aeroplanes are not taught, each with its
+// reason.** A lesson belongs to a class and the figures to the aeroplane, so a
+// class's lesson can name a figure one of its aeroplanes has not got
+// (sim::cannot_be_taught). Named here so that an aeroplane quietly dropped
+// from a lesson fails rather than shortens the test.
+const std::map<std::string, std::string>& left_out() {
+    static const std::map<std::string, std::string> named = {
+        // Her take-off speeds are measured from her model, for a plan, not
+        // a book's (sim::book_departure_speeds): no rotation or climbing
+        // speed for a lesson.
+        {"747-400 airliner-take-off", "names rotate, which she has not got"},
+        {"747-400 airliner-circuit", "names rotate, which she has not got"},
+        {"747-400 airliner-climb-and-descent", "names climb, which she has not got"},
+        {"f22 fighter-take-off", "names rotate, which she has not got"},
+        {"f22 fighter-circuit", "names climb, which she has not got"},
+        {"f22 fighter-climb-and-descent", "names climb, which she has not got"},
+    };
+    return named;
+}
+
+std::string pair_of(const std::string& aircraft, const std::string& lesson) {
+    return aircraft + " " + lesson;
+}
+
+// **The roster, by hand**: one test per aeroplane, so that they run side by
+// side; the test below asserts it is the catalogue's whole roster.
+const std::vector<std::string>& roster_tested() {
+    static const std::vector<std::string> ids = {
+        "737-300", "747-400", "787-8", "a320", "a380", "b2", "c172p", "c182",
+        "f15c", "f22", "f35b", "j3cub", "learjet35a", "mosquito-fb6", "pa28", "short_s23"};
+    return ids;
+}
+
+// **Every lesson of her class, demonstrated in her and handed over**, or
+// left out with its reason (left_out); the two together are every lesson
+// of her class, six.
+void every_lesson_of_her_class(const std::string& id) {
     const double a_hands_pace = 2.0 / steps_per_second + 0.004;
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const auto speeds = glideslope::sim::lesson_speeds(data(), entry.model);
     std::size_t lessons = 0;
-    std::size_t shown_count = 0;
-    std::vector<std::string> left_out;
+    std::size_t flown = 0;
+    std::size_t named_out = 0;
     for (const Lesson& lesson : glideslope::sim::read_lessons(data())) {
-        if (lesson.demonstration != exercise) {
+        if (lesson.teaches != entry.aircraft_class) {
             continue;
         }
         ++lessons;
-        const auto entry = taught_by(lesson);
-        if (!entry) {
-            left_out.push_back(lesson.id);
+        const std::string why = glideslope::sim::cannot_be_taught(lesson, speeds);
+        const auto named = left_out().find(pair_of(id, lesson.id));
+        if (!why.empty()) {
+            std::printf("  %-36s left out: %s\n", lesson.id.c_str(), why.c_str());
+            check(named != left_out().end(),
+                  id + " cannot be taught " + lesson.id + " (" + why + "), and is not named");
+            named_out += named != left_out().end() ? 1U : 0U;
             continue;
         }
-        const Shown shown = show(lesson, *entry);
-        std::printf("  %-36s %-13s %zu/%zu stages, handed over at %.1f s, worst step "
+        check(named == left_out().end(),
+              id + " is named as left out of " + lesson.id + ", and can be taught it");
+        const Shown shown = show(lesson, entry);
+        std::printf("  %-36s %zu/%zu stages, handed over at %.1f s, worst step "
                     "%.4f over, %.4f settled\n",
-                    lesson.id.c_str(), entry->id.c_str(), shown.completed, shown.stages,
-                    shown.handed_at_s, shown.worst_to_pilot, shown.worst_settled);
+                    lesson.id.c_str(), shown.completed, shown.stages, shown.handed_at_s,
+                    shown.worst_to_pilot, shown.worst_settled);
         for (const std::string& said : shown.debrief) {
             std::printf("      %s\n", said.c_str());
         }
         check(shown.completed == shown.stages,
-              lesson.id + ": " + entry->id + " flew " + std::to_string(shown.completed) +
-                  " of " + std::to_string(shown.stages) + " stages");
-        check(shown.debrief.empty(), lesson.id + ": " + entry->id +
+              lesson.id + ": " + id + " flew " + std::to_string(shown.completed) + " of " +
+                  std::to_string(shown.stages) + " stages");
+        check(shown.debrief.empty(), lesson.id + ": " + id +
                                          " demonstrated it inside the lesson's limits, and "
                                          "said " +
                                          std::to_string(shown.debrief.size()) + " things");
         check(shown.handed_over, lesson.id + ": the controls were handed over");
         check(shown.worst_to_pilot <= a_hands_pace,
-              lesson.id + ": " + entry->id + " stepped " +
-                  std::to_string(shown.worst_to_pilot) + " handing over");
+              lesson.id + ": " + id + " stepped " + std::to_string(shown.worst_to_pilot) +
+                  " handing over");
         check(shown.worst_settled <= a_hands_pace,
-              lesson.id + ": " + entry->id + " moved a control " +
+              lesson.id + ": " + id + " moved a control " +
                   std::to_string(shown.worst_settled) + " in a step while the pilot held it");
-        ++shown_count;
+        ++flown;
     }
-    for (const std::string& id : left_out) {
-        std::printf("      left out - %s: no aeroplane of its class can be taught it\n",
-                    id.c_str());
-    }
-    std::printf("  %s: %zu of the %zu lessons demonstrated\n", glideslope::sim::name_of(exercise),
-                shown_count, lessons);
-    // Seven classes, a lesson each.
-    check(lessons == 7, std::string("seven classes' ") + glideslope::sim::name_of(exercise) +
-                            " lessons, and there are " + std::to_string(lessons));
-    check(shown_count == lessons, "every lesson demonstrated: " + std::to_string(shown_count) +
-                                      " of " + std::to_string(lessons));
+    std::printf("  %s: %zu of the %zu lessons of her class demonstrated, %zu named as left "
+                "out\n",
+                id.c_str(), flown, lessons, named_out);
+    check(lessons == 6, id + "'s class has six lessons, and has " + std::to_string(lessons));
+    check(flown + named_out == lessons,
+          id + ": every lesson of her class demonstrated or named: " +
+              std::to_string(flown + named_out) + " of " + std::to_string(lessons));
 }
 
 } // namespace
@@ -207,28 +244,107 @@ GLIDESLOPE_TEST(every_lesson_says_how_the_instructor_demonstrates_it_and_has_an_
                                        std::to_string(by_exercise.size()));
 }
 
-GLIDESLOPE_TEST(the_instructor_demonstrates_every_classs_take_off_lesson_and_hands_it_over) {
-    every_lesson_demonstrated(Demonstration::take_off);
+// **Every (lesson, aeroplane) pair**: the whole roster, each aeroplane
+// taught every lesson of her class or named as left out of it, and the
+// pairs counted against the lessons there are.
+GLIDESLOPE_TEST(every_aeroplane_has_its_instructor_test_and_every_lesson_pair_is_flown_or_named) {
+    std::set<std::string> catalogue;
+    std::size_t pairs = 0;
+    std::size_t taught = 0;
+    const auto lessons = glideslope::sim::read_lessons(data());
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        catalogue.insert(entry.id);
+        const auto speeds = glideslope::sim::lesson_speeds(data(), entry.model);
+        for (const Lesson& lesson : lessons) {
+            if (lesson.teaches != entry.aircraft_class) {
+                continue;
+            }
+            ++pairs;
+            const std::string why = glideslope::sim::cannot_be_taught(lesson, speeds);
+            if (why.empty()) {
+                ++taught;
+            } else {
+                std::printf("      left out - %s: %s\n", pair_of(entry.id, lesson.id).c_str(),
+                            why.c_str());
+            }
+        }
+    }
+    const std::set<std::string> tested(roster_tested().begin(), roster_tested().end());
+    check(tested == catalogue, "an instructor test for every aeroplane in the roster, and no "
+                               "other: " +
+                                   std::to_string(tested.size()) + " for " +
+                                   std::to_string(catalogue.size()));
+    std::printf("  %zu (lesson, aeroplane) pairs: %zu demonstrated, %zu named as left out\n",
+                pairs, taught, left_out().size());
+    check(pairs == 6 * catalogue.size(),
+          "six lessons for every aeroplane: " + std::to_string(pairs) + " pairs");
+    check(taught + left_out().size() == pairs,
+          "every pair demonstrated or named: " + std::to_string(taught + left_out().size()) +
+              " of " + std::to_string(pairs));
 }
 
-GLIDESLOPE_TEST(the_instructor_demonstrates_every_classs_approach_lesson_and_hands_it_over) {
-    every_lesson_demonstrated(Demonstration::approach);
+GLIDESLOPE_TEST(the_737_300_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("737-300");
 }
 
-GLIDESLOPE_TEST(the_instructor_demonstrates_every_classs_circuit_lesson_and_hands_it_over) {
-    every_lesson_demonstrated(Demonstration::circuit);
+GLIDESLOPE_TEST(the_747_400_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("747-400");
 }
 
-GLIDESLOPE_TEST(the_instructor_demonstrates_every_classs_climb_and_descent_lesson_and_hands_it_over) {
-    every_lesson_demonstrated(Demonstration::climb_and_descent);
+GLIDESLOPE_TEST(the_787_8_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("787-8");
 }
 
-GLIDESLOPE_TEST(the_instructor_demonstrates_every_classs_stall_lesson_and_hands_it_over) {
-    every_lesson_demonstrated(Demonstration::stalls);
+GLIDESLOPE_TEST(the_a320_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("a320");
 }
 
-GLIDESLOPE_TEST(the_instructor_demonstrates_every_classs_turns_lesson_and_hands_it_over) {
-    every_lesson_demonstrated(Demonstration::turns);
+GLIDESLOPE_TEST(the_a380_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("a380");
+}
+
+GLIDESLOPE_TEST(the_b2_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("b2");
+}
+
+GLIDESLOPE_TEST(the_c172p_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("c172p");
+}
+
+GLIDESLOPE_TEST(the_c182_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("c182");
+}
+
+GLIDESLOPE_TEST(the_f15c_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("f15c");
+}
+
+GLIDESLOPE_TEST(the_f22_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("f22");
+}
+
+GLIDESLOPE_TEST(the_f35b_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("f35b");
+}
+
+GLIDESLOPE_TEST(the_j3cub_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("j3cub");
+}
+
+GLIDESLOPE_TEST(the_learjet35a_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("learjet35a");
+}
+
+GLIDESLOPE_TEST(the_mosquito_fb6_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("mosquito-fb6");
+}
+
+GLIDESLOPE_TEST(the_pa28_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("pa28");
+}
+
+GLIDESLOPE_TEST(the_short_s23_is_demonstrated_every_lesson_of_her_class_and_handed_over) {
+    every_lesson_of_her_class("short_s23");
 }
 
 // **A lesson that does not say how it is demonstrated is refused**, saying
@@ -249,6 +365,25 @@ GLIDESLOPE_TEST(a_lesson_the_instructor_cannot_demonstrate_is_refused_and_says_w
         refused = std::string(e.what()).find("instructor EXERCISE") != std::string::npos;
     }
     check(refused, "the instructor refuses a lesson that does not say how it is demonstrated");
+    // **A lesson for another class is refused**: a fighter's stall lesson
+    // is a fighter's, its bands a jet's, and a Cessna is not judged by them.
+    bool wrong_class = false;
+    try {
+        const auto lessons = glideslope::sim::read_lessons(data());
+        const auto fighter = std::find_if(lessons.begin(), lessons.end(), [](const Lesson& l) {
+            return l.id == "fighter-stalls";
+        });
+        check(fighter != lessons.end(), "there is a fighter's stall lesson");
+        Instructor instructor(data(), glideslope::sim::find_aircraft(data(), "c172p"), *fighter,
+                              a_runway(),
+                              std::make_shared<glideslope::sim::FunctionTerrain>(
+                                  [](double, double) { return 0.0; }));
+    } catch (const glideslope::sim::LessonError& e) {
+        wrong_class = std::string(e.what()) ==
+                      "c172p is light-aircraft, and fighter-stalls teaches fighter";
+        std::printf("  refused: %s\n", e.what());
+    }
+    check(wrong_class, "the instructor refuses a lesson for another class, saying so");
     bool said_where = false;
     try {
         (void)glideslope::sim::parse_lesson(
