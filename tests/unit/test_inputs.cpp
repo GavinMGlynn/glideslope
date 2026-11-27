@@ -326,6 +326,37 @@ GLIDESLOPE_TEST(every_control_the_flight_model_has_is_one_the_wire_carries) {
     }
 }
 
+// **A client says its layout first as it joins** (net::write_joining): every
+// count a byte can hold, with an aeroplane asked for after it and without,
+// read back as written - and an empty payload, which says no count, read as
+// nothing, so that a server refuses it `WRONG_LAYOUT` rather than guess.
+GLIDESLOPE_TEST(a_clients_count_of_controls_goes_first_in_its_payload_and_is_read_back) {
+    using glideslope::net::read_joining;
+    using glideslope::net::write_joining;
+    const std::vector<std::uint8_t> none;
+    const std::vector<std::uint8_t> cub{4, 'j', '3', 'c', 'b'};
+    const std::vector<std::uint8_t> ours = write_joining(std::span<const std::uint8_t>(none));
+    check(ours.size() == 1 && ours[0] == glideslope::net::controls_on_the_wire,
+          "this build's payload is its own count alone");
+    std::size_t walked = 0;
+    for (std::size_t count = 0; count < 256; ++count) {
+        for (const std::vector<std::uint8_t>* asked : {&none, &cub}) {
+            const std::vector<std::uint8_t> wire =
+                write_joining(std::span<const std::uint8_t>(*asked), count);
+            check(wire.size() == 1 + asked->size() && wire[0] == count,
+                  "the count " + std::to_string(count) + " goes first, in one byte");
+            const auto back = read_joining(std::span<const std::uint8_t>(wire));
+            check(back.has_value() && back->controls == count && back->asked == *asked,
+                  "and is read back with what follows it: " + std::to_string(count));
+            ++walked;
+        }
+    }
+    check(walked == 2 * 256, "every count of 256, with and without an aeroplane: " +
+                                 std::to_string(walked));
+    check(!read_joining(std::span<const std::uint8_t>(none)).has_value(),
+          "an empty payload says no count");
+}
+
 // **The document and the code say the same thing about the inputs.**
 GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_inputs) {
     const std::filesystem::path doc =

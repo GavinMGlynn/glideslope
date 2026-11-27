@@ -3474,6 +3474,15 @@ add_test(NAME a_stranger_on_a_full_server_is_refused_after_reading_no_further_th
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stranger_full.cmake)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stranger_full)
 
+# **A client of another control layout is refused at the handshake,
+# `WRONG_LAYOUT`, by name.** See cmake/server_layout_refused.cmake.
+add_test(NAME a_client_of_another_control_layout_is_refused_at_the_handshake_by_name
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_layout_refused -DPORT=24727
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_layout_refused.cmake)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_layout_refused)
+
 # **A copy of a live player's initiation, replayed from another address and
 # resent, takes nothing from them and is sent nothing.** See cmake/server_initiation_replayed_while_live.cmake.
 add_test(NAME a_replayed_initiation_takes_neither_a_live_players_session_nor_its_aircraft

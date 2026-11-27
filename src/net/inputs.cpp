@@ -32,6 +32,25 @@ ControlList as_sent(const ControlList& controls) {
     return out;
 }
 
+std::vector<std::uint8_t> write_joining(std::span<const std::uint8_t> asked,
+                                        std::size_t controls) {
+    std::vector<std::uint8_t> out;
+    out.reserve(1 + asked.size());
+    out.push_back(static_cast<std::uint8_t>(std::min<std::size_t>(controls, 255)));
+    out.insert(out.end(), asked.begin(), asked.end());
+    return out;
+}
+
+std::optional<Joining> read_joining(std::span<const std::uint8_t> payload) {
+    if (payload.empty()) {
+        return std::nullopt;
+    }
+    Joining out;
+    out.controls = payload[0];
+    out.asked.assign(payload.begin() + 1, payload.end());
+    return out;
+}
+
 void InputSender::add(std::uint32_t sequence, const ControlList& controls,
                       std::uint32_t step) {
     recent_.push_back({sequence, step, controls});

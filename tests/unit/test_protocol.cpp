@@ -228,19 +228,19 @@ GLIDESLOPE_TEST(an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong
     old[4] = static_cast<std::uint8_t>(glideslope::net::protocol_version + 1);
     check(refuse(old) == Refusal::wrong_version, "a version there is none of is refused");
 
-    // **The versions before this one, `0B` to `12`, by name**: `0B`'s
+    // **The versions before this one, `0B` to `13`, by name**: `0B`'s
     // input frame was eighteen controls, `0C`'s nineteen (the STOVL mode
     // selector), `0C`'s own motion carried no height asked of her STOVL law,
     // `0D`'s `AIRCRAFT` no loading, `0E`'s watched controls no pitch trim,
     // `0F` knew no `LAW_STATE`, `10` no `TRAFFIC_INSTRUCTION`, and `11`'s
     // weather was one station's, with no slot, and `12`'s input frame named
-    // no step - so a
-    // peer still on any of them is refused at the envelope rather than read
-    // wrong.
-    check(glideslope::net::protocol_version == 0x13, "this is version 13");
+    // no step, and `13`'s initiation's payload said no count of controls -
+    // so a peer still on any of them is refused at the envelope rather than
+    // read wrong.
+    check(glideslope::net::protocol_version == 0x14, "this is version 14");
     for (const std::uint8_t before : {std::uint8_t{0x0B}, std::uint8_t{0x0C}, std::uint8_t{0x0D},
                                       std::uint8_t{0x0E}, std::uint8_t{0x0F}, std::uint8_t{0x10},
-                                      std::uint8_t{0x11}, std::uint8_t{0x12}}) {
+                                      std::uint8_t{0x11}, std::uint8_t{0x12}, std::uint8_t{0x13}}) {
         std::vector<std::uint8_t> was = wire;
         was[4] = before;
         char hex[4];
@@ -423,16 +423,38 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_byte_for_byte) {
         {Refusal::too_short, "TOO_SHORT"},
         {Refusal::server_full, "SERVER_FULL"},
         {Refusal::bad_handshake, "BAD_HANDSHAKE"},
-        {Refusal::dropped, "DROPPED"}};
+        {Refusal::dropped, "DROPPED"},
+        {Refusal::wrong_layout, "WRONG_LAYOUT"}};
     std::size_t reasons = 0;
     for (const auto& [why, name] : refusals) {
         char buf[8];
         std::snprintf(buf, sizeof(buf), "`%02X`", static_cast<unsigned>(why));
         check(says(std::string("| ") + buf + " | `" + name + "`"),
               "the document gives " + name + " as " + buf);
+        // **And the clients say it by the same name** (net::refusal_name).
+        check(name == glideslope::net::refusal_name(why),
+              "the code names " + std::string(buf) + " " + name);
         ++reasons;
     }
-    check(reasons == 8, "there are eight reasons to refuse, not " + std::to_string(reasons));
+    check(reasons == 9, "there are nine reasons to refuse, not " + std::to_string(reasons));
+    // Every byte a refusal may carry: the nine its reasons are read as
+    // themselves, and the other 247 as `UNKNOWN`.
+    std::size_t read_as_itself = 0;
+    std::size_t read_as_unknown = 0;
+    for (int v = 0; v < 256; ++v) {
+        const Refusal read = glideslope::net::refusal_of(static_cast<std::uint8_t>(v));
+        if (v < static_cast<int>(refusals.size())) {
+            check(read == refusals[static_cast<std::size_t>(v)].first,
+                  "reason " + std::to_string(v) + " is read as itself");
+            ++read_as_itself;
+        } else {
+            check(read == Refusal::unknown, "reason " + std::to_string(v) + " is UNKNOWN");
+            ++read_as_unknown;
+        }
+    }
+    check(read_as_itself == 9 && read_as_unknown == 247,
+          "every byte of 256 was walked: " + std::to_string(read_as_itself) + " and " +
+              std::to_string(read_as_unknown));
 
     // **What it does not claim is in it.** A transport document that lists
     // only what works is the kind this project does not want.
