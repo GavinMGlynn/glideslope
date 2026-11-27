@@ -594,6 +594,17 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
             // tail and wingtips, a flying boat's keel - is a scraping
             // point, and keeps its own.
             const std::string unit_name = "gear/unit[" + std::to_string(i) + "]";
+            // **A wheel that has never touched the ground grips nothing
+            // sideways**: JSBSim's FGLGear leaves FCoeff, its side friction,
+            // unset until the unit first touches (v1.3.1 and its master
+            // alike), and reports it; a unit that never does - the A320's
+            // nose tip - reported whatever the heap held, once a NaN
+            // (windows-clang, CI run 45972866440). Zero is what JSBSim
+            // works out for a wheel that is not slipping, and what it
+            // overwrites at the first touch.
+            if (unit->IsBogey()) {
+                exec_->SetPropertyValue(unit_name + "/side_friction_coeff", 0.0);
+            }
             if (unit->IsBogey() &&
                 exec_->GetPropertyValue(unit_name + "/rolling_friction_coeff") <
                     unit->GetstaticFCoeff()) {
