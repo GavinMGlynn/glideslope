@@ -90,6 +90,7 @@ add_executable(glideslope_tests
     unit/test_store.cpp
     unit/test_reliable.cpp
     unit/test_lesson.cpp
+    unit/test_instructor.cpp
     unit/test_levers.cpp
     unit/test_wheels_up.cpp
     unit/test_crash.cpp
@@ -333,6 +334,14 @@ set(GLIDESLOPE_UNIT_TESTS
     every_aeroplane_flies_the_turns_lesson_of_its_own_class
     an_instructor_hands_over_and_takes_back_with_no_step_in_any_control
     an_instructor_demonstrates_a_take_off_and_hands_it_over
+    every_lesson_says_how_the_instructor_demonstrates_it_and_has_an_aeroplane_to_teach_it
+    the_instructor_demonstrates_every_classs_take_off_lesson_and_hands_it_over
+    the_instructor_demonstrates_every_classs_approach_lesson_and_hands_it_over
+    the_instructor_demonstrates_every_classs_circuit_lesson_and_hands_it_over
+    the_instructor_demonstrates_every_classs_climb_and_descent_lesson_and_hands_it_over
+    the_instructor_demonstrates_every_classs_stall_lesson_and_hands_it_over
+    the_instructor_demonstrates_every_classs_turns_lesson_and_hands_it_over
+    a_lesson_the_instructor_cannot_demonstrate_is_refused_and_says_why
     an_instructor_demonstrates_an_approach_and_hands_it_over
     an_approach_taken_back_at_the_touch_is_landed_to_a_stop
     an_approach_taken_back_at_half_speed_is_landed_to_a_stop
@@ -5550,6 +5559,16 @@ add_test(NAME the_cli_refuses_a_selftest_for_an_aircraft_with_no_log
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=selftest no_such_aircraft" -DEXIT=1
         "-DSTDERR_MATCHES=no_such_aircraft.log"
+        -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **A lesson flown from the command line**: the instructor demonstrates the
+# light aircraft's turns, says each of its stages, hands over, and debriefs.
+# Every lesson's demonstration is tests/unit/test_instructor.cpp's; this is
+# the command's.
+add_test(NAME a_lesson_flown_from_the_command_line_is_demonstrated_handed_over_and_debriefed
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=lesson light-aircraft-turns" -DEXIT=0
+        "-DSTDOUT_MATCHES=the instructor demonstrates.*stage 1 of 3: .*stage 3 of 3: .*handed over: you have control.*debrief: 3 of 3 stages flown.*flown to the book"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_refuses_an_argument_it_does_not_know

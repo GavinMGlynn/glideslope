@@ -2151,11 +2151,16 @@ What the client with the window does that the command-line client does, and what
       run whose cached imagery is stale and refused when asked for again
       writes its frame and exits 0, failing with the fix taken out.* Done
       2026-10-30; shown to be the 2026-10-10 crash too on 2026-11-27.
-- [ ] **No player can fly a lesson or watch the instructor.** Lessons and
-      the instructor run in the simulation and its tests alone; no client,
-      server or command line starts one (PROJECT_STATUS, 2026-10-13).
+- [ ] **No player can fly a lesson or watch the instructor.** No window
+      client or server starts one. Since 2026-11-28 the instructor is the simulation's
+      and `glideslope_cli lesson` flies any of the 42; missing: the window
+      client's lessons screen and the server running a lesson.
       *Verification: a player chooses a lesson in the window client, the
       instructor flies it first and hands over, and the debrief is shown.*
+- [ ] **The tests' demonstrations fly their own copy of the instructor**
+      (found 2026-11-28): `test_lesson.cpp` keeps the recipes now in the
+      simulation's instructor. *Verification: every `an_instructor_*` test
+      flies through the simulation's instructor and passes unchanged.*
 - [x] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
       model. *Verification: a model whose source and licence are in
       `ASSETS.md` is held to the Learjet's size and drawn in a shot.* Done

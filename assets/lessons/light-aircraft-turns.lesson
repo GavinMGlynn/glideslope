@@ -46,6 +46,7 @@
 
 name Turns in a light aeroplane
 teaches light-aircraft
+instructor turns
 
 stage Rolling into the turn
 do Look out, then roll smoothly into about thirty degrees of bank to the left

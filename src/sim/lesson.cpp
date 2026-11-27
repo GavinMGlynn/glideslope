@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iterator>
 #include <sstream>
+#include <utility>
 
 namespace glideslope::sim {
 namespace {
@@ -28,6 +29,35 @@ std::string joined(const std::vector<std::string>& w, std::size_t from) {
 }
 
 } // namespace
+
+namespace {
+constexpr std::pair<Demonstration, const char*> demonstration_names[] = {
+    {Demonstration::take_off, "take-off"},
+    {Demonstration::approach, "approach-and-landing"},
+    {Demonstration::circuit, "circuit"},
+    {Demonstration::climb_and_descent, "climb-and-descent"},
+    {Demonstration::stalls, "stalls"},
+    {Demonstration::turns, "turns"},
+};
+} // namespace
+
+const char* name_of(Demonstration demonstration) {
+    for (const auto& [d, name] : demonstration_names) {
+        if (d == demonstration) {
+            return name;
+        }
+    }
+    return "";
+}
+
+std::optional<Demonstration> demonstration_from_name(std::string_view name) {
+    for (const auto& [d, n] : demonstration_names) {
+        if (name == n) {
+            return d;
+        }
+    }
+    return std::nullopt;
+}
 
 double figure_of(const LessonNumber& number, const LessonSpeeds& speeds) {
     if (!number.named()) {
@@ -129,6 +159,16 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
                 throw wrong("no class \"" + w[1] + "\"");
             }
             lesson.teaches = *of;
+        } else if (w[0] == "instructor") {
+            const auto shown = w.size() == 2 ? demonstration_from_name(w[1]) : std::nullopt;
+            if (!shown) {
+                throw wrong("instructor EXERCISE: take-off, approach-and-landing, circuit, "
+                            "climb-and-descent, stalls or turns");
+            }
+            if (lesson.demonstration) {
+                throw wrong("a lesson is demonstrated one way, and this one already says how");
+            }
+            lesson.demonstration = shown;
         } else if (w[0] == "warning") {
             LessonNumber at;
             if (w.size() != 2 || !read_number(w[1], at)) {
