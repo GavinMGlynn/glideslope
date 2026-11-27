@@ -193,7 +193,7 @@ private:
 
     // With TerrainOptions::test_imagery_late, lets the held imagery fetches
     // go once the wait for the tiles is `loaded` but for the `in_flight`
-    // imagery, or everything else has stood still, and says which.
+    // imagery, and says so; otherwise they go only at HeldImagery's backstop.
     void let_late_imagery_go(bool loaded, std::size_t in_flight);
 
     // Takes the open imagery off the terrain, for good, if Cesium Native has
