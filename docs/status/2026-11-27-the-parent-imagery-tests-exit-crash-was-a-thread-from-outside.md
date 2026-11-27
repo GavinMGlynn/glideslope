@@ -1,4 +1,4 @@
-### The parent-imagery test's exit crash: a thread from outside took a lock the program had deleted, 2026-11-27
+### The parent-imagery test's exit crash: a thread at LoadLibraryW took a lock the program had deleted, 2026-11-27
 
 Phase 12c, "A parent-imagery unit test died at exit on the Windows
 development machine".
@@ -31,8 +31,9 @@ glideslope: in thread 17812, started at KERNEL32.DLL+0x3f6c0, after the program 
   today's kernel32 (10.0.26100.9974) and 0x3ee90 in 9549, the 2026-10-29
   version. 9549 is still in `C:\Windows\WinSxS`. A thread that starts
   at LoadLibraryW is how one process loads a DLL into another
-  (CreateRemoteThread). Nothing in this repository does that. The test
-  starts no thread at all.
+  (CreateRemoteThread). Nothing in this repository does that, and the test
+  starts no thread at all. Even so, **that the thread came from another
+  process is not proved**. It is what that start address usually means.
 - **It faulted in `RtlpWaitOnCriticalSection+0xbd`**, called from
   `RtlpEnterCriticalSectionContended`. These names come from ntdll.pdb from
   Microsoft's symbol server. The address it wrote, 0x24, is `ContentionCount`
@@ -46,9 +47,12 @@ glideslope: in thread 17812, started at KERNEL32.DLL+0x3f6c0, after the program 
   and among the static destructors that runs is MSVC's
   `std::_Init_locks`, which deletes every one of the library's locks
   (`crt/src/stl/xlock.cpp`). A deleted lock reads as held. A thread that
-  starts before ExitProcess runs the program's thread_local initialisers
-  (JSBSim's logger, Cesium's scheduler vectors). It takes `_LOCK_DEBUG`,
-  waits, and faults. Release builds do not take that lock there, and exit
+  starts before ExitProcess takes `_LOCK_DEBUG`, waits, and faults. What
+  makes it take that lock is not proved: the stack shows no frame past
+  ntdll. **Most likely** it is the program's thread_local initialisers,
+  which every new thread runs (JSBSim's logger, Cesium's scheduler
+  vectors). The lock and the fault are shown; the frames between them are
+  not. Release builds do not take that lock there, and exit
   in under a second, so they were not seen to crash.
 
 The same fault, `ntdll.dll+0x1a12d` under ntdll 9549, is in this machine's
