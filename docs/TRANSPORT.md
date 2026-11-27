@@ -316,10 +316,9 @@ state updates, no `PING`s, no reliable messages. **So a client seals
 something at once, and keeps sealing something until anything opens under
 the session** - one sealed datagram may be lost, and the server will say
 nothing until one arrives. This project's clients send a `PONG` nobody
-pinged for as the handshake completes, which the server ignores; the
-command-line client sends inputs or a `PING` of its own after that, and
-`net::ClientSession` a sealed `PING` every quarter of a second until anything
-has opened. A resent initiation does not count as hearing from a session,
+pinged for as the handshake completes, which the server ignores, and
+then a sealed `PING` every quarter of a second until anything has opened -
+both by `net::ClientSession`, the one session both clients use. A resent initiation does not count as hearing from a session,
 so one that seals nothing is let go `--timeout` after it was admitted,
 however often its initiation is resent. A key may have at most two such
 unproven sessions; a third lets the oldest go. The slot and the aircraft go

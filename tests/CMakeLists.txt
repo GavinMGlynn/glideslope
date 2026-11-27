@@ -4779,6 +4779,14 @@ set_tests_properties(the_client_with_the_window_hands_its_aircraft_to_the_ai_on_
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/hands_over)
 
+# **Both clients join, read, stall and say goodbye through one session**
+# (net::ClientSession): no client source has one of its own, and every test
+# of joining again, going back, being let go or saying goodbye runs one of
+# the two. See cmake/one_client_session.cmake.
+add_test(NAME both_clients_join_read_stall_and_say_goodbye_through_one_session
+    COMMAND ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/one_client_session.cmake)
+
 # **The client with the window, let go by the server for going quiet, joins
 # again by itself** and flies its new aircraft; **dropped by the operator, it
 # says so and does not.** See cmake/client_joins_again.cmake.
