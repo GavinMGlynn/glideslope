@@ -91,6 +91,9 @@ list(LENGTH _flags _count)
 # is, flown in simulated time (server_route_landing.cmake).
 # --steps-after-hand-over stops a run that many steps after its first hand-over
 # (server_handed_kept_apart.cmake), and --stopped-file is written as it stops.
+# --test-move-taken-back moves a player's aircraft up a while after she takes
+# it back, once: a large correction built for her prediction
+# (client_hands_over.cmake).
 set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
@@ -104,7 +107,8 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
               --hand-over-record --weather --metar --station --metar-then --changed-file
               --weather-blend --weather-refresh --players-on-final --ai-on-final
-              --ai-route --steps-after-hand-over --stopped-file --test-say-air)
+              --ai-route --steps-after-hand-over --stopped-file --test-say-air
+              --test-move-taken-back)
 list(LENGTH _expected _wanted)
 foreach(_flag IN LISTS _expected)
     if(NOT _flag IN_LIST _flags)

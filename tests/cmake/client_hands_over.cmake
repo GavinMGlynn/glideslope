@@ -37,6 +37,18 @@
 # largest step must be under 5 m, the bound the network checks hold
 # (server_impaired.cmake, server_take_over.cmake).
 #
+# **And away from a switch, a large correction is taken up without a step**:
+# three seconds after the take-back the server moves the aircraft 15 m up,
+# once (`--test-move-taken-back`, a test's hook - in play the server moves no
+# person's aircraft), so the client's prediction is put right by about that
+# much - built, not waited for. The shot waits until a correction of 10 m or
+# more has been heard and a second flown since (`--shot-once-corrected`). The
+# largest step away from a switch must then be under 5 m, the same bound: a
+# correction shown as it came steps its own size, so the test checks the
+# correction was at least 10 m and none was too large to hide
+# (sim::snap_beyond_m, 20 m) - a run in which taking the blend out would have
+# gone red.
+#
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
 
@@ -81,6 +93,11 @@ port_lock_hold(${_relay})
 # SLOW_FRAMES holds every pass of the client's frame loop that many
 # milliseconds longer (--slow-frames): what shows the frame-rate guard firing.
 set(_slow)
+# MOVE_M: how far the server moves the aircraft up after the take-back (15 m
+# unless said; by hand, to see what a smaller one does).
+if(NOT DEFINED MOVE_M)
+    set(MOVE_M 15)
+endif()
 if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
 endif()
@@ -93,11 +110,12 @@ execute_process(
     # standard error and stops when it ends; the client's is what is read.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
+            --test-move-taken-back 3 ${MOVE_M}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0 --loss 0
             --seed 1 --until-input-ends --seconds 600
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1920 --view cockpit
-            --hand-over-after 4 --take-back-after 10
+            --hand-over-after 4 --take-back-after 10 --shot-once-corrected 10
             --next-aircraft-after 6 --next-aircraft-after 7 ${_slow}
             --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -201,17 +219,42 @@ glideslope_require_playable_frames("${_out}")
 if(_step GREATER_EQUAL 5)
     message(FATAL_ERROR "what the client showed stepped ${_step} m at a switch, the bound 5 m:\n${_out}")
 endif()
-# **Away from a switch the step is reported, not bounded.** A 2.5 m bound
-# here never failed with the corrections' blend taken out, so its green tick
-# said nothing, and CI then measured 6.2 m on Linux debug and 2.565 m on
-# Windows debug with the blend in. The step away from a switch is held only at a
-# take-over, by the take-over test; what builds a step this large here is the open corrections
-# tail in COMPLETION_PLAN.md.
-#
-# What made the largest step away from a switch, and the corrections, are
-# said whether the test passes: the 6.2 m CI saw once came with nothing but
-# its size.
+# **Away from a switch, the large correction built is taken up without a
+# step.** The server moved the aircraft once, and the client was put right by
+# at least 10 m - twice the bound, which a correction shown as it came would
+# step - and by none too large to hide, which is shown as the jump it is.
+string(REGEX MATCHALL "aircraft ${_own} moved [0-9.]+ m up, for a test" _moved "${_err}")
+list(LENGTH _moved _moves)
+if(NOT _moves EQUAL 1)
+    message(FATAL_ERROR "the server moved the aircraft ${_moves} times after the take-back, "
+                        "not once:\n${_err}")
+endif()
+if(NOT _out MATCHES "the shot drawn [0-9.]+ s past its tick; a correction that large heard, and a second flown since")
+    message(FATAL_ERROR "the shot was drawn before the correction built was taken up:\n${_out}")
+endif()
+if(NOT _out MATCHES "glideslope: predicted: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
+    message(FATAL_ERROR "the client did not say how its prediction was put right:\n${_out}")
+endif()
+set(_worst_correction "${CMAKE_MATCH_2}")
+if(_worst_correction LESS 10)
+    message(FATAL_ERROR "the largest correction was ${_worst_correction} m: under twice the "
+                        "bound, so the bound tests nothing:\n${_out}")
+endif()
+if(NOT CMAKE_MATCH_3 EQUAL 0)
+    message(FATAL_ERROR "${CMAKE_MATCH_3} corrections were too large to hide:\n${_out}")
+endif()
 string(REGEX MATCH "glideslope: the largest step otherwise: [^\n]*" _otherwise_what "${_out}")
+# What made the largest step away from a switch, and the corrections, are
+# said and kept in figures.txt whether the test passes, which CI prints for
+# every run: a step there comes with its cause.
+file(WRITE "${WORK}/figures.txt"
+     "hand-over: the largest step at a switch ${_step} m, otherwise ${_otherwise} m; "
+     "the worst correction ${_worst_correction} m\n${_otherwise_what}\n")
+if(_otherwise GREATER_EQUAL 5)
+    message(FATAL_ERROR "what the client showed stepped ${_otherwise} m away from a switch, "
+                        "the bound 5 m, with a correction of ${_worst_correction} m to take "
+                        "up; ${_otherwise_what}\n${_out}")
+endif()
 message(STATUS "${_otherwise_what}")
 string(REGEX MATCH "glideslope: predicted: [^\n]*" _corrections "${_out}")
 message(STATUS "${_corrections}")
