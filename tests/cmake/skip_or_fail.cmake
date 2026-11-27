@@ -8,7 +8,7 @@
 # nobody saw they had never run: they asked for Vulkan, which macOS has not
 # got, and each one's server waited for a client that never came.
 #
-# Included, it gives two functions.
+# Included, it gives three functions.
 #
 #   glideslope_warmed_up("${_rc}" "${_err}")
 #
@@ -19,16 +19,53 @@
 #
 #   - **timed out: failed.** A warm-up still running at its limit is a
 #     server that did not get its terrain, which is a fault to be seen.
-#   - **could not download: skipped**, where the network is not required
-#     (GLIDESLOPE_REQUIRE_NETWORK unset); CI requires it, and there it fails.
-#   - **anything else: failed**, with what the server said.
+#   - **otherwise as glideslope_skip_when_not_downloaded says**, below:
+#     skipped for weather not to be had, and for a download where the
+#     network is not required (GLIDESLOPE_REQUIRE_NETWORK unset);
+#   - **and anything else failed**, with what the server said.
 #
 #   glideslope_cannot_draw("<why>")
 #
 # where a client could not open its GPU device: skipped, unless
 # GLIDESLOPE_REQUIRE_WINDOW is set - CI sets it - and then failed.
 #
-# tests/cmake/skip_or_fail_check.cmake walks every case of both.
+# tests/cmake/skip_or_fail_check.cmake walks every case of the warm-up and
+# drawing rules.
+
+# **The one rule for a run that could not download what it needed**, given
+# its exit code and standard error, and any other words (ALSO, a regular
+# expression) that say the same of this test's own downloads. It reports the
+# test skipped (exit 77), never passed:
+#
+# - "the weather could not be had": always. The weather is live, somebody
+#   else's and never kept, so a service having a bad minute is not a fault
+#   here, even where the network is required.
+# - "could not download", or ALSO: unless GLIDESLOPE_REQUIRE_NETWORK is set.
+#   What else is downloaded - the DEM, the geoid, imagery - is pinned and
+#   kept, so CI requires it and a failure there is a failure.
+#
+# Anything else, or a run that exited 0, it leaves to the caller.
+#
+# **A run whose imagery could not be fetched draws its frame anyway**, on
+# the DEM's colours, exits 0 and says so; a test that is about the imagery
+# itself asks glideslope_skip_when_imagery_not_fetched, below, as well.
+function(glideslope_skip_when_not_downloaded rc err)
+    if(rc EQUAL 0)
+        return()
+    endif()
+    if(err MATCHES "the weather could not be had")
+        message(STATUS "there is no weather to fly in, so this is skipped: ${err}")
+        cmake_language(EXIT 77)
+    endif()
+    set(_pattern "could not download")
+    if(ARGC GREATER 2)
+        string(APPEND _pattern "|${ARGV2}")
+    endif()
+    if(err MATCHES "${_pattern}" AND "$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
+        message(STATUS "what this needs could not be downloaded, so it is skipped: ${err}")
+        cmake_language(EXIT 77)
+    endif()
+endfunction()
 
 function(glideslope_warmed_up rc err)
     if("${rc}" STREQUAL "0")
@@ -38,14 +75,7 @@ function(glideslope_warmed_up rc err)
         message(FATAL_ERROR
                 "the warm-up server did not get its terrain inside its limit (${rc}):\n${err}")
     endif()
-    if(err MATCHES "could not download|cannot download|no network")
-        if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-            message(STATUS "the server could not get its terrain, so this is skipped: ${err}")
-            cmake_language(EXIT 77)
-        endif()
-        message(FATAL_ERROR "the server could not download its terrain, "
-                            "and GLIDESLOPE_REQUIRE_NETWORK is set:\n${err}")
-    endif()
+    glideslope_skip_when_not_downloaded("${rc}" "${err}" "cannot download|no network")
     message(FATAL_ERROR "the warm-up server stopped (exit ${rc}):\n${err}")
 endfunction()
 
