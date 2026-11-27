@@ -40,6 +40,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -111,6 +112,14 @@ public:
     // The stage being flown, or nothing once the lesson is over.
     const LessonStage* stage() const;
 
+    // **For a test that watches a stall's recovery**: the instructor leaves
+    // her this long in the stall before asking for the recovery; and keeps
+    // the demonstration going past the lesson's end for as long as `showing`
+    // says so, before handing over. `recovering` is whether it has asked.
+    void leave_in_the_stall(double seconds);
+    void keep_showing_while(std::function<bool()> showing) { showing_ = std::move(showing); }
+    bool recovering() const { return recovering_; }
+
 private:
     void begin_in_the_air(double agl_ft, double flaps);
     void instruct();
@@ -132,6 +141,9 @@ private:
     double climb_fpm_ = 600.0;
     // A stall: recovering. A climb: descending. Both once, on the stage.
     bool recovering_ = false;
+    std::int64_t dawdle_steps_ = 0;
+    std::int64_t stalled_at_ = -1;
+    std::function<bool()> showing_;
     bool descending_ = false;
     // A circuit.
     std::optional<GoAroundCircuit> pattern_;
