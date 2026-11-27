@@ -1,0 +1,16 @@
+# The Airbus A320's sounds, synthesised (src/audio/sound_set.hpp says each line).
+# Placeholders until Phase 15's recordings: every figure below but her
+# engines' cylinders is a stand-in, chosen to sound like her kind of
+# aeroplane, not taken from a source.
+
+# Two CFM56-5B4s.
+# Her fan's speed at 100% N1 and its blades are stand-ins; her note
+# follows the flight model's N1.
+engine turbine 5000 36 0.28
+wind 0.15 250
+gear 400 0.06
+flaps 600 0.05
+touchdown 0.40
+stall-warning 12 700 0.10
+# Another aircraft's engine is heard at about her cruise N1 percent.
+heard-as-other 85

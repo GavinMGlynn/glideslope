@@ -1,0 +1,13 @@
+# The Piper J-3 Cub's sounds, synthesised (src/audio/sound_set.hpp says each line).
+# Placeholders until Phase 15's recordings: every figure below but her
+# engines' cylinders is a stand-in, chosen to sound like her kind of
+# aeroplane, not taken from a source.
+
+# A Continental A-65: four cylinders.
+# Her note follows the flight model's engine RPM.
+engine piston 4 0.25
+wind 0.15 70
+touchdown 0.40
+stall-warning 14 1600 0.10
+# Another aircraft's engine is heard at about her cruise RPM.
+heard-as-other 2150
