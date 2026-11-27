@@ -53,4 +53,15 @@ linux-debug (sanitized), 2026-11-27.
 branch passes both tests; clang-cl is not installed on the development
 machine, so windows-clang is CI's.
 
-The selftest hash does not move: on these builds' heaps the value was zero.
+**The selftest hash does not move**: `glideslope_cli selftest` printed
+`hash 27e94c795b47141c` built from `main` without the fix and
+`hash 27e94c795b47141c` with it (linux-debug, 2026-11-27). On these builds'
+heaps the value was already zero.
+
+**From #419's review.** The probe that the heap is poisoned reads its bytes
+from `::operator new` through `volatile`, so the compiler cannot fold a read
+of memory nobody wrote. The test now also walks every bogey's
+`side_friction_coeff`: per aircraft, the names in her tree against the
+bogeys her model file declares, and 61 in all for the catalogue's 16. Seen
+red with the total miscounted as 60 ("61 of 60 bogeys' side friction
+walked"), then restored.

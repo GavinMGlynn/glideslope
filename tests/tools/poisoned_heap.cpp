@@ -28,6 +28,8 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <new>
 #include <string>
 #include <vector>
@@ -92,11 +94,17 @@ int main(int argc, char** argv) {
     // **The poison is on**: a fresh double from operator new is a NaN, or
     // this test tests nothing.
     {
-        // Kept, never deleted: GCC sees a delete inlined into free here as
-        // a mismatch, and a static that holds it is no leak.
-        static double* const probe = new double[4];
+        // Straight from operator new, read a byte at a time through
+        // volatile: memory nobody wrote, read as a double, is a value the
+        // compiler may fold either way. Kept, never deleted: a static that
+        // holds it is no leak.
+        static void* const probe = ::operator new(4 * sizeof(double));
+        const volatile unsigned char* const bytes =
+            static_cast<const volatile unsigned char*>(probe);
         std::uint64_t bits = 0;
-        std::memcpy(&bits, &probe[2], sizeof bits);
+        for (std::size_t i = 0; i < sizeof bits; ++i) {
+            bits = (bits << 8U) | bytes[2 * sizeof(double) + i];
+        }
         if (bits != ~std::uint64_t{0}) {
             std::fprintf(stderr, "the heap is not poisoned: a fresh double is %016llx\n",
                          static_cast<unsigned long long>(bits));
@@ -108,6 +116,12 @@ int main(int argc, char** argv) {
         std::vector<std::string> wrong;
         std::size_t loaded = 0;
         std::size_t flown = 0;
+        // **Every wheel's side friction is walked**: the names the tree
+        // holds, against the bogeys her model file declares - 61 in the
+        // catalogue's 16 (the A320's 12, the A380's and the S.23's 5, the
+        // others' 3).
+        constexpr std::size_t catalogue_bogeys = 61;
+        std::size_t bogeys_walked = 0;
         for (const glideslope::sim::CatalogueEntry& e : roster) {
             glideslope::sim::Aircraft aircraft(data / "jsbsim", e.model);
             const std::size_t numbers = aircraft.numbers().size();
@@ -126,6 +140,30 @@ int main(int argc, char** argv) {
             for (const std::string& n : aircraft.not_finite_numbers(numbers)) {
                 wrong.push_back(e.id + " a step into the air: " + n);
             }
+            std::size_t declared = 0;
+            {
+                std::ifstream in(data / "jsbsim" / "aircraft" / e.model / (e.model + ".xml"));
+                const std::string text((std::istreambuf_iterator<char>(in)),
+                                       std::istreambuf_iterator<char>());
+                for (std::size_t at = text.find("type=\"BOGEY\""); at != std::string::npos;
+                     at = text.find("type=\"BOGEY\"", at + 1)) {
+                    ++declared;
+                }
+            }
+            const std::string suffix = "/side_friction_coeff";
+            std::size_t named = 0;
+            for (const std::string& n : aircraft.number_names()) {
+                if (n.rfind("gear/unit", 0) == 0 && n.size() > suffix.size() &&
+                    n.compare(n.size() - suffix.size(), suffix.size(), suffix) == 0) {
+                    ++named;
+                }
+            }
+            if (named != declared || declared == 0) {
+                wrong.push_back(e.id + ": " + std::to_string(named) +
+                                " side frictions walked, " + std::to_string(declared) +
+                                " bogeys declared");
+            }
+            bogeys_walked += named;
             ++flown;
             std::printf("  %-13s %zu numbers, loaded and a step flown\n", e.id.c_str(),
                         numbers);
@@ -139,8 +177,12 @@ int main(int argc, char** argv) {
                         flown);
             return 1;
         }
-        std::printf("  %zu of %zu aircraft loaded and flown on a poisoned heap\n", flown,
-                    roster.size());
+        std::printf("  %zu of %zu aircraft loaded and flown on a poisoned heap; %zu of %zu "
+                    "bogeys' side friction walked\n",
+                    flown, roster.size(), bogeys_walked, catalogue_bogeys);
+        if (bogeys_walked != catalogue_bogeys) {
+            return 1;
+        }
         return wrong.empty() ? 0 : 1;
     } catch (const std::exception& ex) {
         std::fprintf(stderr, "glideslope_poisoned_heap: %s\n", ex.what());
