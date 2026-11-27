@@ -31,6 +31,9 @@ RemoteState between(const RemoteState& a, const RemoteState& b, double t) {
     out.heading_deg = lerp_angle(a.heading_deg, b.heading_deg, t);
     out.pitch_deg = lerp_angle(a.pitch_deg, b.pitch_deg, t);
     out.roll_deg = lerp_angle(a.roll_deg, b.roll_deg, t);
+    for (std::size_t i = 0; i < out.surfaces_rad.size(); ++i) {
+        out.surfaces_rad[i] = lerp(a.surfaces_rad[i], b.surfaces_rad[i], t);
+    }
     return out;
 }
 

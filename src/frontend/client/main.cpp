@@ -152,6 +152,15 @@ struct Options {
     std::optional<std::array<double, 3>> hold_stick;
     // On a server, ride along in the first AI aircraft from the start.
     bool ride_along = false;
+    // Test flag: ride along in the first other aircraft a person flies, not
+    // the AI (`--ride-along-person`).
+    bool ride_along_person = false;
+    // Test flag: at the shot, riding along, the same frame drawn three times
+    // more with no HUD - the aircraft ridden in as the updates have it, with
+    // its surfaces still, and not drawn - to PREFIX-moving.bmp,
+    // PREFIX-still.bmp and PREFIX-without.bmp (`--shot-ridden PREFIX`): what
+    // a test tells its surfaces' pixels by.
+    std::string shot_ridden;
     // For tests: stand still this long after joining a server, as a slow
     // machine building its flight does, before building it.
     double slow_start_s = 0.0;
@@ -364,6 +373,11 @@ void usage(std::FILE* out) {
         "                cockpit, its instruments and its controls; W steps through\n"
         "                every aircraft in the sky and back to your own; T takes\n"
         "                over the one ridden in, if the AI flies it\n"
+        "  --ride-along-person  the same, in the first other aircraft a person\n"
+        "                flies\n"
+        "  --shot-ridden PREFIX  riding along, the shot's frame drawn again with no\n"
+        "                HUD: PREFIX-moving.bmp, PREFIX-still.bmp with the surfaces\n"
+        "                of the aircraft ridden in still, PREFIX-without.bmp without it\n"
         "  --take-over-after S  riding along, take it over S seconds after\n"
         "                joining; given again, once more at each, once\n"
         "                the take-over before it is answered\n"
@@ -727,6 +741,11 @@ static int run_program(int argc, char** argv) {
             }
         } else if (a == "--ride-along") {
             o.ride_along = true;
+        } else if (a == "--ride-along-person") {
+            o.ride_along = true;
+            o.ride_along_person = true;
+        } else if (a == "--shot-ridden" && has_value) {
+            o.shot_ridden = std::string(args[++i]);
         } else if (a == "--late-update-after-take-over") {
             o.late_update_after_take_over = true;
         } else if (a == "--test-stovl-at-once") {
@@ -2764,7 +2783,9 @@ static int run_program(int argc, char** argv) {
                 }
                 if (o.ride_along && !rode_along) {
                     for (const glideslope::client::Other& other : others_now) {
-                        if (other.ai_flying) {
+                        if (o.ride_along_person
+                                ? !other.ai_flying && other.number != online->mine()
+                                : other.ai_flying) {
                             online->watch(other.number);
                             rode_along = true;
                             std::printf("glideslope: riding along in aircraft %u\n",
@@ -2968,6 +2989,11 @@ static int run_program(int argc, char** argv) {
             // the same command puts it in the same place every run.
             constexpr double orbit_rad_per_s = 6.283185307179586 / 60.0;
             const glideslope::client::Other* ridden = nullptr;
+            // Where the aircraft ridden in is among the draws, its body
+            // first, and its parts placed with its surfaces still: what
+            // `--shot-ridden` draws again.
+            std::pair<std::size_t, std::size_t> ridden_parts{0, 0};
+            std::vector<glideslope::gfx::Placement> ridden_still;
             if (online && joined && online->watching() != glideslope::net::no_aircraft) {
                 for (const glideslope::client::Other& other : others_now) {
                     if (other.number == online->watching() && !other.aircraft_id.empty() &&
@@ -3116,9 +3142,29 @@ static int run_program(int argc, char** argv) {
                         // What it was made from, which the shot says.
                         mesh.aircraft_id = model.id;
                     }
-                    // Its surfaces at nothing: what a state update says of
-                    // another aircraft does not hold them.
-                    draw_parts(*model.visual, mesh.ids, placement, {}, drawn);
+                    // **Its surfaces where the updates put them**, moved
+                    // between them as its attitude is (client/online.hpp).
+                    const std::vector<double> angles =
+                        glideslope::client::carried_angles(*model.visual, other.surfaces_rad);
+                    if (ridden != nullptr && other.number == ridden->number) {
+                        ridden_parts = {drawn.size(), drawn.size() + 1 + angles.size()};
+                        ridden_still.clear();
+                        for (std::size_t i = 0; i < model.visual->hinges.size(); ++i) {
+                            ridden_still.push_back(glideslope::gfx::hinged(
+                                placement, model.visual->hinges[i], 0.0));
+                        }
+                        if (shot_now) {
+                            std::printf("glideslope: aircraft %u drawn with its surfaces at",
+                                        static_cast<unsigned>(other.number));
+                            for (std::size_t i = 0; i < angles.size(); ++i) {
+                                std::printf("%s %s %+.2f deg", i == 0 ? "" : ",",
+                                            model.visual->surfaces[i].name.c_str(),
+                                            angles[i] * 57.29577951308232);
+                            }
+                            std::printf("\n");
+                        }
+                    }
+                    draw_parts(*model.visual, mesh.ids, placement, angles, drawn);
                 }
             }
             // Whichever provider is drawing, its attribution is on screen.
@@ -3288,6 +3334,34 @@ static int run_program(int argc, char** argv) {
                 const glideslope::gfx::Mesh hud =
                     glideslope::gfx::hud_mesh(readings, o.width, o.height);
                 pass_part(pass_times.hud);
+                // **The aircraft ridden in, three ways, for a test**: as
+                // drawn, with its surfaces still, and not drawn - each the
+                // same frame, with no HUD, so that they differ by its
+                // surfaces alone and by it alone.
+                if (shot_now && !o.shot_ridden.empty()) {
+                    if (ridden_parts.second == 0) {
+                        throw std::runtime_error("--shot-ridden: no aircraft ridden in was drawn");
+                    }
+                    std::vector<glideslope::gfx::Draw> still = drawn;
+                    for (std::size_t i = 0; i < ridden_still.size(); ++i) {
+                        still.at(ridden_parts.first + 1 + i).placement = ridden_still[i];
+                    }
+                    std::vector<glideslope::gfx::Draw> without = drawn;
+                    without.erase(
+                        without.begin() + static_cast<std::ptrdiff_t>(ridden_parts.first),
+                        without.begin() + static_cast<std::ptrdiff_t>(ridden_parts.second));
+                    for (const auto& [name, draws_of] :
+                         {std::pair<const char*, const std::vector<glideslope::gfx::Draw>*>{
+                              "moving", &drawn},
+                          {"still", &still},
+                          {"without", &without}}) {
+                        renderer.render(camera, *draws_of, nullptr, haze, background);
+                        const std::string path = o.shot_ridden + "-" + name + ".bmp";
+                        glideslope::gfx::save_bmp(renderer.capture(), path);
+                        std::printf("glideslope: wrote the aircraft ridden in, %s, to %s\n",
+                                    name, path.c_str());
+                    }
+                }
                 renderer.render(camera, drawn, &hud, haze, background);
             } else if (!credits.empty()) {
                 const glideslope::gfx::Mesh overlay =

@@ -4,6 +4,7 @@
 #include "net/inside.hpp"
 #include "net/protocol.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -97,6 +98,44 @@ bool read_own_motion(Reader& r, OwnMotion& m) {
 
 } // namespace
 
+std::optional<std::size_t> carried_surface(std::string_view property) {
+    for (std::size_t i = 0; i < carried_surfaces; ++i) {
+        if (carried_surface_properties[i] == property) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+std::int8_t surface_on_the_wire(double rad) {
+    constexpr double half_degrees_per_rad = 360.0 / 3.14159265358979323846;
+    if (!std::isfinite(rad)) {
+        return 0;
+    }
+    return static_cast<std::int8_t>(
+        std::clamp(std::lround(rad * half_degrees_per_rad), -128L, 127L));
+}
+
+double surface_off_the_wire(std::int8_t half_degrees) {
+    constexpr double rad_per_half_degree = 3.14159265358979323846 / 360.0;
+    return static_cast<double>(half_degrees) * rad_per_half_degree;
+}
+
+std::array<std::int8_t, carried_surfaces> surfaces_on_the_wire(
+    const std::function<std::optional<double>(const std::string& property)>& deflection) {
+    std::array<std::int8_t, carried_surfaces> out{};
+    for (std::size_t i = 0; i < carried_surfaces; ++i) {
+        out[i] = surface_on_the_wire(
+            deflection(std::string(carried_surface_properties[i])).value_or(0.0));
+    }
+    return out;
+}
+
+std::int16_t velocity_on_the_wire(float mps) {
+    return static_cast<std::int16_t>(std::clamp(
+        std::lround(static_cast<double>(mps) * velocity_steps_per_mps), -32768L, 32767L));
+}
+
 std::size_t state_bytes(std::size_t count, bool with_yours, bool with_watched) {
     // The flags that say whether this client's motion follows, and the
     // watched aircraft's controls, are always there.
@@ -145,12 +184,15 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         w.f64(a.x_m);
         w.f64(a.y_m);
         w.f64(a.z_m);
-        w.f32(a.vx_mps);
-        w.f32(a.vy_mps);
-        w.f32(a.vz_mps);
+        for (const float v : {a.vx_mps, a.vy_mps, a.vz_mps}) {
+            w.u16(static_cast<std::uint16_t>(velocity_on_the_wire(v)));
+        }
         w.f32(a.heading_deg);
         w.f32(a.pitch_deg);
         w.f32(a.roll_deg);
+        for (const std::int8_t v : a.surfaces) {
+            w.u8(static_cast<std::uint8_t>(v));
+        }
     }
     w.u8(state.yours ? 1 : 0);
     if (state.yours) {
@@ -349,12 +391,16 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
         a.x_m = r.f64();
         a.y_m = r.f64();
         a.z_m = r.f64();
-        a.vx_mps = r.f32();
-        a.vy_mps = r.f32();
-        a.vz_mps = r.f32();
+        for (float* v : {&a.vx_mps, &a.vy_mps, &a.vz_mps}) {
+            *v = static_cast<float>(static_cast<double>(static_cast<std::int16_t>(r.u16())) /
+                                    velocity_steps_per_mps);
+        }
         a.heading_deg = r.f32();
         a.pitch_deg = r.f32();
         a.roll_deg = r.f32();
+        for (std::int8_t& v : a.surfaces) {
+            v = static_cast<std::int8_t>(r.u8());
+        }
         if (!r.ok()) {
             return std::nullopt;
         }

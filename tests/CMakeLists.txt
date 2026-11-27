@@ -2153,6 +2153,9 @@ glideslope_configure(glideslope_sky_check)
 add_executable(glideslope_surfaces_check tools/surfaces_check.cpp)
 target_link_libraries(glideslope_surfaces_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_surfaces_check)
+add_executable(glideslope_ridden_surfaces_check tools/ridden_surfaces_check.cpp)
+target_link_libraries(glideslope_ridden_surfaces_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_ridden_surfaces_check)
 add_executable(glideslope_view_check tools/view_check.cpp)
 target_link_libraries(glideslope_view_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_view_check)
@@ -4711,6 +4714,21 @@ add_test(NAME the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows
 set_tests_properties(the_client_with_the_window_rides_along_in_an_ai_aircraft_and_shows_its_controls
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rides_along)
+
+# **Another player's aircraft is drawn with its ailerons over as it rolls**:
+# the client with the window rides along behind a second player holding her
+# stick full left. See cmake/client_sees_others_surfaces.cmake.
+add_test(NAME the_client_with_the_window_draws_another_players_ailerons_over_as_she_rolls
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
+        -DCHECK=$<TARGET_FILE:glideslope_ridden_surfaces_check>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/others_surfaces -DPORT=25050
+        -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_sees_others_surfaces.cmake)
+set_tests_properties(the_client_with_the_window_draws_another_players_ailerons_over_as_she_rolls
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/others_surfaces)
 
 # **The client with the window takes an AI aircraft over** while riding along
 # in it: it flies it, and the HUD says the pilot has it. See

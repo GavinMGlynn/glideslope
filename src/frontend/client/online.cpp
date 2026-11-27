@@ -676,6 +676,10 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
 // left was missing and the old number kept until the next update, and W
 // pressed in between rode along in an aircraft the server no longer had
 // (CI, 2026-10-22).
+static_assert(std::tuple_size_v<decltype(net::RemoteState::surfaces_rad)> ==
+                  net::carried_surfaces,
+              "an interpolated aircraft holds every surface a state update carries");
+
 void Online::take_in_everybody(const net::StatePacket& state) {
     for (const net::AircraftState& a : state.aircraft) {
         if (!origin_) {
@@ -689,6 +693,9 @@ void Online::take_in_everybody(const net::StatePacket& state) {
         r.heading_deg = static_cast<double>(a.heading_deg);
         r.pitch_deg = static_cast<double>(a.pitch_deg);
         r.roll_deg = static_cast<double>(a.roll_deg);
+        for (std::size_t i = 0; i < net::carried_surfaces; ++i) {
+            r.surfaces_rad[i] = net::surface_off_the_wire(a.surfaces[i]);
+        }
         r.wrecked = a.condition == net::Condition::wrecked;
         shown_[a.index].received(r);
         wrecked_[a.index] = a.condition == net::Condition::wrecked;
@@ -730,6 +737,7 @@ std::vector<Other> Online::others(double local_s) {
         o.heading_deg = at.heading_deg;
         o.pitch_deg = at.pitch_deg;
         o.roll_deg = at.roll_deg;
+        o.surfaces_rad = at.surfaces_rad;
         o.north_mps = at.north_mps;
         o.east_mps = at.east_mps;
         o.down_mps = at.down_mps;

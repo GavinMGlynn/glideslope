@@ -923,3 +923,33 @@ GLIDESLOPE_TEST(a_real_change_of_the_sessions_clock_is_followed_within_its_state
     }
     check(cases == 3, "three changes, not " + std::to_string(cases));
 }
+
+// **Another aircraft's control surfaces move between two updates as its
+// attitude does**, and are held where the last update put them while it is
+// carried on past it: each of the four a state update carries, walked.
+GLIDESLOPE_TEST(another_aircrafts_surfaces_move_between_two_updates_and_hold_past_the_last) {
+    Interpolated shown;
+    RemoteState a = truth(0.0);
+    RemoteState b = truth(0.1);
+    a.surfaces_rad = {0.10, -0.20, 0.30, -0.40};
+    b.surfaces_rad = {-0.30, 0.20, -0.10, 0.40};
+    shown.received(a);
+    shown.received(b);
+    const RemoteState half = shown.at(0.05 + glideslope::net::shown_behind_s);
+    std::size_t walked = 0;
+    for (std::size_t i = 0; i < half.surfaces_rad.size(); ++i) {
+        const double want = (a.surfaces_rad[i] + b.surfaces_rad[i]) / 2.0;
+        check(std::abs(half.surfaces_rad[i] - want) < 1e-9,
+              "surface " + std::to_string(i) + " halfway is " +
+                  std::to_string(half.surfaces_rad[i]) + ", not " + std::to_string(want));
+        ++walked;
+    }
+    const RemoteState past = shown.at(0.3 + glideslope::net::shown_behind_s);
+    check(shown.extrapolating(), "past the last update it is carried on");
+    for (std::size_t i = 0; i < past.surfaces_rad.size(); ++i) {
+        check(past.surfaces_rad[i] == b.surfaces_rad[i],
+              "surface " + std::to_string(i) + " carried on is held where the last put it");
+        ++walked;
+    }
+    check(walked == 8, "four surfaces, halfway and carried on: 8, not " + std::to_string(walked));
+}

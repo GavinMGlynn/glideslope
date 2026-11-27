@@ -2,6 +2,8 @@
 
 #include "gfx/model.hpp"
 #include "gfx/parts.hpp"
+#include "net/interpolation.hpp"
+#include "net/state.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/learnt.hpp"
@@ -10,6 +12,9 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <functional>
+#include <optional>
+#include <span>
 #include <map>
 #include <set>
 #include <string>
@@ -193,8 +198,10 @@ bool under_a_degree_allowed(const std::string& id, const std::string& surface) {
 // A trimmed aircraft in the air, flown a quarter of a second with the stick
 // and pedals at `way` (nothing: held where her trim had them), and what each
 // surface's property reports then.
-std::vector<double> angles_after(const CatalogueEntry& e, const std::vector<Surface>& surfaces,
-                                 double way) {
+// `e` flown trimmed for a quarter of a second with its stick and pedals full
+// `way` - or left where its trim had them, at nought - and handed to `then`.
+void fly_over(const CatalogueEntry& e, double way,
+              const std::function<void(const glideslope::sim::Aircraft&)>& then) {
     glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", e.model);
     glideslope::sim::InitialConditions ic;
     ic.latitude_deg = -33.9;
@@ -215,10 +222,17 @@ std::vector<double> angles_after(const CatalogueEntry& e, const std::vector<Surf
         aircraft.set_controls(c);
         aircraft.step();
     }
+    then(aircraft);
+}
+
+std::vector<double> angles_after(const CatalogueEntry& e, const std::vector<Surface>& surfaces,
+                                 double way) {
     std::vector<double> out;
-    for (const Surface& s : surfaces) {
-        out.push_back(aircraft.property(s.property));
-    }
+    fly_over(e, way, [&](const glideslope::sim::Aircraft& aircraft) {
+        for (const Surface& s : surfaces) {
+            out.push_back(aircraft.property(s.property));
+        }
+    });
     return out;
 }
 
@@ -400,4 +414,103 @@ GLIDESLOPE_TEST(a_livery_or_surfaces_line_that_cannot_be_read_is_refused_with_it
     refused(surfaces, "surface a p down 0 0 0 0 0 0 0 1 1\n", "no extent");
     refused(surfaces, "surface a p left 0 0 0 0 1 0 0 1 1\n", "cannot move");
     refused(surfaces, "# nothing\n", "names no surface");
+}
+
+// **Every aircraft's every surface reaches another client where its flight
+// model has it.** Each aircraft flies, trimmed, with its stick and pedals
+// full one way and then the other for a quarter of a second, as above; what
+// the server writes of it (net::surfaces_on_the_wire) goes through a state
+// update written and read, and into the interpolation a client draws
+// another aircraft from, two updates apart; and each surface its file names
+// is turned by the carried deflection its property is - every property a
+// file names must be one a state update carries. Each must come out within
+// a quarter of a degree of what its flight model flew, and over by more than
+// that: a surface sent as nought is seen as not sent. Counted against the
+// catalogue, not the files, as above - 164: every aircraft's two ailerons,
+// two elevators and each fin's rudder, both ways, less the B-2's rudder,
+// which is not drawn (left_out()).
+GLIDESLOPE_TEST(every_aircrafts_every_surface_reaches_another_client_where_its_flight_model_has_it) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data_dir());
+    constexpr double quarter_degree = 0.25 / 57.29577951308232;
+    std::size_t expected = 0;
+    std::size_t seen = 0;
+    std::size_t right = 0;
+    std::size_t aircraft = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        const auto& out = left_out().count(e.id) ? left_out().at(e.id)
+                                                 : std::map<std::string, std::string>{};
+        expected += 2 * (2 + (out.count("elevator") ? 0 : 2) +
+                         (out.count("rudder") ? 0 : fins_of(e.id)));
+        ++aircraft;
+        const std::vector<Surface> surfaces =
+            glideslope::gfx::read_surfaces(models_dir() / (e.id + ".surfaces"));
+        for (const double way : {1.0, -1.0}) {
+            std::vector<double> flown;
+            glideslope::net::AircraftState a;
+            fly_over(e, way, [&](const glideslope::sim::Aircraft& flying) {
+                for (const Surface& s : surfaces) {
+                    flown.push_back(flying.property(s.property));
+                }
+                a.surfaces = glideslope::net::surfaces_on_the_wire(
+                    [&](const std::string& property) -> std::optional<double> {
+                        if (!flying.has_property(property)) {
+                            return std::nullopt;
+                        }
+                        return flying.property(property);
+                    });
+            });
+            glideslope::net::StatePacket packet;
+            packet.aircraft.push_back(a);
+            const auto bytes = glideslope::net::write_state(packet);
+            check(bytes.has_value(), "the state update is written");
+            const auto read = glideslope::net::read_state(
+                std::span<const std::uint8_t>(bytes->data(), bytes->size()));
+            check(read.has_value() && read->aircraft.size() == 1, "and read");
+            glideslope::net::Interpolated shown;
+            for (const double t : {0.0, 0.04}) {
+                glideslope::net::RemoteState r;
+                r.time_s = t;
+                for (std::size_t i = 0; i < glideslope::net::carried_surfaces; ++i) {
+                    r.surfaces_rad[i] =
+                        glideslope::net::surface_off_the_wire(read->aircraft[0].surfaces[i]);
+                }
+                shown.received(r);
+            }
+            const glideslope::net::RemoteState drawn =
+                shown.at(0.02 + glideslope::net::shown_behind_s);
+            for (std::size_t i = 0; i < surfaces.size(); ++i) {
+                const Surface& s = surfaces[i];
+                ++seen;
+                const auto slot = glideslope::net::carried_surface(s.property);
+                if (!slot) {
+                    failed += "\n  " + e.id + "'s " + s.name + " is turned by " + s.property +
+                              ", which a state update does not carry";
+                    continue;
+                }
+                const double got = drawn.surfaces_rad[*slot];
+                std::printf("  %-13s %-15s stick %+.0f: flown %+6.2f deg, drawn %+6.2f\n",
+                            e.id.c_str(), s.name.c_str(), way, flown[i] * 57.29578,
+                            got * 57.29578);
+                if (std::abs(got - flown[i]) <= quarter_degree + 1e-12 &&
+                    std::abs(got) > quarter_degree) {
+                    ++right;
+                } else {
+                    failed += "\n  " + e.id + "'s " + s.name + " with the controls " +
+                              (way > 0 ? "right" : "left") + ": flown " +
+                              std::to_string(flown[i]) + " rad, drawn " + std::to_string(got);
+                }
+            }
+        }
+    }
+    std::printf("%zu aircraft; %zu of %zu surfaces drawn where flown; %zu expected from the "
+                "catalogue\n",
+                aircraft, right, seen, expected);
+    check(aircraft == catalogue.size() && aircraft == 16,
+          "all 16 aircraft were flown, not " + std::to_string(aircraft));
+    check(failed.empty(), "wrong:" + failed);
+    check(seen == expected && right == expected,
+          std::to_string(right) + " of " + std::to_string(seen) +
+              " surfaces drawn where flown, where the catalogue's aircraft have " +
+              std::to_string(expected));
 }
