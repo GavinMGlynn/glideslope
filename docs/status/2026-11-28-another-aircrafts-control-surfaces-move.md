@@ -25,10 +25,21 @@ still".
   not fit a datagram: 1,269 bytes sealed, of 1,232. An aircraft's velocity
   in a state update is now three `i16`s of sixteenths of a metre a second
   (at most 3 cm/s off, ±2,048 m/s), not three `f32`s, which gives back six
-  bytes an aircraft: a full packet is 1,119 bytes, 1,149 sealed. Other
-  aircraft's velocity is only used to carry them on between updates and to
-  show a ridden aircraft's ground speed; a client's own motion, which its
-  prediction is put right by, is untouched. The alternatives looked at - the
+  bytes an aircraft: a full packet is 1,119 bytes, 1,149 sealed. Where
+  the wire's velocity is read, and what the sixteenths do to each:
+  - other aircraft carried on between updates, and a ridden aircraft's
+    ground speed;
+  - the client's own aircraft's line, read in three places: the copilot's
+    situation, its airspeed and vertical speed
+    (frontend/players_copilot.cpp) - at most about 0.1 kt and 11 fpm off,
+    and copilot playback unaffected, since a recording is matched on its
+    words, not its numbers (`but_numbers`); the learnt landing's "at rest"
+    check, under 0.1 m/s (client/main.cpp, cli/main.cpp); and
+    `--when-hovering`, under 0.5 m/s (cli/main.cpp) - each a speed near
+    nought, where a sixteenth of a metre a second moves the threshold by
+    at most that much.
+  Reconciliation is unchanged: a client's prediction is put right by its
+  own motion (`OwnMotion`), whose floats are as they were. The alternatives looked at - the
   angles as `i16`s, or packing the surfaces into six bits each - either
   moved more of the wire or drew to a degree.
 - docs/TRANSPORT.md says all of it byte for byte; the client written from
