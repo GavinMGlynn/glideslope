@@ -95,8 +95,11 @@ public:
     // controller for it is made into `controller`, the owner's, which keeps
     // it. Both must outlive the instructor, and `controller` must not be
     // replaced while it lives; the owner flies each step through `fly` and
-    // `stepped` rather than `step`. Throws as the other does, before either
-    // is touched.
+    // `stepped` rather than `step`. Throws as the other does - and for any
+    // of her figures it cannot read - before either is touched: every
+    // figure she is flown by is read before she is loaded, moved or given
+    // a controller. (JSBSim refusing the start, as `Aircraft::initialize`
+    // can, would leave her loaded and moved.)
     Instructor(const std::filesystem::path& data, const CatalogueEntry& entry, Lesson lesson,
                const Runway& runway, Aircraft& aircraft, std::unique_ptr<Controller>& controller);
     ~Instructor();

@@ -2281,6 +2281,12 @@ public:
             told.part = glideslope::net::LessonPart::settling;
             break;
         case glideslope::sim::Instructor::Part::demonstrating:
+            // **Its last stage flown, the hand-over comes on the next
+            // step**: nothing is said meanwhile - a stage at the count is
+            // one TRANSPORT.md's reader refuses.
+            if (in.run().finished()) {
+                return;
+            }
             told.part = glideslope::net::LessonPart::demonstrating;
             told.stage = static_cast<std::uint8_t>(std::min<std::size_t>(in.run().stage(), 254));
             break;
@@ -2359,7 +2365,18 @@ public:
             if (a.index != index || a.slot < 0 || a.wrecked_at_s >= 0.0) {
                 continue;
             }
-            end_lesson(a, to_ai ? "handed to the AI" : "taken back from the instructor");
+            // **A lesson ended by it**: handed to the AI, the AI holds what
+            // she is doing (to_ai), not what the instructor last asked - a
+            // stall's entry flown on to the stall. Its controller is the AI's
+            // already, so nothing else changes hands and no swap is said.
+            if (a.lesson && to_ai) {
+                end_lesson(a, "handed to the AI");
+                a.controller->to_ai();
+                std::printf("aircraft %u handed to the AI\n", static_cast<unsigned>(index));
+                std::fflush(stdout);
+                return true;
+            }
+            end_lesson(a, "taken back from the instructor");
             if (to_ai == ai_flying(a)) {
                 return false;
             }
@@ -2891,7 +2908,6 @@ public:
             if (a.index != index || a.slot < 0) {
                 continue;
             }
-            end_lesson(a, "the learnt landing was asked for");
             if (a.wrecked_at_s >= 0.0) {
                 return "it is a wreck";
             }
@@ -2918,6 +2934,8 @@ public:
             if (speeds == figures_.end() || !speeds->second.lands) {
                 return "the " + a.model + " has no approach speeds to roll out at";
             }
+            // Accepted: a lesson the instructor was flying ends here.
+            end_lesson(a, "the learnt landing was asked for");
             a.copilot_route.clear();
             // From what she flies now: the pilot's held controls, if the
             // pilot has her.
@@ -3043,16 +3061,22 @@ public:
     // **Nothing a route holds, and nothing an aircraft lacks, ends the
     // server**: whatever a check throws is a refusal, saying what it was.
     std::string fly_route(std::uint8_t index, const glideslope::net::CopilotRoute& route) {
-        for (Aircraft& a : flown_) {
-            if (a.index == index && a.slot >= 0) {
-                end_lesson(a, "her copilot's route was sent");
+        std::string refused;
+        try {
+            refused = fly_route_checked(index, route);
+        } catch (const std::exception& e) {
+            refused = std::string("it could not be checked: ") + e.what();
+        }
+        // **Flown, a lesson the instructor was flying ends**; refused, it
+        // goes on.
+        if (refused.empty()) {
+            for (Aircraft& a : flown_) {
+                if (a.index == index && a.slot >= 0) {
+                    end_lesson(a, "her copilot's route was sent");
+                }
             }
         }
-        try {
-            return fly_route_checked(index, route);
-        } catch (const std::exception& e) {
-            return std::string("it could not be checked: ") + e.what();
-        }
+        return refused;
     }
 
     std::string fly_route_checked(std::uint8_t index, const glideslope::net::CopilotRoute& route) {
@@ -7028,6 +7052,15 @@ int run(const Options& o) {
                 }
                 // **Her lesson, told to her client**, and to no other.
                 for (const glideslope::net::LessonTold& told : fleet->take_lesson_news()) {
+                    // What is sent, as sent: a test holds each to what
+                    // TRANSPORT.md lets a reader take.
+                    std::printf("aircraft %u's client told of %s: part %u, stage %u, stages %u, "
+                                "%zu lines\n",
+                                static_cast<unsigned>(told.aircraft), told.lesson.c_str(),
+                                static_cast<unsigned>(told.part),
+                                static_cast<unsigned>(told.stage),
+                                static_cast<unsigned>(told.stages), told.lines.size());
+                    std::fflush(stdout);
                     for (auto& [address, c] : connections) {
                         if (!c.proven || c.aircraft != told.aircraft) {
                             continue;

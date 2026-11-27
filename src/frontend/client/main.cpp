@@ -302,7 +302,8 @@ struct Options {
     bool quit_once_lesson_over = false;
     // For a test: once the lesson is handed over, ask for this one, which
     // the server refuses, and then the first again, taken back from the
-    // instructor as it demonstrates; quit once that has ended it
+    // instructor as it demonstrates, and again, handed to the AI as it
+    // demonstrates; quit once that has ended it
     // (`--test-lesson-states BAD`) - every state the screen has, in a run.
     std::string test_lesson_states;
     // On a server, hold the shot until it has joined again - let go, or its
@@ -463,8 +464,9 @@ void usage(std::FILE* out) {
         "                shows the lesson handed over, refused or ended (for tests)\n"
         "  --test-lesson-states BAD  with --lesson, once it is handed over, ask\n"
         "                for lesson BAD, which the server refuses, and then the\n"
-        "                first again, taken back as it is demonstrated; quit\n"
-        "                once that has ended it (for tests)\n"
+        "                first again, taken back as it is demonstrated, and again,\n"
+        "                handed to the AI as it is; quit once that has ended it\n"
+        "                (for tests)\n"
         "  --shot-waiting FILE  on a server, write the frame the window shows while\n"
         "                it waits for an aircraft, once the server has said why\n"
         "                (for tests)\n"
@@ -2742,13 +2744,13 @@ static int run_program(int argc, char** argv) {
                         glideslope::frontend::LessonsScreen::State::choosing &&
                     (o.shot_lesson.empty() ||
                      lesson_shot.count(glideslope::frontend::LessonsScreen::State::choosing) > 0) &&
-                    (lesson_states_step <= 1 || lesson_states_step == 3)) {
+                    (lesson_states_step <= 1 || lesson_states_step == 3 || lesson_states_step == 5)) {
                     if (const auto id = lessons->ask()) {
                         online->ask_lesson(*id);
                         std::printf("glideslope: asked the server for the lesson %s\n",
                                     id->c_str());
                         std::fflush(stdout);
-                        lesson_states_step = lesson_states_step == 3 ? 4 : 2;
+                        lesson_states_step = lesson_states_step == 3 ? 4 : lesson_states_step == 5 ? 6 : 2;
                     }
                 }
                 for (const glideslope::net::LessonTold& told : online->lessons()) {
@@ -2790,6 +2792,18 @@ static int run_program(int argc, char** argv) {
                         lesson_states_step = 5;
                         hand_over(false);
                         std::printf("glideslope: took her back from the instructor\n");
+                        std::fflush(stdout);
+                    } else if (lesson_states_step == 5 && lesson_shot.count(State::ended) > 0 &&
+                               lessons->state() == State::ended) {
+                        // **And once more, handed to the AI** as the
+                        // instructor demonstrates: the AI, not the lesson,
+                        // flies her from then on.
+                        (void)lessons->choose(o.lesson);
+                    } else if (lesson_states_step == 6 &&
+                               lessons->state() == State::demonstrating) {
+                        lesson_states_step = 7;
+                        hand_over(true);
+                        std::printf("glideslope: handed her to the AI from the instructor\n");
                         std::fflush(stdout);
                     }
                 }
@@ -3642,7 +3656,7 @@ static int run_program(int argc, char** argv) {
                 using State = glideslope::frontend::LessonsScreen::State;
                 const State now = lessons->state();
                 const bool over = !o.test_lesson_states.empty()
-                                      ? now == State::ended && lesson_states_step == 5
+                                      ? now == State::ended && lesson_states_step == 7
                                       : now == State::handed_over || now == State::refused ||
                                             now == State::ended;
                 if (over) {

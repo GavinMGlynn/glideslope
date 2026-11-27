@@ -242,6 +242,28 @@ void Instructor::make_controller(const Controls& held) {
 
 void Instructor::begin(const Lesson& lesson) {
     start_heading_deg_ = runway_.heading_deg;
+    // **Every figure she is flown by, read first**, before she is loaded,
+    // moved or given a controller: an aeroplane whose figures throw is
+    // refused as she was, and an owner's aircraft is left as it was.
+    const bool from_the_runway =
+        demonstration_ == Demonstration::take_off || demonstration_ == Demonstration::circuit;
+    const bool in_the_air = demonstration_ == Demonstration::climb_and_descent ||
+                            demonstration_ == Demonstration::stalls ||
+                            demonstration_ == Demonstration::turns;
+    std::optional<DepartureSpeeds> dep;
+    if (from_the_runway) {
+        dep = book_departure_speeds(data_, entry_.model);
+    }
+    if (demonstration_ == Demonstration::circuit || demonstration_ == Demonstration::approach ||
+        demonstration_ == Demonstration::stalls) {
+        approach_ = approach_speeds(data_, entry_.model);
+    }
+    if (demonstration_ == Demonstration::circuit) {
+        joined_.climb_fpm = a_climb_it_can_manage(data_, entry_.model, 2000.0);
+    }
+    if (in_the_air) {
+        climb_fpm_ = a_climb_it_can_manage(data_, entry_.model);
+    }
 
     switch (demonstration_) {
     case Demonstration::take_off:
@@ -268,21 +290,18 @@ void Instructor::begin(const Lesson& lesson) {
         if (entry_.seaplane) {
             settle_afloat(*aircraft_);
         }
-        const DepartureSpeeds dep = book_departure_speeds(data_, entry_.model);
         make_controller(Controls{});
         if (demonstration_ == Demonstration::take_off) {
-            controller_->to_ai_take_off(runway_, dep);
+            controller_->to_ai_take_off(runway_, *dep);
             controller_->set_pilot(hands_at_rest(0.0, 1.0));
         } else {
-            approach_ = approach_speeds(data_, entry_.model);
             // The climb out: straight ahead to 650 ft, clear of where the
             // lesson's climb out ends, and joined to the go-around's
             // circuit there (as the circuit lesson's test flies it).
-            controller_->to_ai_take_off(runway_, dep, 650.0);
+            controller_->to_ai_take_off(runway_, *dep, 650.0);
             joined_.from_take_off = true;
-            joined_.climb_kts = dep.initial_climb_kts;
-            joined_.climb_fpm = a_climb_it_can_manage(data_, entry_.model, 2000.0);
-            joined_.flaps = dep.flap;
+            joined_.climb_kts = dep->initial_climb_kts;
+            joined_.flaps = dep->flap;
             Controls pilot;
             pilot.throttle = 0.25;
             pilot.gear = 1.0;
@@ -295,7 +314,6 @@ void Instructor::begin(const Lesson& lesson) {
         // **Two miles out on the glidepath, established**: the landing flap
         // down and coming down the path, at the weight her reference speed
         // was measured at.
-        approach_ = approach_speeds(data_, entry_.model);
         load_as_its_figures_were_measured(*aircraft_, data_, entry_.model);
         const double out_m = 2.0 * metres_per_nm;
         const double heading = runway_.heading_deg / degrees;
@@ -338,8 +356,7 @@ void Instructor::begin(const Lesson& lesson) {
     case Demonstration::stalls:
         // Flaps as they are for the landing, which is what `stall` is the
         // stall speed in; at the height the lesson is practised at.
-        begin_in_the_air(lesson.practised_at_ft.value_or(in_the_air_ft),
-                         approach_speeds(data_, entry_.model).flap);
+        begin_in_the_air(lesson.practised_at_ft.value_or(in_the_air_ft), approach_.flap);
         settle_until_ = 20 * steps_per_second;
         break;
     case Demonstration::turns:
@@ -363,7 +380,6 @@ void Instructor::begin_in_the_air(double agl_ft, double flaps) {
     ic.gear = 0.0;
     load_as_its_figures_were_measured(*aircraft_, data_, entry_.model);
     aircraft_->initialize(ic);
-    climb_fpm_ = a_climb_it_can_manage(data_, entry_.model);
 
     Controls held;
     held.throttle = 0.7;

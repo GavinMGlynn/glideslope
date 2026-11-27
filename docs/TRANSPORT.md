@@ -1247,7 +1247,7 @@ it happened, and none for a lesson flown to the book. There is no score.
 | text | the lesson's id, as asked: 1 to 64 bytes of `a`-`z`, `0`-`9` and `-` |
 | `u8` | the part: `00` `REFUSED`, `01` `SETTLING`, `02` `DEMONSTRATING`, `03` `HANDED_OVER`, `04` `ENDED` |
 | `u8` | `DEMONSTRATING`: the stage being flown, from 0, below the count; `HANDED_OVER`: how many stages were flown, at most the count; otherwise `00` |
-| `u8` | the count of the lesson's stages: 1 or more, or for `REFUSED` 0 or more (0 where the server has no such lesson) |
+| `u8` | the count of the lesson's stages: 1 or more, or for `REFUSED` 0 or more (0 where the server did not look the lesson up: it has no such lesson, or it was asked for another client's aircraft) |
 | `u8` | how many lines follow: `REFUSED` and `ENDED` 1, why; `HANDED_OVER` 0 to 6, the debrief; `SETTLING` and `DEMONSTRATING` 0 |
 | text, each | a line, 0 to 160 bytes of printable ASCII (`20` to `7E`) |
 

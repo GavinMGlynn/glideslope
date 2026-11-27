@@ -327,7 +327,8 @@ struct LessonTold {
     // Demonstrating: the stage being flown, from 0, below `stages`. Handed
     // over: how many stages were flown, at most `stages`. Otherwise 0.
     std::uint8_t stage = 0;
-    std::uint8_t stages = 0; // how many the lesson has, 1 or more; refused, 0 or more
+    std::uint8_t stages = 0; // how many the lesson has, 1 or more; refused, 0 or more:
+                             // 0 where the server did not look it up
     // Refused or ended: why, one line. Handed over: the debrief, 0 to
     // most_debrief_lines. Otherwise none. Each up to most_reason_bytes of
     // printable ASCII, cut there by whoever writes it.
