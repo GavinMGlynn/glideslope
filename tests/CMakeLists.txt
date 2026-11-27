@@ -127,6 +127,8 @@ add_executable(glideslope_tests
     unit/test_process_end.cpp
     unit/test_whole_lines.cpp
     unit/test_sound.cpp
+    unit/test_lessons_screen.cpp
+    ${PROJECT_SOURCE_DIR}/src/frontend/lessons_screen.cpp
     ${PROJECT_SOURCE_DIR}/src/frontend/briefs.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_copilot
@@ -1074,6 +1076,8 @@ set(GLIDESLOPE_UNIT_TESTS
     every_refusal_the_document_names_for_a_copilot_route_is_refused
     every_refusal_the_document_names_for_a_learnt_landing_refusal_is_refused
     every_refusal_the_document_names_for_a_traffic_instruction_is_refused
+    every_refusal_the_document_names_for_a_lesson_is_refused
+    the_lessons_screen_shows_every_state_for_every_lesson_of_every_class
     a_copilots_answer_refused_is_told_back_to_the_model_until_one_can_be_flown
     the_copilot_asks_on_a_thread_of_its_own_and_the_step_never_waits_for_the_model
     a_copilot_going_away_gives_up_its_question_at_once
@@ -2103,6 +2107,9 @@ add_test(NAME a_warm_up_that_times_out_fails_and_a_test_skips_only_for_what_its_
 add_executable(glideslope_checklist_check tools/checklist_check.cpp)
 target_link_libraries(glideslope_checklist_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_checklist_check)
+add_executable(glideslope_lesson_check tools/lesson_check.cpp)
+target_link_libraries(glideslope_lesson_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_lesson_check)
 
 # **Every aircraft, loaded where fresh memory is NaN, reports only finite
 # numbers**: operator new fills what it hands out with 0xFF bytes, so a number
@@ -4926,6 +4933,21 @@ add_test(NAME the_client_with_the_window_on_final_is_refused_the_learnt_landing_
 set_tests_properties(the_client_with_the_window_on_final_is_refused_the_learnt_landing_with_its_flaps_moving_told_why_and_handed_to_it_with_l
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_learnt)
+
+# **Every state of the window client's lessons screen is drawn and reads
+# back off its frame as what it is**: closed, the list, the instructor
+# settling her and demonstrating, handed over with the debrief, refused,
+# and ended. See cmake/client_lesson_screen.cmake.
+add_test(NAME every_state_of_the_lessons_screen_is_drawn_and_reads_back_off_its_frame
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_lesson_check>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/lesson_screen -DPORT=25010
+        -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_lesson_screen.cmake)
+set_tests_properties(every_state_of_the_lessons_screen_is_drawn_and_reads_back_off_its_frame
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lesson_screen)
 
 # **Every aeroplane with a learnt landing, joined on final by the client
 # with the window and left alone, is still at its gate thirty seconds

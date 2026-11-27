@@ -89,6 +89,16 @@ public:
     // it cannot be taught to (`cannot_be_taught`).
     Instructor(const std::filesystem::path& data, const CatalogueEntry& entry, Lesson lesson,
                const Runway& runway, std::shared_ptr<Terrain> terrain);
+    // **The lesson begun on an aircraft someone else owns** - the server's,
+    // which owns every aircraft: `aircraft` is put where the lesson begins
+    // and loaded for it, over the terrain it already has, and the AI's
+    // controller for it is made into `controller`, the owner's, which keeps
+    // it. Both must outlive the instructor, and `controller` must not be
+    // replaced while it lives; the owner flies each step through `fly` and
+    // `stepped` rather than `step`. Throws as the other does, before either
+    // is touched.
+    Instructor(const std::filesystem::path& data, const CatalogueEntry& entry, Lesson lesson,
+               const Runway& runway, Aircraft& aircraft, std::unique_ptr<Controller>& controller);
     ~Instructor();
     Instructor(const Instructor&) = delete;
     Instructor& operator=(const Instructor&) = delete;
@@ -97,6 +107,13 @@ public:
     // aircraft steps, and the lesson judges it. Once the lesson is over, the
     // controls are handed to the pilot. Returns the controls flown.
     Controls step();
+    // **The same step, its halves apart**, for an owner that steps the
+    // aircraft itself: `fly` before the aircraft steps - the hand-over, what
+    // the instructor asks for, and the controls the controller flies, which
+    // the owner sets on the aircraft - and `stepped` after it, which judges
+    // the lesson. `step` is `fly`, set, step, `stepped`.
+    Controls fly();
+    void stepped();
 
     Part part() const { return part_; }
     // The step the controls were handed over at, or -1.
@@ -121,15 +138,23 @@ public:
     bool recovering() const { return recovering_; }
 
 private:
+    void begin(const Lesson& lesson);
     void begin_in_the_air(double agl_ft, double flaps);
+    void make_controller(const Controls& held);
     void instruct();
 
     std::filesystem::path data_;
     CatalogueEntry entry_;
     Runway runway_;
     LessonSpeeds speeds_;
-    std::unique_ptr<Aircraft> aircraft_;
-    std::unique_ptr<Controller> controller_;
+    // Its own, built here, or none where the aircraft and its controller
+    // are an owner's; either way flown through the two below.
+    std::unique_ptr<Aircraft> own_aircraft_;
+    std::unique_ptr<Controller> own_controller_;
+    Aircraft* aircraft_ = nullptr;
+    Controller* controller_ = nullptr;
+    // Where the controller is made, while the lesson begins.
+    std::unique_ptr<Controller>* making_ = nullptr;
     LessonRun run_;
     Demonstration demonstration_ = Demonstration::turns;
     Part part_ = Part::settling;

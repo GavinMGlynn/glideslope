@@ -346,6 +346,6 @@ GLIDESLOPE_TEST(the_help_on_screen_names_every_binding_in_the_bindings_file_ever
     check(bindings.size() == 2 * (8 + 16 + 4) && found == bindings.size(),
           "all 56 bindings of the file are in the help: " + std::to_string(found));
     check(keys == glideslope::platform::keyboard_bindings().size() && keys == 11 &&
-              commands == glideslope::platform::command_keys().size() && commands == 8,
-          "the keyboard's eleven key bindings and the client's eight keys are in the help");
+              commands == glideslope::platform::command_keys().size() && commands == 11,
+          "the keyboard's eleven key bindings and the client's eleven keys are in the help");
 }

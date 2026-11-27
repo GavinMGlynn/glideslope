@@ -435,6 +435,7 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
         src/frontend/client/sound.cpp
         src/frontend/client/terrain.cpp
         src/frontend/briefs.cpp
+        src/frontend/lessons_screen.cpp
         src/frontend/players_copilot.cpp
         src/frontend/same_air.cpp
         src/frontend/shown.cpp)

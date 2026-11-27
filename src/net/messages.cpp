@@ -128,6 +128,8 @@ bool known_message(std::uint8_t kind) {
     case Message::runway_conditions:
     case Message::law_state:
     case Message::traffic_instruction:
+    case Message::ask_lesson:
+    case Message::lesson:
         return true;
     }
     return false;
@@ -630,6 +632,122 @@ bool read(std::span<const std::uint8_t> body, TrafficInstruction& out) {
     // on the player's terminal and drawn on the HUD.
     if (!r.done() || std::any_of(got.what.begin(), got.what.end(),
                                  [](char c) { return c < 0x20 || c > 0x7E; })) {
+        return false;
+    }
+    out = std::move(got);
+    return true;
+}
+
+// ---- a lesson ------------------------------------------------------------
+
+namespace {
+
+// As a refusal's reason: cut at the limit, and a byte outside printable
+// ASCII written as '?'.
+std::string printable(const std::string& text) {
+    std::string out = text.substr(0, most_reason_bytes);
+    for (char& c : out) {
+        if (c < 0x20 || c > 0x7E) {
+            c = '?';
+        }
+    }
+    return out;
+}
+
+bool all_printable(const std::string& text) {
+    return std::none_of(text.begin(), text.end(), [](char c) { return c < 0x20 || c > 0x7E; });
+}
+
+} // namespace
+
+bool lesson_id_readable(const std::string& id) {
+    return !id.empty() && id.size() <= most_lesson_id_bytes &&
+           std::all_of(id.begin(), id.end(), [](char c) {
+               return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
+           });
+}
+
+std::vector<std::uint8_t> write(const AskLesson& m) {
+    Writer w = begin_message(Message::ask_lesson);
+    w.u8(m.aircraft);
+    w.text(m.lesson.substr(0, most_lesson_id_bytes));
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, AskLesson& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::ask_lesson, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    AskLesson got;
+    got.aircraft = r.u8();
+    got.lesson = r.text(most_lesson_id_bytes);
+    if (!r.done() || !lesson_id_readable(got.lesson)) {
+        return false;
+    }
+    out = std::move(got);
+    return true;
+}
+
+std::vector<std::uint8_t> write(const LessonTold& m) {
+    Writer w = begin_message(Message::lesson);
+    w.u8(m.aircraft);
+    w.text(m.lesson.substr(0, most_lesson_id_bytes));
+    w.u8(static_cast<std::uint8_t>(m.part));
+    w.u8(m.stage);
+    w.u8(m.stages);
+    const std::size_t lines = std::min(m.lines.size(), most_debrief_lines);
+    w.u8(static_cast<std::uint8_t>(lines));
+    for (std::size_t i = 0; i < lines; ++i) {
+        w.text(printable(m.lines[i]));
+    }
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, LessonTold& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::lesson, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    LessonTold got;
+    got.aircraft = r.u8();
+    got.lesson = r.text(most_lesson_id_bytes);
+    const std::uint8_t part = r.u8();
+    got.stage = r.u8();
+    got.stages = r.u8();
+    const std::size_t lines = r.u8();
+    if (!r.ok() || lines > most_debrief_lines) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lines; ++i) {
+        got.lines.push_back(r.text(most_reason_bytes));
+    }
+    if (!r.done() || !lesson_id_readable(got.lesson) || part > 4 || (got.stages == 0 && part != 0) ||
+        !std::all_of(got.lines.begin(), got.lines.end(), all_printable)) {
+        return false;
+    }
+    got.part = static_cast<LessonPart>(part);
+    // **Each part says only what it has**: a stage only while one is flown,
+    // a count of those flown only once handed over, a reason only refused.
+    bool fits = false;
+    switch (got.part) {
+    case LessonPart::refused:
+    case LessonPart::ended:
+        fits = got.stage == 0 && got.lines.size() == 1;
+        break;
+    case LessonPart::settling:
+        fits = got.stage == 0 && got.lines.empty();
+        break;
+    case LessonPart::demonstrating:
+        fits = got.stage < got.stages && got.lines.empty();
+        break;
+    case LessonPart::handed_over:
+        fits = got.stage <= got.stages;
+        break;
+    }
+    if (!fits) {
         return false;
     }
     out = std::move(got);

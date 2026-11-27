@@ -83,8 +83,11 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // Version 21 (`15`): the same ground, and every aircraft's control surfaces
 // in a state update - its ailerons, elevator and rudder, a byte each - with
 // its velocity in sixteenths of a metre a second to make room for them, so
-// that another aircraft is drawn with its surfaces moving.
-inline constexpr std::uint8_t protocol_version = 21;
+// that another aircraft is drawn with its surfaces moving. Version 22
+// (`16`): the same ground, and a lesson asked for its own aircraft by a
+// client (`ASK_LESSON`), and what the server's instructor says of it as it
+// goes - refused, each stage, and the hand-over with the debrief (`LESSON`).
+inline constexpr std::uint8_t protocol_version = 22;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.
