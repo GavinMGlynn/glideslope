@@ -2136,8 +2136,10 @@ What the client with the window does that the command-line client does, and what
       window client watching another aircraft roll sees its ailerons over.*
       Done 2026-11-28: every update carries each aircraft's ailerons,
       elevator and rudder; a player rolling is drawn with her ailerons over.
-- [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
-      its lighting follows a roll with no mesh remade.*
+- [x] **The aeroplane is lit by a light baked into its mesh.** *Verification:
+      its lighting follows a roll with no mesh remade.* Done 2026-11-28: lit
+      in the shader from per-vertex normals, the Cessna's tops darkening with
+      a bank as the sun says, her meshes made once; normals checked on all 16.
 - [x] **The window client crashes on exit (signal 11) after giving up on an
       imagery tile** (2026-10-10, the Cessna 172P and the Learjet 35A): the
       stale-tile crash below, shown on that command - 20 of 20 crash without

@@ -653,8 +653,9 @@ are the risks the phase order is built around:
   model reports, on every aircraft but the B-2's rudder, named left out -
   another aircraft on a server too, by the deflections every state update
   carries, a half-degree byte each (2026-11-28). Propellers and undercarriage do not move: they are
-  welded where the model has them, gear down. Its light is baked into the
-  mesh, which is made again when it has banked five degrees. All of that
+  welded where the model has them, gear down. It is lit in the shader
+  by the terrain's fixed sun, the light following each bank and each
+  surface's turn with its mesh made once (2026-11-28). All the rest
   is tails in `COMPLETION_PLAN.md`. Where a model and its
   flight model disagree about the aeroplane, the disagreement is measured
   and each aircraft held to its own figure rather than made to vanish: the

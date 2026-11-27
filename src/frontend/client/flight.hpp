@@ -121,8 +121,9 @@ std::vector<double> carried_angles(const Visual& visual,
                                    const std::array<double, net::carried_surfaces>& carried_rad);
 std::optional<Visual> visual_of(const std::filesystem::path& data, const std::string& id);
 
-// The sun, in the body frame of an aircraft placed so: what its mesh is lit by.
-world::Ecef sun_in_body_of(const gfx::Placement& placement);
+// The unit vector towards the sun over an aircraft placed so, in ECEF: what
+// its draws are lit by.
+world::Ecef sun_over(const gfx::Placement& placement);
 
 // **Where an aeroplane's model and its pilot's eye are**, read from its flight
 // model: the visual reference point from the centre of gravity, and the eye
@@ -355,9 +356,9 @@ public:
         return model_radius_;
     }
 
-    // The unit vector towards the sun in the body frame, for lighting the
-    // model. It turns as the aircraft does, so the mesh is made again when
-    // this has moved far enough to see.
+    // The unit vector towards the sun in the body frame: it turns as the
+    // aircraft does, and the shot says it, so a test of the light drawn
+    // knows where the sun was.
     world::Ecef sun_in_body() const;
 
     gfx::HudReadings hud() const;

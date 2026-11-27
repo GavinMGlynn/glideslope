@@ -1,5 +1,6 @@
 #include "harness.hpp"
 
+#include "gfx/aircraft.hpp"
 #include "gfx/model.hpp"
 #include "gfx/parts.hpp"
 #include "net/interpolation.hpp"
@@ -513,4 +514,70 @@ GLIDESLOPE_TEST(every_aircrafts_every_surface_reaches_another_client_where_its_f
           std::to_string(right) + " of " + std::to_string(seen) +
               " surfaces drawn where flown, where the catalogue's aircraft have " +
               std::to_string(expected));
+}
+
+// **Every aircraft's drawn meshes carry a unit normal at every vertex, and
+// colours with no light in them.** The light is the shader's
+// (gfx/aircraft.hpp): it needs each vertex's normal, in the part's own frame,
+// and a mesh whose colours were already lit would be lit twice. For every
+// aircraft in the catalogue - counted against it - the body and every
+// surface's part, as the client makes them: each vertex's normal within 0.02
+// of unit length (a model's normals are stored to a 127th), and its colour and
+// normal the model's own.
+GLIDESLOPE_TEST(every_aircrafts_drawn_meshes_carry_a_unit_normal_at_every_vertex_and_unlit_colours) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data_dir());
+    std::size_t covered = 0;
+    std::size_t meshes = 0;
+    std::size_t vertices = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        const std::filesystem::path base = models_dir() / e.id;
+        const Model model = glideslope::gfx::read_model(base.string() + ".mesh");
+        const ModelParts parts = glideslope::gfx::split_model(
+            model, glideslope::gfx::read_livery(base.string() + ".livery"),
+            glideslope::gfx::read_surfaces(base.string() + ".surfaces"));
+        std::vector<const Model*> drawn{&parts.body};
+        for (const Model& part : parts.surfaces) {
+            drawn.push_back(&part);
+        }
+        double worst = 0.0;
+        for (const Model* part : drawn) {
+            const glideslope::gfx::Mesh mesh = glideslope::gfx::mesh_from_model(*part);
+            if (mesh.vertices.size() != part->vertices.size() || mesh.vertices.empty()) {
+                failed += "\n  " + e.id + ": a mesh of " + std::to_string(mesh.vertices.size()) +
+                          " vertices from a part of " + std::to_string(part->vertices.size());
+                continue;
+            }
+            for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
+                const glideslope::gfx::Vertex& v = mesh.vertices[i];
+                double l2 = 0.0;
+                for (const float n : v.normal) {
+                    l2 += static_cast<double>(n) * static_cast<double>(n);
+                }
+                worst = std::max(worst, std::abs(std::sqrt(l2) - 1.0));
+                if (v.colour[0] != part->vertices[i].colour[0] ||
+                    v.colour[1] != part->vertices[i].colour[1] ||
+                    v.colour[2] != part->vertices[i].colour[2] ||
+                    v.normal != part->vertices[i].normal) {
+                    failed += "\n  " + e.id + ": vertex " + std::to_string(i) +
+                              " is not the model's colour and normal";
+                    break;
+                }
+            }
+            ++meshes;
+            vertices += mesh.vertices.size();
+        }
+        std::printf("  %-13s %zu meshes, normals off unit length by %.4f at worst\n",
+                    e.id.c_str(), drawn.size(), worst);
+        if (!(worst <= 0.02)) {
+            failed += "\n  " + e.id + "'s normals are off unit length by " + std::to_string(worst);
+        }
+        ++covered;
+    }
+    std::printf("%zu of the catalogue's %zu aircraft covered: %zu meshes, %zu vertices\n",
+                covered, catalogue.size(), meshes, vertices);
+    check(covered == catalogue.size() && catalogue.size() == 16,
+          "the catalogue has " + std::to_string(catalogue.size()) + " aircraft, " +
+              std::to_string(covered) + " covered");
+    check(failed.empty(), "wrong:" + failed);
 }

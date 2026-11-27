@@ -1625,25 +1625,23 @@ static int run_program(int argc, char** argv) {
         }
 
         const bool shooting = !o.shot.empty();
-        // The view, and the aeroplane's own mesh. The mesh is lit on the way
-        // in - the shader has no normals - so it is made again when the sun
-        // has moved far enough around the body to see, which is what banking
-        // does. In the cockpit there is nothing to draw: the models have no
-        // interior, nothing is culled by its facing, and the skin would be
-        // drawn over the windscreen.
+        // The view, and the aeroplane's own mesh. The mesh is made once and
+        // lit by the shader, from the sun each draw carries, so banking turns
+        // its light with no mesh made again (gfx/aircraft.hpp). In the
+        // cockpit there is nothing to draw: the models have no interior,
+        // nothing is culled by its facing, and the skin would be drawn over
+        // the windscreen.
         glideslope::gfx::View view =
             glideslope::gfx::view_named(o.view).value_or(glideslope::gfx::View::cockpit);
         // **An aeroplane is drawn in its parts** (gfx/parts.hpp): its body,
         // painted in its livery, and each control surface, turned about its
-        // hinge by its deflection. The meshes are made together, lit for how
-        // it is pointing, and a mesh's id here is its part's: [0] the body,
-        // [1 + i] surface i.
-        const auto add_parts = [&](const glideslope::client::Visual& visual,
-                                   const glideslope::world::Ecef& sun) {
+        // hinge by its deflection. The meshes are made together, and a mesh's
+        // id here is its part's: [0] the body, [1 + i] surface i.
+        const auto add_parts = [&](const glideslope::client::Visual& visual) {
             std::vector<glideslope::gfx::MeshId> ids;
-            ids.push_back(renderer.add_mesh(glideslope::gfx::mesh_from_model(visual.parts.body, sun)));
+            ids.push_back(renderer.add_mesh(glideslope::gfx::mesh_from_model(visual.parts.body)));
             for (const glideslope::gfx::Model& part : visual.parts.surfaces) {
-                ids.push_back(renderer.add_mesh(glideslope::gfx::mesh_from_model(part, sun)));
+                ids.push_back(renderer.add_mesh(glideslope::gfx::mesh_from_model(part)));
             }
             return ids;
         };
@@ -1654,33 +1652,36 @@ static int run_program(int argc, char** argv) {
             ids.clear();
         };
         // The draws of an aeroplane at `placement`, its surfaces at `angles`
-        // (radians, in its surfaces' order; none given is each at nothing).
+        // (radians, in its surfaces' order; none given is each at nothing),
+        // each lit by the sun over it, which the shader turns into each
+        // part's own frame.
         const auto draw_parts = [](const glideslope::client::Visual& visual,
                                    const std::vector<glideslope::gfx::MeshId>& ids,
                                    const glideslope::gfx::Placement& placement,
                                    const std::vector<double>& angles,
                                    std::vector<glideslope::gfx::Draw>& into) {
+            const glideslope::world::Ecef sun = glideslope::client::sun_over(placement);
             glideslope::gfx::Draw body;
             body.mesh = ids.at(0);
             body.placement = placement;
+            body.sun = sun;
             into.push_back(body);
             for (std::size_t i = 0; i < visual.hinges.size(); ++i) {
                 glideslope::gfx::Draw part;
                 part.mesh = ids.at(1 + i);
                 part.placement = glideslope::gfx::hinged(
                     placement, visual.hinges[i], i < angles.size() ? angles[i] : 0.0);
+                part.sun = sun;
                 into.push_back(part);
             }
         };
         std::vector<glideslope::gfx::MeshId> aircraft_mesh;
         bool has_aircraft_mesh = false;
-        glideslope::world::Ecef lit_by{};
-        const auto light_moved = [&](const glideslope::world::Ecef& sun) {
-            // Five degrees, as the cosine of the angle between them.
-            return sun.x * lit_by.x + sun.y * lit_by.y + sun.z * lit_by.z < 0.9962;
-        };
+        // How many times its meshes have been made, which the shot says: once
+        // for a flight, however it turns.
+        long aircraft_meshes_made = 0;
         // On a server: the other aircraft's models, by what they are, and a
-        // mesh for each, lit for how it is pointing.
+        // mesh for each.
         // Each with where its reference point and its pilot's eye are, and
         // only for an aeroplane the catalogue knows.
         struct OtherModel {
@@ -1918,7 +1919,6 @@ static int run_program(int argc, char** argv) {
         struct OtherMesh {
             std::vector<glideslope::gfx::MeshId> ids;
             bool made = false;
-            glideslope::world::Ecef lit_by{};
             std::string aircraft_id;
         };
         std::map<std::uint8_t, OtherMesh> other_meshes;
@@ -3131,12 +3131,11 @@ static int run_program(int argc, char** argv) {
                             });
             if (flight && flight->model() != nullptr && o.draw_aircraft && !own_drawn_as_other &&
                 (view != glideslope::gfx::View::cockpit || ridden != nullptr)) {
-                const glideslope::world::Ecef sun = flight->sun_in_body();
-                if (!has_aircraft_mesh || light_moved(sun)) {
+                if (!has_aircraft_mesh) {
                     remove_parts(aircraft_mesh);
-                    aircraft_mesh = add_parts(*flight->visual(), sun);
+                    aircraft_mesh = add_parts(*flight->visual());
                     has_aircraft_mesh = true;
-                    lit_by = sun;
+                    ++aircraft_meshes_made;
                 }
                 glideslope::gfx::Placement placement = flight->model_placement();
                 if (own_moved && own_predicted) {
@@ -3149,7 +3148,7 @@ static int run_program(int argc, char** argv) {
                            flight->surface_angles_rad(), drawn);
             }
             // **Everybody else, on a server**: each with its own model, lit
-            // for how it is pointing, and drawn where the updates put it
+            // as it is drawn, and drawn where the updates put it
             // 100 ms ago (client/online.hpp).
             if (online && joined && o.draw_aircraft) {
                 // An aircraft no longer in the sky takes its mesh with it.
@@ -3178,17 +3177,11 @@ static int run_program(int argc, char** argv) {
                     const glideslope::gfx::Placement placement = glideslope::client::placement_of(
                         other.centre, other.heading_deg, other.pitch_deg, other.roll_deg,
                         model.visual->alignment, model.geometry);
-                    const glideslope::world::Ecef sun =
-                        glideslope::client::sun_in_body_of(placement);
                     OtherMesh& mesh = other_meshes[other.number];
-                    const bool moved = mesh.made && sun.x * mesh.lit_by.x + sun.y * mesh.lit_by.y +
-                                                            sun.z * mesh.lit_by.z <
-                                                        0.9962;
-                    if (!mesh.made || moved || mesh.aircraft_id != model.id) {
+                    if (!mesh.made || mesh.aircraft_id != model.id) {
                         remove_parts(mesh.ids);
-                        mesh.ids = add_parts(*model.visual, sun);
+                        mesh.ids = add_parts(*model.visual);
                         mesh.made = true;
-                        mesh.lit_by = sun;
                         // What it was made from, which the shot says.
                         mesh.aircraft_id = model.id;
                     }
@@ -3214,7 +3207,21 @@ static int run_program(int argc, char** argv) {
                             std::printf("\n");
                         }
                     }
+                    const std::size_t first_part = drawn.size();
                     draw_parts(*model.visual, mesh.ids, placement, angles, drawn);
+                    // **Lit as it is drawn**, as its own aeroplane is: how
+                    // many of its parts the shader lights, which a test holds
+                    // to all of them.
+                    if (shot_now && ridden != nullptr && other.number == ridden->number) {
+                        const auto lit = std::count_if(
+                            drawn.begin() + static_cast<std::ptrdiff_t>(first_part), drawn.end(),
+                            [](const glideslope::gfx::Draw& d) { return d.sun.has_value(); });
+                        std::printf("glideslope: aircraft %u drawn in %zu parts, %zu of them lit "
+                                    "by the shader\n",
+                                    static_cast<unsigned>(other.number),
+                                    1 + model.visual->hinges.size(),
+                                    static_cast<std::size_t>(lit));
+                    }
                 }
             }
             // Whichever provider is drawing, its attribution is on screen.
@@ -3618,6 +3625,17 @@ static int run_program(int argc, char** argv) {
                          glideslope::gfx::checklist_lines(r.checklist, o.width)) {
                         std::printf("checklist: %s\n", line.c_str());
                     }
+                }
+                // **Its light, and how often its mesh was made**: the sun
+                // along the body's axes at the shot, which says how lit each
+                // face of it is drawn, and the times its meshes were made.
+                if (flight && has_aircraft_mesh) {
+                    const glideslope::world::Ecef sun = flight->sun_in_body();
+                    std::printf("glideslope: at the shot, banked %.3f degrees, the sun in the "
+                                "body frame %.6f %.6f %.6f; times the aeroplane's meshes were "
+                                "made: %ld\n",
+                                flight->state().roll_deg, sun.x, sun.y, sun.z,
+                                aircraft_meshes_made);
                 }
                 glideslope::gfx::save_bmp(renderer.capture(), o.shot);
                 std::printf("glideslope: wrote tick %lld, frame %ld, to %s\n",
