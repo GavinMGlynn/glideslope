@@ -4396,6 +4396,19 @@ add_test(NAME every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_
 set_tests_properties(every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
     PROPERTIES TIMEOUT 3600)
 
+# **A test skipped on CI says why**: ctest prints nothing of a skip, so CI's
+# test jobs print what each skipped test said from ctest's JUnit report
+# (tools/ci_skipped.cmake). Held here to a report ctest wrote, of every way
+# ctest ends a test; see cmake/ci_skipped_check.cmake.
+add_test(NAME what_every_skipped_test_said_is_printed_from_ctests_report_and_nothing_of_any_other
+    COMMAND ${CMAKE_COMMAND} -DTOOL=${PROJECT_SOURCE_DIR}/tools/ci_skipped.cmake
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ci_skipped
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ci_skipped_check.cmake)
+# A second locally (a configure and a ctest of seven cmake scripts), costed so
+# until the tables name it, rather than at the 60 s an unknown test is dealt.
+set_tests_properties(what_every_skipped_test_said_is_printed_from_ctests_report_and_nothing_of_any_other
+    PROPERTIES COST 2)
+
 # **Run as a git hook runs it, the hooks' test leaves the repository being
 # pushed alone.** See cmake/githooks_in_a_hook.cmake.
 add_test(NAME the_hooks_test_run_from_a_hook_changes_its_scratch_repository_and_not_the_one_pushed
