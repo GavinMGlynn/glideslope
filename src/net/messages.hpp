@@ -64,6 +64,8 @@ enum class Message : std::uint8_t {
     runway_conditions = 12,
     law_state = 13,
     traffic_instruction = 14,
+    ask_lesson = 15,
+    lesson = 16,
 };
 
 // Whether `kind` is one this version knows.
@@ -290,6 +292,48 @@ struct TrafficInstruction {
     std::string what; // up to most_reason_bytes; cut there by whoever writes it
 };
 
+// **A lesson asked for** (protocol version 22): a client asks for its own
+// aircraft to be taught a lesson, by the lesson's id - its file's name in
+// the data's `lessons/`, which both ends carry. The server's instructor puts
+// her where the lesson begins and flies it first, as the AI, and then hands
+// her over (sim::Instructor); or the server refuses it, and says why
+// (`LESSON`). A client asks only for its own: the server lets any other
+// go, refused.
+struct AskLesson {
+    std::uint8_t aircraft = 0;
+    std::string lesson; // 1 to most_lesson_id_bytes of `a`-`z`, `0`-`9` and `-`
+};
+
+// **How far a lesson has got**, as `LESSON` says it.
+enum class LessonPart : std::uint8_t {
+    refused = 0,       // not begun: `lines` is why, one line
+    settling = 1,      // in the air, the instructor settling her before the lesson
+    demonstrating = 2, // the instructor flying `stage`, of `stages`
+    handed_over = 3,   // handed to its pilot: `lines` is the debrief
+    ended = 4,         // ended before the hand-over: `lines` is why, one line
+};
+
+// **A lesson, as it goes** (protocol version 22), sent by the server to the
+// client flying `aircraft` and to no other: the lesson asked for, refused
+// or begun, each stage the instructor flies as it begins, and the hand-over
+// with the debrief. A client draws the stage's words from its own copy of
+// the lesson; the debrief is the server's alone, because only the server
+// flew it. The debrief is what to do differently, a line a fault, in the
+// order it happened; none is a lesson flown to the book.
+struct LessonTold {
+    std::uint8_t aircraft = 0;
+    std::string lesson; // its id, as asked
+    LessonPart part = LessonPart::refused;
+    // Demonstrating: the stage being flown, from 0, below `stages`. Handed
+    // over: how many stages were flown, at most `stages`. Otherwise 0.
+    std::uint8_t stage = 0;
+    std::uint8_t stages = 0; // how many the lesson has, 1 or more; refused, 0 or more
+    // Refused or ended: why, one line. Handed over: the debrief, 0 to
+    // most_debrief_lines. Otherwise none. Each up to most_reason_bytes of
+    // printable ASCII, cut there by whoever writes it.
+    std::vector<std::string> lines;
+};
+
 // **A copilot's route for a client's own aircraft** (REQUIREMENTS.md section
 // 5, decided 2026-09-30): the player's own client asks the language model,
 // with the player's key, which never leaves it, and sends only what came of
@@ -360,6 +404,10 @@ inline constexpr std::size_t most_waypoint_name_bytes = 32;
 inline constexpr std::size_t most_reason_bytes = 160;
 // The most stations a server's weather is made of: world::most_stations.
 inline constexpr std::size_t most_weather_stations = 32;
+// The longest lesson id an `ASK_LESSON` or a `LESSON` carries.
+inline constexpr std::size_t most_lesson_id_bytes = 64;
+// The most debrief lines a `LESSON` carries; a longer debrief is cut there.
+inline constexpr std::size_t most_debrief_lines = 6;
 // The most runways a `RUNWAY_CONDITIONS` carries for each weather.
 inline constexpr std::size_t most_runway_conditions = 16;
 // The longest runway a `RUNWAY_CONDITIONS` may carry, metres.
@@ -395,6 +443,8 @@ std::vector<std::uint8_t> write(const TakeOverRefused& m);
 std::vector<std::uint8_t> write(const LearntLandingRefused& m);
 std::vector<std::uint8_t> write(const TrafficInstruction& m);
 std::vector<std::uint8_t> write(const RunwayConditions& m);
+std::vector<std::uint8_t> write(const AskLesson& m);
+std::vector<std::uint8_t> write(const LessonTold& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
 // does not know.
@@ -418,6 +468,12 @@ bool read(std::span<const std::uint8_t> body, LearntLandingRefused& out);
 bool read(std::span<const std::uint8_t> body, TrafficInstruction& out);
 bool read(std::span<const std::uint8_t> body, RunwayConditions& out);
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
+bool read(std::span<const std::uint8_t> body, AskLesson& out);
+bool read(std::span<const std::uint8_t> body, LessonTold& out);
+
+// Whether `id` is one a lesson may be asked by: 1 to most_lesson_id_bytes
+// of `a`-`z`, `0`-`9` and `-`.
+bool lesson_id_readable(const std::string& id);
 
 // **The aeroplane a player asks for when joining** (REQUIREMENTS 4.2, decided
 // 2026-10-06): the handshake initiation's payload, sealed with it - no

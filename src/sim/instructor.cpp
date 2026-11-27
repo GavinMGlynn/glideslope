@@ -193,24 +193,54 @@ Demonstration demonstrated_as(const Lesson& lesson) {
     return *lesson.demonstration;
 }
 
-} // namespace
-
-Instructor::Instructor(const std::filesystem::path& data, const CatalogueEntry& entry,
-                       Lesson lesson, const Runway& runway, std::shared_ptr<Terrain> terrain)
-    : data_(data), entry_(entry), runway_(runway), speeds_(lesson_speeds(data, entry.model)),
-      aircraft_(std::make_unique<Aircraft>(data / "jsbsim", entry.model)),
-      run_(lesson, speeds_), demonstration_(demonstrated_as(lesson)) {
-    // **A lesson teaches a class**, and its bands are that class's: a
-    // fighter's stall lesson flown in a Cessna judges her against a jet's.
+// **A lesson teaches a class**, and its bands are that class's: a fighter's
+// stall lesson flown in a Cessna judges her against a jet's. Throws why an
+// aeroplane cannot be taught it.
+void refuse_what_cannot_be_taught(const CatalogueEntry& entry, const Lesson& lesson,
+                                  const LessonSpeeds& speeds) {
     if (entry.aircraft_class != lesson.teaches) {
         throw LessonError(entry.id + " is " + std::string(name_of(entry.aircraft_class)) +
                           ", and " + lesson.id + " teaches " +
                           std::string(name_of(lesson.teaches)));
     }
-    if (const std::string why = cannot_be_taught(lesson, speeds_); !why.empty()) {
+    if (const std::string why = cannot_be_taught(lesson, speeds); !why.empty()) {
         throw LessonError(entry.id + " cannot be taught " + lesson.id + ": " + why);
     }
+}
+
+} // namespace
+
+Instructor::Instructor(const std::filesystem::path& data, const CatalogueEntry& entry,
+                       Lesson lesson, const Runway& runway, std::shared_ptr<Terrain> terrain)
+    : data_(data), entry_(entry), runway_(runway), speeds_(lesson_speeds(data, entry.model)),
+      run_(lesson, speeds_), demonstration_(demonstrated_as(lesson)) {
+    refuse_what_cannot_be_taught(entry, lesson, speeds_);
+    own_aircraft_ = std::make_unique<Aircraft>(data / "jsbsim", entry.model);
+    aircraft_ = own_aircraft_.get();
     aircraft_->set_terrain(std::move(terrain));
+    making_ = &own_controller_;
+    begin(lesson);
+    making_ = nullptr;
+}
+
+Instructor::Instructor(const std::filesystem::path& data, const CatalogueEntry& entry,
+                       Lesson lesson, const Runway& runway, Aircraft& aircraft,
+                       std::unique_ptr<Controller>& controller)
+    : data_(data), entry_(entry), runway_(runway), speeds_(lesson_speeds(data, entry.model)),
+      run_(lesson, speeds_), demonstration_(demonstrated_as(lesson)) {
+    refuse_what_cannot_be_taught(entry, lesson, speeds_);
+    aircraft_ = &aircraft;
+    making_ = &controller;
+    begin(lesson);
+    making_ = nullptr;
+}
+
+void Instructor::make_controller(const Controls& held) {
+    *making_ = std::make_unique<Controller>(*aircraft_, held);
+    controller_ = making_->get();
+}
+
+void Instructor::begin(const Lesson& lesson) {
     start_heading_deg_ = runway_.heading_deg;
 
     switch (demonstration_) {
@@ -239,7 +269,7 @@ Instructor::Instructor(const std::filesystem::path& data, const CatalogueEntry& 
             settle_afloat(*aircraft_);
         }
         const DepartureSpeeds dep = book_departure_speeds(data_, entry_.model);
-        controller_ = std::make_unique<Controller>(*aircraft_, Controls{});
+        make_controller(Controls{});
         if (demonstration_ == Demonstration::take_off) {
             controller_->to_ai_take_off(runway_, dep);
             controller_->set_pilot(hands_at_rest(0.0, 1.0));
@@ -292,7 +322,7 @@ Instructor::Instructor(const std::filesystem::path& data, const CatalogueEntry& 
         Controls flying;
         flying.throttle = 0.4;
         flying.gear = 1.0;
-        controller_ = std::make_unique<Controller>(*aircraft_, flying);
+        make_controller(flying);
         controller_->to_ai_approach(runway_, approach_);
         Controls pilot;
         pilot.throttle = 0.25;
@@ -338,7 +368,7 @@ void Instructor::begin_in_the_air(double agl_ft, double flaps) {
     Controls held;
     held.throttle = 0.7;
     held.flaps = flaps;
-    controller_ = std::make_unique<Controller>(*aircraft_, held);
+    make_controller(held);
     controller_->to_ai();
     AutopilotModes modes = controller_->autopilot()->modes();
     modes.heading_deg = start_heading_deg_;
@@ -443,6 +473,14 @@ void Instructor::instruct() {
 }
 
 Controls Instructor::step() {
+    const Controls flown = fly();
+    aircraft_->set_controls(flown);
+    aircraft_->step();
+    stepped();
+    return flown;
+}
+
+Controls Instructor::fly() {
     if (part_ == Part::settling && tick_ >= settle_until_) {
         part_ = Part::demonstrating;
     }
@@ -461,13 +499,14 @@ Controls Instructor::step() {
             pattern_->configure(flown);
         }
     }
-    aircraft_->set_controls(flown);
-    aircraft_->step();
+    return flown;
+}
+
+void Instructor::stepped() {
     if (part_ == Part::demonstrating) {
         run_.update(*aircraft_, tick_);
     }
     ++tick_;
-    return flown;
 }
 
 } // namespace glideslope::sim

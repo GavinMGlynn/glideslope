@@ -50,6 +50,8 @@
 #include "sim/navigator.hpp"
 #include "sim/separation.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/instructor.hpp"
+#include "sim/lesson.hpp"
 #include "sim/terrain.hpp"
 #include "sim/version.hpp"
 #include "world/dem.hpp"
@@ -438,8 +440,9 @@ void print_usage(std::FILE* out) {
         "                     as though it were lost, for a test\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
         "                     that a test can put the server behind real time\n"
-        "  --test-pace F      run the simulation's clock at F (0 to 1) of real\n"
-        "                     time, a server behind by a set factor, for tests\n"
+        "  --test-pace F      run the simulation's clock at F times real time, above\n"
+        "                     0 and at most 16: a server behind by a set factor,\n"
+        "                     or ahead, for tests\n"
         "  --test-stopped-once S MS  run nothing for MS milliseconds at S\n"
         "                     seconds on the session's clock, as a machine\n"
         "                     that stops it does, for tests\n"
@@ -719,8 +722,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--test-pace") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
-            if (!n || !(*n > 0.0) || *n > 1.0) {
-                why = "--test-pace wants a fraction of real time above 0 and at most 1, not '" +
+            if (!n || !(*n > 0.0) || *n > 16.0) {
+                why = "--test-pace wants a factor of real time above 0 and at most 16, not '" +
                       std::string(value) + "'";
                 return std::nullopt;
             }
@@ -1564,6 +1567,11 @@ public:
             std::string id = entry.id;
             catalogue_.emplace(std::move(id), std::move(entry));
         }
+        // **And the lessons**, which a player may ask for (`ASK_LESSON`).
+        for (glideslope::sim::Lesson& lesson : glideslope::sim::read_lessons(data)) {
+            std::string id = lesson.id;
+            lessons_.emplace(std::move(id), std::move(lesson));
+        }
         for (const Flown& f : fly) {
             const glideslope::sim::CatalogueEntry entry =
                 glideslope::sim::find_aircraft(data, f.id);
@@ -2064,6 +2072,7 @@ public:
             if (it->slot < 0 || it->index != index) {
                 continue;
             }
+            end_lesson(*it, "her person has gone");
             const std::optional<std::uint8_t> number = free_number();
             if (!hand_to_ai || plan_.waypoints.empty() || !number) {
                 // Said as it goes, as the end of the run says it of the rest:
@@ -2105,6 +2114,205 @@ public:
         return false;
     }
 
+    // **A lesson asked for a player's own aircraft** (`ASK_LESSON`): the
+    // instructor (sim::Instructor) wraps her and her controller - the AI is
+    // the instructor, and handing her over is a controller swap - puts her
+    // where the lesson begins at the runway it is taught at
+    // (`lesson_runway`), and flies it first; or it is refused. Either way
+    // her client is told (`LESSON`, take_lesson_news). **She is moved only
+    // because her person asked**: a lesson begins where it begins. A lesson
+    // asked while one is flown ends that one first.
+    void teach(std::uint8_t index, const std::string& id) {
+        Aircraft* found = nullptr;
+        for (Aircraft& a : flown_) {
+            if (a.index == index && a.slot >= 0) {
+                found = &a;
+            }
+        }
+        const auto refuse = [&](const std::string& why) {
+            glideslope::net::LessonTold told;
+            told.aircraft = index;
+            told.lesson = id;
+            told.part = glideslope::net::LessonPart::refused;
+            const auto lesson = lessons_.find(id);
+            told.stages = lesson == lessons_.end()
+                              ? 0
+                              : static_cast<std::uint8_t>(
+                                    std::min<std::size_t>(lesson->second.stages.size(), 255));
+            told.lines = {why};
+            lesson_news_.push_back(told);
+            std::printf("aircraft %u's lesson %s refused: %s\n", static_cast<unsigned>(index),
+                        id.c_str(), why.c_str());
+            std::fflush(stdout);
+        };
+        if (found == nullptr) {
+            refuse("no such player's aircraft");
+            return;
+        }
+        Aircraft& a = *found;
+        if (a.wrecked_at_s >= 0.0) {
+            refuse("she is a wreck");
+            return;
+        }
+        const auto lesson = lessons_.find(id);
+        if (lesson == lessons_.end()) {
+            refuse("this server has no lesson " + id);
+            return;
+        }
+        const auto entry = catalogue_.find(a.catalogue_id);
+        if (entry == catalogue_.end()) {
+            refuse("the " + a.catalogue_id + " is not in this server's catalogue");
+            return;
+        }
+        std::string why;
+        const std::optional<glideslope::sim::Runway> runway = lesson_runway(a, why);
+        if (!runway) {
+            refuse(why);
+            return;
+        }
+        end_lesson(a, "another lesson was asked for");
+        try {
+            // Taught at her figures' loading, and so a loading asked for at
+            // joining is hers no longer: she flies again after a wreck at
+            // the lesson's, not the one asked.
+            a.lesson = std::make_unique<glideslope::sim::Instructor>(
+                data_, entry->second, lesson->second, *runway, *a.aircraft, a.controller);
+        } catch (const std::exception& e) {
+            refuse(e.what());
+            return;
+        }
+        a.copilot_route.clear();
+        retire(std::move(a.hand_over_copilot));
+        a.loading_name.clear();
+        a.on_final_since_s = -1.0;
+        a.lesson_part_told.reset();
+        a.lesson_stage_told = 0;
+        a.judge.reset();
+        announced_.push_back({index, glideslope::net::Controller::ai, now_s()});
+        std::printf("aircraft %u is taught %s at %s, heading %.0f: the instructor has her\n",
+                    static_cast<unsigned>(index), id.c_str(), runway->name.c_str(),
+                    runway->heading_deg);
+        std::fflush(stdout);
+        tell_lesson(a);
+    }
+
+    // **Where a lesson is taught**: the longest runway within 50 km of her,
+    // of the runways the collision ground is made from, from the end nearer
+    // her - its elevation the ground's there, as a runway named is. None,
+    // and why, where there is none.
+    std::optional<glideslope::sim::Runway> lesson_runway(const Aircraft& a, std::string& why) {
+        const glideslope::sim::AircraftState s = a.aircraft->state();
+        const auto surfaces = glideslope::world::runway_surfaces(data_);
+        std::optional<glideslope::sim::Runway> best;
+        double best_m = 0.0;
+        for (const glideslope::sim::Runway& end : glideslope::world::runway_ends_within(
+                 *surfaces, s.latitude_deg, s.longitude_deg, 50000.0)) {
+            glideslope::sim::Traffic her;
+            her.latitude_deg = s.latitude_deg;
+            her.longitude_deg = s.longitude_deg;
+            glideslope::sim::Traffic at;
+            at.latitude_deg = end.threshold_lat_deg;
+            at.longitude_deg = end.threshold_lon_deg;
+            const double m = glideslope::sim::horizontal_m(her, at);
+            if (!best || end.length_m > best->length_m + 1.0 ||
+                (std::abs(end.length_m - best->length_m) <= 1.0 && m < best_m)) {
+                best = end;
+                best_m = m;
+            }
+        }
+        if (!best) {
+            why = "no runway within 50 km of her to teach it at";
+            return std::nullopt;
+        }
+        best->elevation_ft =
+            collision_->height_above_ellipsoid(best->threshold_lat_deg, best->threshold_lon_deg) *
+            feet_per_metre;
+        return best;
+    }
+
+    // **Her client told how far her lesson has got**, when that has changed:
+    // settling, each stage as it begins, and the hand-over with the debrief.
+    void tell_lesson(Aircraft& a) {
+        if (!a.lesson) {
+            return;
+        }
+        const glideslope::sim::Instructor& in = *a.lesson;
+        glideslope::net::LessonTold told;
+        told.aircraft = a.index;
+        told.lesson = in.lesson().id;
+        told.stages = static_cast<std::uint8_t>(std::min<std::size_t>(in.lesson().stages.size(), 255));
+        switch (in.part()) {
+        case glideslope::sim::Instructor::Part::settling:
+            told.part = glideslope::net::LessonPart::settling;
+            break;
+        case glideslope::sim::Instructor::Part::demonstrating:
+            told.part = glideslope::net::LessonPart::demonstrating;
+            told.stage = static_cast<std::uint8_t>(std::min<std::size_t>(in.run().stage(), 254));
+            break;
+        case glideslope::sim::Instructor::Part::handed_over:
+            told.part = glideslope::net::LessonPart::handed_over;
+            told.stage = static_cast<std::uint8_t>(std::min<std::size_t>(in.run().completed(), 255));
+            told.lines = in.run().debrief_lines();
+            break;
+        }
+        if (a.lesson_part_told == told.part &&
+            (told.part != glideslope::net::LessonPart::demonstrating ||
+             a.lesson_stage_told == told.stage)) {
+            return;
+        }
+        a.lesson_part_told = told.part;
+        a.lesson_stage_told = told.stage;
+        if (told.part == glideslope::net::LessonPart::demonstrating && in.stage() != nullptr) {
+            std::printf("aircraft %u's lesson %s: stage %u of %u, %s, at %.1f s\n",
+                        static_cast<unsigned>(a.index), told.lesson.c_str(),
+                        static_cast<unsigned>(told.stage) + 1U,
+                        static_cast<unsigned>(told.stages), in.stage()->name.c_str(), now_s());
+        } else if (told.part == glideslope::net::LessonPart::settling) {
+            std::printf("aircraft %u's lesson %s: the instructor settles her, at %.1f s\n",
+                        static_cast<unsigned>(a.index), told.lesson.c_str(), now_s());
+        } else if (told.part == glideslope::net::LessonPart::handed_over) {
+            std::printf("aircraft %u's lesson %s: handed over at %.1f s, %u of %u stages "
+                        "flown; debrief: %s\n",
+                        static_cast<unsigned>(a.index), told.lesson.c_str(), now_s(),
+                        static_cast<unsigned>(told.stage), static_cast<unsigned>(told.stages),
+                        told.lines.empty() ? "flown to the book"
+                                           : (std::to_string(told.lines.size()) + " to do "
+                                              "differently").c_str());
+        }
+        std::fflush(stdout);
+        lesson_news_.push_back(std::move(told));
+    }
+
+    // **A lesson ended before its hand-over** - her person took her back,
+    // asked for something else, or she was wrecked - and her client told
+    // why. Her controller stays: whoever has her now flies it.
+    void end_lesson(Aircraft& a, const std::string& why) {
+        if (!a.lesson) {
+            return;
+        }
+        glideslope::net::LessonTold told;
+        told.aircraft = a.index;
+        told.lesson = a.lesson->lesson().id;
+        told.part = glideslope::net::LessonPart::ended;
+        told.stages = static_cast<std::uint8_t>(
+            std::min<std::size_t>(a.lesson->lesson().stages.size(), 255));
+        told.lines = {why};
+        std::printf("aircraft %u's lesson %s ended: %s\n", static_cast<unsigned>(a.index),
+                    told.lesson.c_str(), why.c_str());
+        std::fflush(stdout);
+        lesson_news_.push_back(std::move(told));
+        a.lesson.reset();
+        a.lesson_part_told.reset();
+    }
+
+    // **What each person's client is to be told of her lesson**, since
+    // last asked.
+    std::vector<glideslope::net::LessonTold> take_lesson_news() {
+        std::vector<glideslope::net::LessonTold> out;
+        out.swap(lesson_news_);
+        return out;
+    }
+
     // **A player's aircraft handed to an AI pilot, or taken back** - Phase 7.
     // It keeps its number and its slot; only who flies it changes. The AI
     // holds what the aircraft is doing (sim::Controller::to_ai), and the
@@ -2116,6 +2324,7 @@ public:
             if (a.index != index || a.slot < 0 || a.wrecked_at_s >= 0.0) {
                 continue;
             }
+            end_lesson(a, to_ai ? "handed to the AI" : "taken back from the instructor");
             if (to_ai == ai_flying(a)) {
                 return false;
             }
@@ -2647,6 +2856,7 @@ public:
             if (a.index != index || a.slot < 0) {
                 continue;
             }
+            end_lesson(a, "the learnt landing was asked for");
             if (a.wrecked_at_s >= 0.0) {
                 return "it is a wreck";
             }
@@ -2798,6 +3008,11 @@ public:
     // **Nothing a route holds, and nothing an aircraft lacks, ends the
     // server**: whatever a check throws is a refusal, saying what it was.
     std::string fly_route(std::uint8_t index, const glideslope::net::CopilotRoute& route) {
+        for (Aircraft& a : flown_) {
+            if (a.index == index && a.slot >= 0) {
+                end_lesson(a, "her copilot's route was sent");
+            }
+        }
         try {
             return fly_route_checked(index, route);
         } catch (const std::exception& e) {
@@ -3595,7 +3810,17 @@ public:
                 a.aircraft->has_lift_system()) {
                 a.controller = controller_for(*a.aircraft, a.model, a.flown_on.value_or(a.held));
             }
-            if (a.controller) {
+            if (a.lesson) {
+                // **The instructor's**: the lesson's step, through her own
+                // controller, which the instructor hands to her person the
+                // step after the lesson ends.
+                const glideslope::sim::Controls flown = a.lesson->fly();
+                a.aircraft->set_controls(flown);
+                if (const glideslope::sim::LiftSystem* lift = a.controller->lift()) {
+                    (void)glideslope::sim::put_lift_system(*a.aircraft, *lift);
+                }
+                a.flown_on = flown;
+            } else if (a.controller) {
                 // The AI pilot: its autopilot and navigator decide the
                 // controls, which is what "the LLM plans, the controllers
                 // fly" means at this end. A player's aircraft given back to
@@ -3621,6 +3846,19 @@ public:
                 a.flown_on = a.held;
             }
             a.aircraft->step();
+            if (a.lesson) {
+                a.lesson->stepped();
+                tell_lesson(a);
+                if (a.lesson->part() == glideslope::sim::Instructor::Part::handed_over) {
+                    // **Handed over**: a controller swap, said to every
+                    // client as any is, and the instructor gone - her
+                    // controller flies her person's inputs from the next
+                    // step.
+                    announced_.push_back(
+                        {a.index, glideslope::net::Controller::person, now_s});
+                    a.lesson.reset();
+                }
+            }
             a.most_roll_deg =
                 std::max(a.most_roll_deg, std::abs(a.aircraft->state().roll_deg));
             if (const auto why = a.judge.judge(*a.aircraft)) {
@@ -3664,6 +3902,11 @@ public:
                     wreck(b, now_s, "collided with aircraft " + std::to_string(a.index),
                           happened);
                 }
+            }
+        }
+        for (Aircraft& a : flown_) {
+            if (a.lesson && a.wrecked_at_s >= 0.0) {
+                end_lesson(a, "she was wrecked");
             }
         }
         return happened;
@@ -3800,6 +4043,12 @@ public:
         // `--test-move-taken-back`: the step it is moved up at, once; below
         // nought, none due.
         std::int64_t move_at_steps = -1;
+        // **Being taught a lesson** (`ASK_LESSON`): the instructor flying
+        // her first, through her own controller, until it hands her over;
+        // and how far the lesson had got when it was last told her client.
+        std::unique_ptr<glideslope::sim::Instructor> lesson{};
+        std::optional<glideslope::net::LessonPart> lesson_part_told{};
+        std::size_t lesson_stage_told = 0;
     };
 
     void fail_engines_at(double s) {
@@ -3863,6 +4112,7 @@ public:
         if (!number) {
             return std::string("no number is free for the aircraft left");
         }
+        end_lesson(*player, "her person took over another aircraft");
         const double now_s =
             static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
         // The one taken: the player's now, flown by their inputs.
@@ -4579,8 +4829,10 @@ private:
             t.east_fps = a.aircraft->property("velocities/v-east-fps");
             t.climb_fpm = s.climb_rate_fpm;
             t.ground_ft = s.terrain_elevation_ft;
-            t.gives_way =
-                ai_flying(a) && a.controller->autopilot_flying() && !a.operators_course;
+            // **Nor one being taught**: the instructor flies the lesson as
+            // it is written, as a person would, and is given way to.
+            t.gives_way = ai_flying(a) && a.controller->autopilot_flying() &&
+                          !a.operators_course && !a.lesson;
             if (t.gives_way) {
                 t.held_ft = a.controller->autopilot()->modes().altitude_ft;
                 t.squeezed = a.squeezed;
@@ -5038,6 +5290,9 @@ private:
     // Every loading each model's figures name, by model and name, read with
     // the catalogue.
     std::map<std::string, std::map<std::string, glideslope::sim::FigureLoading>> loadings_;
+    std::map<std::string, glideslope::sim::Lesson> lessons_;
+    // What each person's client is to be told of her lesson (`LESSON`).
+    std::vector<glideslope::net::LessonTold> lesson_news_;
     double player_airspeed_kts_ = 0.0;
     bool player_seaplane_ = false;
     std::int64_t steps_ = 0;
@@ -5879,6 +6134,29 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                     }
                     continue;
                 }
+                // **A lesson**, for this client's own aircraft and no other:
+                // begun by the server's instructor, or refused, and said to
+                // this client either way (`LESSON`).
+                glideslope::net::AskLesson ask;
+                if (glideslope::net::read(request, ask)) {
+                    if (fleet == nullptr || c.aircraft == glideslope::net::no_aircraft ||
+                        ask.aircraft != c.aircraft) {
+                        glideslope::net::LessonTold refused;
+                        refused.aircraft = ask.aircraft;
+                        refused.lesson = ask.lesson;
+                        refused.lines = {"it is not this client's aircraft"};
+                        const std::vector<std::uint8_t> said = glideslope::net::write(refused);
+                        (void)c.reliable.send(std::span<const std::uint8_t>(said.data(), said.size()));
+                        std::printf("aircraft %u's lesson %s refused: it is not this client's "
+                                    "aircraft\n",
+                                    static_cast<unsigned>(ask.aircraft), ask.lesson.c_str());
+                        std::fflush(stdout);
+                    } else {
+                        apply_input(c, *fleet);
+                        fleet->teach(c.aircraft, ask.lesson);
+                    }
+                    continue;
+                }
                 // **A copilot's route**, for this client's own aircraft and
                 // no other: checked here as any plan is, and flown by the
                 // server's AI, or refused.
@@ -6712,6 +6990,20 @@ int run(const Options& o) {
                         glideslope::net::TrafficInstruction{c.aircraft, c.told_later});
                     (void)c.reliable.send(std::span<const std::uint8_t>(told.data(), told.size()));
                     c.told_later.clear();
+                }
+                // **Her lesson, told to her client**, and to no other.
+                for (const glideslope::net::LessonTold& told : fleet->take_lesson_news()) {
+                    for (auto& [address, c] : connections) {
+                        if (!c.proven || c.aircraft != told.aircraft) {
+                            continue;
+                        }
+                        const std::vector<std::uint8_t> body = glideslope::net::write(told);
+                        if (!c.reliable.send(std::span<const std::uint8_t>(body.data(), body.size()))) {
+                            std::printf("aircraft %u's lesson could not be told\n",
+                                        static_cast<unsigned>(told.aircraft));
+                            std::fflush(stdout);
+                        }
+                    }
                 }
                 // **Told to the person it is for**, and to no other client.
                 for (const auto& [number, what] : fleet->take_instructions()) {

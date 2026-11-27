@@ -363,6 +363,9 @@ const std::vector<std::pair<Command, CommandKey>>& command_keys() {
         {Command::take_over, {SDL_SCANCODE_T, "T", "TAKE OVER THE AIRCRAFT RIDDEN IN (SERVER)"}},
         {Command::ride_next, {SDL_SCANCODE_W, "W", "RIDE IN THE NEXT AIRCRAFT (SERVER)"}},
         {Command::view, {SDL_SCANCODE_V, "V", "THE NEXT VIEW"}},
+        {Command::lessons, {SDL_SCANCODE_F2, "F2", "THE LESSONS, SHOWN OR HIDDEN (SERVER)"}},
+        {Command::next_lesson, {SDL_SCANCODE_F3, "F3", "THE NEXT LESSON IN THE LIST"}},
+        {Command::fly_lesson, {SDL_SCANCODE_RETURN, "RETURN", "FLY THE LESSON CHOSEN (SERVER)"}},
     };
     return keys;
 }

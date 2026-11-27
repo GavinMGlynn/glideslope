@@ -467,6 +467,40 @@ std::vector<Kind> every_kind() {
                        glideslope::net::LawState got;
                        return glideslope::net::read(b, got);
                    }});
+
+    glideslope::net::AskLesson ask;
+    ask.aircraft = 3;
+    ask.lesson = "light-aircraft-turns";
+    out.push_back({Message::ask_lesson, "ask_lesson", glideslope::net::write(ask),
+                   [ask](std::span<const std::uint8_t> b) {
+                       glideslope::net::AskLesson got;
+                       return glideslope::net::read(b, got) && got.aircraft == ask.aircraft &&
+                              got.lesson == ask.lesson;
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::AskLesson got;
+                       return glideslope::net::read(b, got);
+                   }});
+
+    glideslope::net::LessonTold told;
+    told.aircraft = 2;
+    told.lesson = "airliner-approach-and-landing";
+    told.part = glideslope::net::LessonPart::handed_over;
+    told.stage = 2;
+    told.stages = 3;
+    told.lines = {"too fast on the approach", "flare later"};
+    out.push_back({Message::lesson, "lesson", glideslope::net::write(told),
+                   [told](std::span<const std::uint8_t> b) {
+                       glideslope::net::LessonTold got;
+                       return glideslope::net::read(b, got) && got.aircraft == told.aircraft &&
+                              got.lesson == told.lesson && got.part == told.part &&
+                              got.stage == told.stage && got.stages == told.stages &&
+                              got.lines == told.lines;
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::LessonTold got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -503,11 +537,12 @@ GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
     // **The space this walked, stated**: the six kinds the item names, the
     // forecast, which aircraft a client watches, a copilot's route, a
     // take-over refused, a learnt landing refused, the runways' conditions
-    // a STOVL law's state and an instruction to a person.
-    check(walked == 14, "fourteen kinds were walked, not " + std::to_string(walked));
+    // a STOVL law's state, an instruction to a person, and a lesson asked
+    // for and told.
+    check(walked == 16, "sixteen kinds were walked, not " + std::to_string(walked));
 }
 
-// **A body of one kind is never read as another.** All 196 pairs are
+// **A body of one kind is never read as another.** All 256 pairs are
 // tried, because a reader that accepted another kind's bytes would hand a
 // caller a message it never sent.
 GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
@@ -526,8 +561,8 @@ GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
             ++pairs;
         }
     }
-    check(pairs == 196, "all hundred and ninety-six pairs were tried, not " + std::to_string(pairs));
-    check(refused == 182, "a hundred and eighty-two of them are refused, not " + std::to_string(refused));
+    check(pairs == 256, "all two hundred and fifty-six pairs were tried, not " + std::to_string(pairs));
+    check(refused == 240, "two hundred and forty of them are refused, not " + std::to_string(refused));
 }
 
 // **Every truncation of every message is refused.** A datagram can arrive
@@ -557,7 +592,7 @@ GLIDESLOPE_TEST(every_message_with_anything_trailing_is_refused) {
         check(!k.reads(longer), k.name + " with a byte after it must be refused");
         ++walked;
     }
-    check(walked == 14, "every kind was tried");
+    check(walked == 16, "every kind was tried");
 }
 
 // **Every single-byte change to every message either reads or is refused,
@@ -609,7 +644,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++kinds;
         }
     }
-    check(kinds == 14, "fourteen kinds are known, not " + std::to_string(kinds));
+    check(kinds == 16, "sixteen kinds are known, not " + std::to_string(kinds));
 
     std::size_t controllers = 0;
     for (int v = 0; v < 256; ++v) {
@@ -642,7 +677,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++not_a_kind;
         }
     }
-    check(not_a_kind == 242, "two hundred and forty-two first bytes are no kind, not " +
+    check(not_a_kind == 240, "two hundred and forty first bytes are no kind, not " +
                                  std::to_string(not_a_kind));
     check(!glideslope::net::kind_of({}).has_value(), "and an empty body is none");
 }
@@ -659,9 +694,9 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
 // exchange finishes and the test can say what came out.
 GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_loss) {
     const std::vector<Kind> kinds = every_kind();
-    check(kinds.size() == 14, "the six the item names, the forecast, a watch, a route, two "
-                              "refusals, the runways' conditions, a STOVL law's state and an "
-                              "instruction");
+    check(kinds.size() == 16, "the six the item names, the forecast, a watch, a route, two "
+                              "refusals, the runways' conditions, a STOVL law's state, an "
+                              "instruction, and a lesson asked for and told");
 
     constexpr int mask_width = 15;
     constexpr std::uint32_t patterns = 1u << mask_width;
@@ -782,7 +817,9 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"},
         {Message::runway_conditions, "RUNWAY_CONDITIONS"},
         {Message::law_state, "LAW_STATE"},
-        {Message::traffic_instruction, "TRAFFIC_INSTRUCTION"}};
+        {Message::traffic_instruction, "TRAFFIC_INSTRUCTION"},
+        {Message::ask_lesson, "ASK_LESSON"},
+        {Message::lesson, "LESSON"}};
     std::size_t walked = 0;
     for (const auto& [kind, name] : kinds) {
         char buf[8];
@@ -793,7 +830,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
               name + " is a kind the code knows");
         ++walked;
     }
-    check(walked == 14, "every kind was walked");
+    check(walked == 16, "every kind was walked");
 
     // Every controller, by value and by name.
     const std::vector<std::pair<Controller, std::string>> controllers{
@@ -942,10 +979,23 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     // A STOVL law's state hovering, its hover law and every flag there.
     hold("law_state", *glideslope::net::write_law_state(a_law_state(true)));
 
+    glideslope::net::AskLesson ask;
+    ask.lesson = std::string(glideslope::net::most_lesson_id_bytes, 'a');
+    hold("ask_lesson", glideslope::net::write(ask));
+
+    // A debrief of every line it may carry, each as long as it may be.
+    glideslope::net::LessonTold told;
+    told.lesson = std::string(glideslope::net::most_lesson_id_bytes, 'a');
+    told.part = glideslope::net::LessonPart::handed_over;
+    told.stages = 255;
+    told.lines.assign(glideslope::net::most_debrief_lines,
+                      std::string(glideslope::net::most_reason_bytes, 'D'));
+    hold("lesson", glideslope::net::write(told));
+
     // **The space this walked, stated**: every kind there is but `WATCH` and
     // `TAKE_OVER_REFUSED`, a byte each with nothing to fill, and each one
     // filled rather than sampled.
-    check(walked == 12, "every kind was filled to its limits, not " +
+    check(walked == 14, "every kind was filled to its limits, not " +
                            std::to_string(walked));
     // And the forecast this project really fetches fits, which is the case
     // that matters: nineteen pressure levels and four near-ground winds.
@@ -1000,7 +1050,9 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
         {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"},
         {Message::runway_conditions, "RUNWAY_CONDITIONS"},
         {Message::law_state, "LAW_STATE"},
-        {Message::traffic_instruction, "TRAFFIC_INSTRUCTION"}};
+        {Message::traffic_instruction, "TRAFFIC_INSTRUCTION"},
+        {Message::ask_lesson, "ASK_LESSON"},
+        {Message::lesson, "LESSON"}};
     std::size_t named = 0;
     for (const auto& [kind, name] : kinds) {
         check(glideslope::net::known_message(static_cast<std::uint8_t>(kind)),
@@ -1018,7 +1070,7 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
     }
     check(named == known, "every kind the code knows was looked for: " +
                               std::to_string(named) + " of " + std::to_string(known));
-    check(named == 14, "fourteen kinds, not " + std::to_string(named));
+    check(named == 16, "sixteen kinds, not " + std::to_string(named));
 
     // **It says what it does not defend.** A threats document that only
     // listed defences would be the more dangerous for it.
@@ -1679,6 +1731,195 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_learnt_landing_refusal_is
 GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_traffic_instruction_is_refused) {
     refused_as_the_document_says(Message::traffic_instruction,
                                  &glideslope::net::TrafficInstruction::what);
+}
+
+// **Every refusal the document names for `ASK_LESSON` and `LESSON`**, each
+// built on purpose past the writer, which cuts what it would send wrong: an
+// id empty, of 65 bytes, or with a byte outside `a`-`z`, `0`-`9` and `-`;
+// a part of 5; no stages, but refused; a stage flown at or past the count,
+// or one said while settling, refused or ended; a count flown past the
+// stages; lines said while settling or demonstrating; none, or two, refused
+// or ended; seven debrief lines; a line of 161 bytes; a line with a byte
+// outside printable ASCII. And every edge read: an id of 64, every part with
+// what it may carry, six lines of 160.
+GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_lesson_is_refused) {
+    struct Built {
+        std::string id = "light-aircraft-turns";
+        std::uint8_t part = 2;
+        std::uint8_t stage = 0;
+        std::uint8_t stages = 3;
+        std::vector<std::string> lines;
+    };
+    const auto bytes_of = [](const Built& b) {
+        std::vector<std::uint8_t> body{static_cast<std::uint8_t>(Message::lesson), 1,
+                                       static_cast<std::uint8_t>(b.id.size() & 0xFF),
+                                       static_cast<std::uint8_t>(b.id.size() >> 8)};
+        body.insert(body.end(), b.id.begin(), b.id.end());
+        body.push_back(b.part);
+        body.push_back(b.stage);
+        body.push_back(b.stages);
+        body.push_back(static_cast<std::uint8_t>(b.lines.size()));
+        for (const std::string& line : b.lines) {
+            body.push_back(static_cast<std::uint8_t>(line.size() & 0xFF));
+            body.push_back(static_cast<std::uint8_t>(line.size() >> 8));
+            body.insert(body.end(), line.begin(), line.end());
+        }
+        return body;
+    };
+    const auto reads = [&](const Built& b) {
+        const std::vector<std::uint8_t> body = bytes_of(b);
+        glideslope::net::LessonTold got;
+        return glideslope::net::read(std::span<const std::uint8_t>(body.data(), body.size()),
+                                     got);
+    };
+    const auto asked_reads = [](const std::string& id) {
+        std::vector<std::uint8_t> body{static_cast<std::uint8_t>(Message::ask_lesson), 1,
+                                       static_cast<std::uint8_t>(id.size() & 0xFF),
+                                       static_cast<std::uint8_t>(id.size() >> 8)};
+        body.insert(body.end(), id.begin(), id.end());
+        glideslope::net::AskLesson got;
+        return glideslope::net::read(std::span<const std::uint8_t>(body.data(), body.size()),
+                                     got);
+    };
+    std::size_t refusals = 0;
+    std::size_t edges = 0;
+    const auto refused = [&](const Built& b, const std::string& what) {
+        check(!reads(b), what + " is refused");
+        ++refusals;
+    };
+    const auto read_back = [&](const Built& b, const std::string& what) {
+        check(reads(b), what + " reads");
+        ++edges;
+    };
+    // The ids, in both kinds.
+    for (const auto& [id, what] : std::vector<std::pair<std::string, std::string>>{
+             {"", "an empty id"},
+             {std::string(glideslope::net::most_lesson_id_bytes + 1, 'a'), "an id of 65 bytes"},
+             {"Light-aircraft-turns", "an id with a capital"},
+             {"light_aircraft_turns", "an id with an underscore"},
+             {"light aircraft", "an id with a space"}}) {
+        Built b;
+        b.id = id;
+        refused(b, "a LESSON with " + what);
+        check(!asked_reads(id), "an ASK_LESSON with " + what + " is refused");
+        ++refusals;
+    }
+    check(asked_reads(std::string(glideslope::net::most_lesson_id_bytes, 'z')),
+          "an ASK_LESSON with an id of 64 bytes reads");
+    check(asked_reads("abcdefghijklmnopqrstuvwxyz-0123456789"),
+          "an ASK_LESSON with every letter, digit and the hyphen reads");
+    edges += 2;
+    {
+        Built b;
+        b.id = std::string(glideslope::net::most_lesson_id_bytes, 'z');
+        read_back(b, "a LESSON with an id of 64 bytes");
+    }
+    // The part.
+    {
+        Built b;
+        b.part = 5;
+        refused(b, "a part of 5");
+    }
+    // The stages.
+    for (const std::uint8_t part : {std::uint8_t{1}, std::uint8_t{2}, std::uint8_t{3}}) {
+        Built b;
+        b.part = part;
+        b.stages = 0;
+        refused(b, "no stages, part " + std::to_string(part));
+    }
+    {
+        Built b;
+        b.part = 0;
+        b.stages = 0;
+        b.lines = {"this server has no lesson x"};
+        read_back(b, "no stages, refused");
+    }
+    {
+        Built b;
+        b.stage = 3;
+        refused(b, "a stage flown at the count");
+        b.stage = 2;
+        read_back(b, "the last stage flown");
+    }
+    for (const std::uint8_t part : {std::uint8_t{0}, std::uint8_t{1}, std::uint8_t{4}}) {
+        Built b;
+        b.part = part;
+        b.stage = 1;
+        b.lines = part == 1 ? std::vector<std::string>{} : std::vector<std::string>{"why"};
+        refused(b, "a stage said with part " + std::to_string(part));
+        b.stage = 0;
+        read_back(b, "part " + std::to_string(part) + " as it is said");
+    }
+    {
+        Built b;
+        b.part = 3;
+        b.stage = 4;
+        refused(b, "four stages flown of three");
+        b.stage = 3;
+        read_back(b, "all three flown");
+    }
+    // The lines.
+    for (const std::uint8_t part : {std::uint8_t{1}, std::uint8_t{2}}) {
+        Built b;
+        b.part = part;
+        b.lines = {"a line"};
+        refused(b, "a line said with part " + std::to_string(part));
+    }
+    for (const std::uint8_t part : {std::uint8_t{0}, std::uint8_t{4}}) {
+        Built b;
+        b.part = part;
+        b.stage = 0;
+        refused(b, "no reason with part " + std::to_string(part));
+        b.lines = {"one", "two"};
+        refused(b, "two reasons with part " + std::to_string(part));
+    }
+    {
+        Built b;
+        b.part = 3;
+        b.stage = 3;
+        b.lines.assign(glideslope::net::most_debrief_lines + 1, "fault");
+        refused(b, "seven debrief lines");
+        b.lines.assign(glideslope::net::most_debrief_lines,
+                       std::string(glideslope::net::most_reason_bytes, 'x'));
+        read_back(b, "six debrief lines of 160 bytes");
+        b.lines = {std::string(glideslope::net::most_reason_bytes + 1, 'x')};
+        refused(b, "a debrief line of 161 bytes");
+        b.lines = {};
+        read_back(b, "a debrief of none, flown to the book");
+    }
+    std::size_t unprintable = 0;
+    for (int c = 0; c < 256; ++c) {
+        if (c >= 0x20 && c <= 0x7E) {
+            continue;
+        }
+        Built b;
+        b.part = 3;
+        b.lines = {std::string("flare") + static_cast<char>(c)};
+        refused(b, "a debrief line with byte " + std::to_string(c));
+        ++unprintable;
+    }
+    check(unprintable == 161, "every unprintable byte was tried: " + std::to_string(unprintable));
+    // **The space built, stated**: ten id cases (five in each kind), the
+    // part, three counts of none, a stage at the count, three stages said
+    // where none is, one count flown past, two lines where none is, four
+    // reasons wrong, seven lines, a line too long, and every unprintable
+    // byte; and eleven edges.
+    check(refusals == 10 + 1 + 3 + 1 + 3 + 1 + 2 + 4 + 1 + 1 + 161,
+          "every refusal was built: " + std::to_string(refusals));
+    check(edges == 11, "every edge was read: " + std::to_string(edges));
+    // And the writer cuts rather than sending what the reader refuses.
+    glideslope::net::LessonTold long_one;
+    long_one.lesson = "light-aircraft-turns";
+    long_one.part = glideslope::net::LessonPart::handed_over;
+    long_one.stages = 3;
+    long_one.lines.assign(9, std::string(400, 'y') + '\n');
+    const std::vector<std::uint8_t> written = glideslope::net::write(long_one);
+    glideslope::net::LessonTold got;
+    check(glideslope::net::read(std::span<const std::uint8_t>(written.data(), written.size()),
+                                got) &&
+              got.lines.size() == glideslope::net::most_debrief_lines &&
+              got.lines[0].size() == glideslope::net::most_reason_bytes,
+          "a debrief too long is cut to six lines of 160 bytes");
 }
 
 // **Every refusal the document names for `RUNWAY_CONDITIONS`**, each built on

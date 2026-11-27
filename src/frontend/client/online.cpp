@@ -397,6 +397,12 @@ void Online::noticed() {
             instructions_.push_back(std::move(instruction.what));
         }
     }
+    // **What the server's instructor says of its own aircraft's lesson.**
+    for (net::LessonTold& lesson : session_.take_lessons()) {
+        if (lesson.aircraft == mine_) {
+            lessons_.push_back(std::move(lesson));
+        }
+    }
     // **A take-over refused** is answered: its own is the one it had.
     for (const std::uint8_t refused : session_.take_refusals()) {
         refused_.push_back(refused);
@@ -835,6 +841,22 @@ void Online::hand_over(bool to_ai) {
     swap.to = to_ai ? net::Controller::ai : net::Controller::person;
     const std::vector<std::uint8_t> body = net::write(swap);
     session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+void Online::ask_lesson(const std::string& id) {
+    const auto lock = held();
+    net::AskLesson ask;
+    ask.aircraft = mine_;
+    ask.lesson = id;
+    const std::vector<std::uint8_t> body = net::write(ask);
+    session_.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
+}
+
+std::vector<net::LessonTold> Online::lessons() {
+    const auto lock = held();
+    std::vector<net::LessonTold> out;
+    out.swap(lessons_);
+    return out;
 }
 
 void Online::hand_to_learnt() {

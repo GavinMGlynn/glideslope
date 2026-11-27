@@ -493,6 +493,10 @@ bool ClientSession::read_datagram(double now_s) {
             if (read(all_of(message), instruction)) {
                 instructions_.push_back(std::move(instruction));
             }
+            LessonTold lesson;
+            if (read(all_of(message), lesson)) {
+                lessons_.push_back(std::move(lesson));
+            }
             if (auto air = told_.air_said(told_.hear(all_of(message)))) {
                 air_said_.push_back(std::move(*air));
             }

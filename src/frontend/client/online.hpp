@@ -286,6 +286,13 @@ public:
     // Asks for its own aircraft to be handed to the learnt landing, which
     // the server does only where it has one and the aircraft is at its gate.
     void hand_to_learnt();
+    // **Asks for its own aircraft to be taught a lesson** (`ASK_LESSON`), by
+    // its id: the server's instructor flies it first and hands her over, or
+    // the server refuses it, and says which (`lessons`).
+    void ask_lesson(const std::string& id);
+    // **What the server has said of its own aircraft's lesson**, each time
+    // since last asked, oldest first (`LESSON`).
+    std::vector<net::LessonTold> lessons();
     // **Whether the learnt landing has its own aircraft**: the AI flies it,
     // and the last swap the server announced for it was to the learnt
     // landing.
@@ -465,6 +472,7 @@ private:
     std::vector<std::uint8_t> refused_;
     std::vector<std::string> learnt_refused_;
     std::vector<std::string> instructions_;
+    std::vector<net::LessonTold> lessons_;
     // The input sent last when the take-over was heard, and the last the
     // server has applied.
     std::optional<std::uint32_t> taken_at_;

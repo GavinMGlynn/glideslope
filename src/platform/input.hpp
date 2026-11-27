@@ -182,7 +182,10 @@ enum class Command {
     copilot,
     take_over,
     ride_next,
-    view
+    view,
+    lessons,
+    next_lesson,
+    fly_lesson
 };
 const CommandKey& command_key(Command command);
 const std::vector<std::pair<Command, CommandKey>>& command_keys();
