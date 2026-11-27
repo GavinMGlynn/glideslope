@@ -127,3 +127,14 @@ if(_asked EQUAL 0)
     message(FATAL_ERROR "of ${_stored} stale tiles, none was asked for again, so "
                         "nothing was tested - not asked: ${_not_asked}")
 endif()
+# **An aircraft's shot asks again for every tile stored**: 27 of 27 for each
+# aircraft, in 10 of 10 runs locally (2026-11-27), so one not asked for is a
+# change, and fails. The terrain shot's is held only to one or more - 45 of
+# 45, 44 of 47, 48 of 48, 50 of 50 and 45 of 50 in five runs, as its
+# refusals land - and names those it left out.
+if(DEFINED AIRCRAFT AND NOT _asked EQUAL _stored)
+    message(FATAL_ERROR "of ${_stored} stale tiles, ${_asked} were asked for again; "
+                        "${AIRCRAFT}'s shot asks for every one - not asked: ${_not_asked}")
+elseif(NOT _asked EQUAL _stored)
+    message(STATUS "not asked for again, as the terrain shot's refusals landed: ${_not_asked}")
+endif()
