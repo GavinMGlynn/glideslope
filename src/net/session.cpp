@@ -33,11 +33,6 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
     if (!theirs) {
         return std::nullopt;
     }
-    auto socket = platform::UdpSocket::bound(0);
-    if (!socket) {
-        return std::nullopt;
-    }
-
     KeyPair mine = mint_key_pair();
     if (!secret_hex.empty()) {
         const auto secret = secret_from_text(secret_hex);
@@ -47,22 +42,49 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
         mine.secret = *secret;
         mine.publik = public_from_secret(*secret);
     }
-    Initiator initiator(mine, *theirs);
-    Writer w = begin(Type::handshake_initiation);
     const std::vector<std::uint8_t> asked =
         aircraft.empty() ? std::vector<std::uint8_t>{} : write_asked_aircraft(aircraft, loading);
     if ((!aircraft.empty() && asked.empty()) || (aircraft.empty() && !loading.empty())) {
         return std::nullopt; // not an aircraft's id, or a loading's name, or a loading of nothing
     }
+    Asking asking;
     // **The layout first** (net::write_joining): a server of another refuses
     // it `WRONG_LAYOUT`, by name, rather than drop every input it sends.
-    const std::vector<std::uint8_t> payload = write_joining(layout, all_of(asked));
-    w.bytes(initiator.begin(all_of(payload)));
-    const std::vector<std::uint8_t> first = w.take();
-    if (!socket->send(*address, all_of(first))) {
+    asking.payload = write_joining(layout, all_of(asked));
+    asking.give_up_after_s = give_up_after_s;
+    asking.resend_every_s = resend_every_s;
+    return join(*address, *theirs, mine, asking, nullptr, refused);
+}
+
+std::optional<ClientSession> ClientSession::join(const platform::Address& server,
+                                                 const PublicKey& theirs, const KeyPair& mine,
+                                                 const Asking& asking, NotJoined* why,
+                                                 std::optional<Refusal>* refused) {
+    const auto fail = [why](NotJoined how) -> std::optional<ClientSession> {
+        if (why != nullptr) {
+            *why = how;
+        }
         return std::nullopt;
+    };
+    auto socket = platform::UdpSocket::bound(0);
+    if (!socket) {
+        return fail(NotJoined::no_socket);
+    }
+    Initiator initiator(mine, theirs);
+    Writer w = begin(Type::handshake_initiation);
+    w.bytes(initiator.begin(all_of(asking.payload)));
+    const std::vector<std::uint8_t> first = w.take();
+    if (asking.before_sending && !asking.before_sending(all_of(first))) {
+        return fail(NotJoined::held_back);
+    }
+    if (!socket->send(server, all_of(first))) {
+        return fail(NotJoined::cannot_send);
     }
 
+    // **Resent while nothing comes**: a handshake over UDP has to expect its
+    // first datagram to be lost, and a server that is not listening yet
+    // answers nothing at all. The same initiation each time - `Noise_IK`
+    // makes one, and a second would be a second handshake.
     std::vector<std::uint8_t> into(platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
     double sent_at_s = 0.0;
@@ -75,42 +97,44 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
         if (got > envelope_size) {
             Reader r(std::span<const std::uint8_t>(into.data(), got));
             Envelope envelope;
-            Refusal why{};
-            if (read_envelope(r, envelope, why)) {
+            Refusal reason{};
+            if (read_envelope(r, envelope, reason)) {
                 if (envelope.type == Type::refusal) {
                     // The server said no, and said why.
                     if (refused != nullptr) {
                         *refused = refusal_of(into[envelope_size]);
                     }
-                    return std::nullopt;
+                    return fail(NotJoined::refused);
                 }
                 if (envelope.type == Type::handshake_response) {
                     const auto session =
                         initiator.finish(std::span<const std::uint8_t>(into.data(), got)
                                              .subspan(envelope_size));
                     if (!session) {
-                        return std::nullopt;
+                        return fail(NotJoined::did_not_open);
                     }
                     ClientSession out;
                     out.socket_ = std::make_unique<platform::UdpSocket>(
                         std::move(*socket));
-                    out.server_ = *address;
+                    out.server_ = server;
                     out.theirs_ = session->theirs;
                     out.sealing_ = std::make_unique<Sealer>(session->sending);
                     out.opening_ = std::make_unique<Unsealer>(session->receiving);
                     out.initiation_ = first;
+                    out.answer_.assign(into.begin(),
+                                       into.begin() + static_cast<std::ptrdiff_t>(got));
                     out.mine_key_ = mine;
-                    out.asked_ = payload;
+                    out.asked_ = asking.payload;
                     out.prove_at_once();
                     return out;
                 }
             }
         }
-        if (waited > give_up_after_s) {
-            return std::nullopt;
+        if (waited > asking.give_up_after_s) {
+            return fail(NotJoined::no_answer);
         }
-        if (waited - sent_at_s >= resend_every_s) {
-            (void)socket->send(*address, all_of(first));
+        if (waited - sent_at_s >= asking.resend_every_s) {
+            (void)socket->send(server, all_of(first));
             sent_at_s = waited;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -181,8 +205,25 @@ void ClientSession::poll(double now_s) {
         return;
     }
     read_what_arrived(now_s);
-    if (standing_ != Standing::joined) {
+    tend(now_s);
+}
+
+bool ClientSession::read_one(double now_s) {
+    if (!socket_ || standing_ != Standing::joined || !opening_ || !sealing_) {
+        return false;
+    }
+    if (!last_opened_s_) {
+        last_opened_s_ = now_s;
+    }
+    return read_datagram(now_s);
+}
+
+void ClientSession::tend(double now_s) {
+    if (!socket_ || standing_ != Standing::joined || !opening_ || !sealing_) {
         return;
+    }
+    if (!last_opened_s_) {
+        last_opened_s_ = now_s;
     }
     if (stalling_) {
         // Stalled: nothing is sent until the server's knocks have stopped,
@@ -239,6 +280,7 @@ void ClientSession::prove_at_once() {
     Writer pw = begin(Type::sealed);
     pw.bytes(sealing_->seal(all_of(pong)));
     const std::vector<std::uint8_t> proof = pw.take();
+    proof_size_ = proof.size();
     (void)socket_->send(server_, all_of(proof));
 }
 
@@ -317,6 +359,7 @@ void ClientSession::keep_joining_again(double now_s) {
             // an update it left waiting would be taken for the new
             // aircraft.
             fresh_.clear();
+            arrived_.clear();
             roster_.clear();
             refusals_.clear();
             learnt_refusals_.clear();
@@ -342,104 +385,132 @@ std::vector<StatePacket> ClientSession::take_states() {
 }
 
 void ClientSession::read_what_arrived(double now_s) {
-    std::vector<std::uint8_t> into(platform::largest_datagram);
     // Everything waiting, not one: a frame may be a long time after the last.
-    for (;;) {
-        platform::Address from;
-        const std::size_t got = socket_->receive(into, from);
-        if (got <= envelope_size) {
-            return;
-        }
-        const std::span<const std::uint8_t> datagram(into.data(), got);
-        // **A refusal is believed only of a session gone quiet**, only from
-        // the server's address, and only for `BAD_HANDSHAKE` - "no session
-        // here". It is sent in the clear, so anybody can forge one; heard
-        // while the session works, it is nothing.
-        if (lets_go(server_, from, datagram, now_s - *last_opened_s_)) {
-            let_go_at(now_s);
-            return;
-        }
-        if (stalling_) {
-            // Read and thrown away, as a stopped process never read it.
-            stall_heard_s_ = now_s;
-            continue;
-        }
-        Reader r(datagram);
-        Envelope envelope;
-        Refusal why{};
-        if (!read_envelope(r, envelope, why) || envelope.type != Type::sealed) {
-            continue;
-        }
-        const auto opened = opening_->open(datagram.subspan(envelope_size));
-        if (!opened) {
-            continue;
-        }
-        opened_any_ = true;
-        last_opened_s_ = now_s;
-        const std::span<const std::uint8_t> inside(opened->data(), opened->size());
-        // **The server's goodbye**, sealed under this session and so the
-        // server's own: the operator dropped this client. It does not come
-        // back, and says nothing more.
-        if (is_leaving(inside)) {
-            standing_ = Standing::dropped;
-            sealing_.reset();
-            opening_.reset();
-            return;
-        }
-        if (const auto state = read_state(inside)) {
-            ++heard_;
-            clock_s_ = state->simulation_time_s;
-            applied_ = state->last_input_applied;
-            mine_ = state->your_aircraft;
-            aircraft_ = state->aircraft;
-            // Every one kept for the caller, in the order they came: an
-            // interpolation wants each snapshot, not only the newest. Past
-            // the most kept, the oldest go: a client that has not asked for
-            // seconds wants where things are now, and keeping the first few
-            // seconds instead put one right by the whole way flown since.
-            if (fresh_.size() >= most_states_kept) {
-                fresh_.erase(fresh_.begin());
-            }
-            fresh_.push_back(*state);
-            continue;
-        }
-        if (!inside.empty() && inside[0] == static_cast<std::uint8_t>(Inside::reliable)) {
-            for (const std::vector<std::uint8_t>& message : reliable_.received(inside.subspan(1))) {
-                AircraftDefinition d;
-                if (read(all_of(message), d)) {
-                    roster_[d.aircraft] = d;
-                }
-                TakeOverRefused refused;
-                if (read(all_of(message), refused)) {
-                    refusals_.push_back(refused.aircraft);
-                }
-                LearntLandingRefused learnt_refused;
-                if (read(all_of(message), learnt_refused)) {
-                    learnt_refusals_.push_back(std::move(learnt_refused));
-                }
-                TrafficInstruction instruction;
-                if (read(all_of(message), instruction)) {
-                    instructions_.push_back(std::move(instruction));
-                }
-                ControllerSwap swap;
-                if (read(all_of(message), swap)) {
-                    swaps_[swap.aircraft] = swap.to;
-                }
-                if (auto air = told_.air_said(told_.hear(all_of(message)))) {
-                    air_said_.push_back(std::move(*air));
-                }
-            }
-            continue;
-        }
-        if (const auto token = knock_token(Inside::ping, inside)) {
-            const std::vector<std::uint8_t> pong = knock(Inside::pong, *token);
-            Writer pw = begin(Type::sealed);
-            pw.bytes(sealing_->seal(all_of(pong)));
-            const std::vector<std::uint8_t> out = pw.take();
-            (void)socket_->send(server_, all_of(out));
-            ++answered_;
-        }
+    while (standing_ == Standing::joined && read_datagram(now_s)) {
     }
+}
+
+bool ClientSession::read_datagram(double now_s) {
+    std::vector<std::uint8_t>& into = into_;
+    platform::Address from;
+    const std::size_t got = socket_->receive(into, from);
+    if (got == 0) {
+        return false;
+    }
+    if (got <= envelope_size) {
+        return true;
+    }
+    const std::span<const std::uint8_t> datagram(into.data(), got);
+    // **A refusal is believed only of a session gone quiet**, only from
+    // the server's address, and only for `BAD_HANDSHAKE` - "no session
+    // here". It is sent in the clear, so anybody can forge one; heard
+    // while the session works, it is nothing. Nor by a session about to
+    // leave (`leaving_soon`).
+    if (!leaving_soon_ && lets_go(server_, from, datagram, now_s - *last_opened_s_)) {
+        let_go_at(now_s);
+        return true;
+    }
+    if (stalling_) {
+        // Read and thrown away, as a stopped process never read it.
+        stall_heard_s_ = now_s;
+        return true;
+    }
+    Reader r(datagram);
+    Envelope envelope;
+    Refusal why{};
+    if (!read_envelope(r, envelope, why) || envelope.type != Type::sealed) {
+        return true;
+    }
+    const auto opened = opening_->open(datagram.subspan(envelope_size));
+    if (!opened) {
+        return true;
+    }
+    opened_any_ = true;
+    last_opened_s_ = now_s;
+    const std::span<const std::uint8_t> inside(opened->data(), opened->size());
+    // **The server's goodbye**, sealed under this session and so the
+    // server's own: the operator dropped this client. It does not come
+    // back, and says nothing more.
+    if (is_leaving(inside)) {
+        standing_ = Standing::dropped;
+        sealing_.reset();
+        opening_.reset();
+        return true;
+    }
+    if (const auto state = read_state(inside)) {
+        ++heard_;
+        clock_s_ = state->simulation_time_s;
+        applied_ = state->last_input_applied;
+        mine_ = state->your_aircraft;
+        aircraft_ = state->aircraft;
+        if (in_order_) {
+            Arrived a;
+            a.what = Arrived::What::state;
+            a.state = *state;
+            arrived_.push_back(std::move(a));
+            return true;
+        }
+        // Every one kept for the caller, in the order they came: an
+        // interpolation wants each snapshot, not only the newest. Past
+        // the most kept, the oldest go: a client that has not asked for
+        // seconds wants where things are now, and keeping the first few
+        // seconds instead put one right by the whole way flown since.
+        if (fresh_.size() >= most_states_kept) {
+            fresh_.erase(fresh_.begin());
+        }
+        fresh_.push_back(*state);
+        return true;
+    }
+    if (!inside.empty() && inside[0] == static_cast<std::uint8_t>(Inside::reliable)) {
+        for (std::vector<std::uint8_t>& message : reliable_.received(inside.subspan(1))) {
+            AircraftDefinition d;
+            if (read(all_of(message), d)) {
+                roster_[d.aircraft] = d;
+            }
+            TakeOverRefused refused;
+            if (read(all_of(message), refused)) {
+                refusals_.push_back(refused.aircraft);
+            }
+            LearntLandingRefused learnt_refused;
+            if (read(all_of(message), learnt_refused)) {
+                learnt_refusals_.push_back(std::move(learnt_refused));
+            }
+            TrafficInstruction instruction;
+            if (read(all_of(message), instruction)) {
+                instructions_.push_back(std::move(instruction));
+            }
+            ControllerSwap swap;
+            if (read(all_of(message), swap)) {
+                swaps_[swap.aircraft] = swap.to;
+            }
+            if (in_order_) {
+                // Told by the caller itself, which says each as it hears it.
+                Arrived a;
+                a.what = Arrived::What::message;
+                a.message = std::move(message);
+                arrived_.push_back(std::move(a));
+            } else if (auto air = told_.air_said(told_.hear(all_of(message)))) {
+                air_said_.push_back(std::move(*air));
+            }
+        }
+        return true;
+    }
+    if (const auto token = knock_token(Inside::ping, inside)) {
+        const std::vector<std::uint8_t> pong = knock(Inside::pong, *token);
+        Writer pw = begin(Type::sealed);
+        pw.bytes(sealing_->seal(all_of(pong)));
+        const std::vector<std::uint8_t> out = pw.take();
+        (void)socket_->send(server_, all_of(out));
+        ++answered_;
+        return true;
+    }
+    if (const auto token = knock_token(Inside::pong, inside); token && in_order_) {
+        Arrived a;
+        a.what = Arrived::What::pong;
+        a.token = *token;
+        arrived_.push_back(std::move(a));
+    }
+    return true;
 }
 
 } // namespace glideslope::net

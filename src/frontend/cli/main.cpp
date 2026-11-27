@@ -89,6 +89,7 @@
 #include <iterator>
 #include <limits>
 #include <deque>
+#include <functional>
 #include <map>
 #include <set>
 #include <span>
@@ -4722,116 +4723,56 @@ private:
     std::size_t own_words_heard_ = 0;
 };
 
-// **How long a session may go without anything opening under it before a
-// refusal is believed** (net::lets_go, the rule both clients keep).
-using glideslope::net::quiet_before_believing_s;
-
 // **How a stay ended**: it stayed its time, or the server let it go (and it
 // may join again), or the operator dropped it (and it may not).
 enum class Ended { stayed, let_go, dropped };
 
-// **Whether a datagram is the server's refusal, and for what**: only from
-// the server's own address (net/rejoin.hpp).
-using glideslope::net::refusal_from;
-
-// A sealed `PING` of this client's own, `token`, to the server.
-void knock_on(glideslope::platform::UdpSocket& socket,
-              const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
-              std::uint64_t token) {
-    const std::vector<std::uint8_t> out = glideslope::net::sealed_knock(sealer, token);
-    (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
-}
-
 // **A test flag's work (`--stall-once-rolled`)**: the client stops, as a
 // process suspended or a laptop shut would - sending nothing and answering
-// nothing - until the server has let it go. **That is waited for, not
-// timed.** What arrives is read and thrown away, as a stopped process would
-// never have read it, until nothing has come for three seconds: the server
-// knocks once a second, so its knocks have stopped. Then it knocks itself,
-// once a second: a `BAD_HANDSHAKE` from the server says the session is gone,
-// and the stall is over; anything that opens under the session says it is
-// not - a server slow enough to have missed three knocks - and it stalls
-// again. Returns false if none of that came in five minutes.
-bool stall_until_let_go(glideslope::platform::UdpSocket& socket,
-                        const glideslope::platform::Address& server,
-                        glideslope::net::Sealer& sealer, glideslope::net::Unsealer& unsealer) {
-    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
-    const auto since = [](std::chrono::steady_clock::time_point t) {
-        return std::chrono::duration<double>(std::chrono::steady_clock::now() - t).count();
-    };
-    constexpr double gone_after_s = 3.0;
+// nothing - until the server has let it go: the session's own stall
+// (net::ClientSession::stall_until_let_go), the one the client with the
+// window stalls by too. **That is waited for, not timed**: what arrives is
+// thrown away until nothing has come for three seconds, then the session
+// knocks once a second, and the server's `BAD_HANDSHAKE` is the let-go.
+// Returns false if that did not come in five minutes.
+bool stall_until_let_go(glideslope::net::ClientSession& session,
+                        const std::function<double()>& session_now) {
     constexpr double most_waited_s = 300.0;
-    const auto began = std::chrono::steady_clock::now();
-    std::uint64_t token = 1u << 20;
-    for (;;) {
-        auto last_heard = std::chrono::steady_clock::now();
-        while (since(last_heard) < gone_after_s) {
-            if (since(began) > most_waited_s) {
-                return false;
-            }
-            glideslope::platform::Address from;
-            if (socket.receive(into, from) > 0) {
-                last_heard = std::chrono::steady_clock::now();
-            } else {
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            }
+    const double began_s = session_now();
+    session.stall_until_let_go();
+    while (session.standing() == glideslope::net::ClientSession::Standing::joined) {
+        if (session_now() - began_s > most_waited_s) {
+            return false;
         }
-        bool opened = false;
-        double knocked_s = -1.0;
-        const auto quiet_from = std::chrono::steady_clock::now();
-        while (!opened) {
-            if (since(began) > most_waited_s) {
-                return false;
-            }
-            if (knocked_s < 0.0 || since(quiet_from) - knocked_s >= 1.0) {
-                knock_on(socket, server, sealer, ++token);
-                knocked_s = since(quiet_from);
-            }
-            glideslope::platform::Address from;
-            const std::size_t got = socket.receive(into, from);
-            if (got <= glideslope::net::envelope_size) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                continue;
-            }
-            const std::span<const std::uint8_t> datagram(into.data(), got);
-            if (refusal_from(server, from, datagram) == glideslope::net::Refusal::bad_handshake) {
-                return true;
-            }
-            if (datagram[glideslope::net::envelope_size - 1] ==
-                    static_cast<std::uint8_t>(glideslope::net::Type::sealed) &&
-                unsealer.open(datagram.subspan(glideslope::net::envelope_size))) {
-                opened = true;
-                std::printf("the session still answers; stalling again\n");
-                std::fflush(stdout);
-            }
-        }
+        session.poll(session_now());
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
+    return session.standing() == glideslope::net::ClientSession::Standing::joining_again;
 }
 
 // **What a session carries from one stay in it to the next**: the client's
-// input frames, numbered from 1, and the reliable stream both ways. A client
+// input frames, numbered from 1 (and the reliable stream both ways, which is
+// the session's own: net::ClientSession keeps it). A client
 // that goes back to its old session after a refusal it believed is in the same
 // session as before, and the server's count of its inputs did not start again:
 // inputs numbered afresh from 1 were all older than the newest it had applied,
 // and every one was dropped until the count passed where it had been. A new
 // session starts them all again.
 struct SessionStreams {
-    glideslope::net::Reliable reliable;
     glideslope::net::InputSender sending;
     std::uint32_t sequence = 0;
 };
 
-// Stays in a session: answers the server's knocks, flies if told to, and
-// hears what the server says. **Says in `ended` how it ended**, returning
+// Stays in a session (net::ClientSession, the one both clients use, read a
+// datagram at a time): answers the server's knocks, flies if told to, and
+// hears what the server says. `session_now` is the session's clock, which
+// runs on across stays. **Says in `ended` how it ended**, returning
 // early when the server has let this session go - a `BAD_HANDSHAKE` from the
 // server's address heard after the session had gone quiet
 // (`quiet_before_believing_s`) - so that the caller can join again; or when
 // the server said goodbye (`LEAVING`), which is the operator dropping it.
-int stay(glideslope::platform::UdpSocket& socket,
-         const glideslope::platform::Address& server, glideslope::net::Sealer& sealer,
-         glideslope::net::Unsealer& unsealer, double seconds,
-         const std::string& until_exists,
-         std::span<const std::uint8_t> initiation_again, bool fly, const std::string& me,
+int stay(glideslope::net::ClientSession& session, const std::function<double()>& session_now,
+         double seconds, const std::string& until_exists, bool initiation_again, bool fly, const std::string& me,
          const std::string& heard_file, int until_flying_again,
          bool predict, const std::string& track_file, double hand_over_at_s,
          double take_back_at_s, double dive_after_s, bool watch_ai,
@@ -4865,11 +4806,10 @@ int stay(glideslope::platform::UdpSocket& socket,
     }
     // **What must arrive**: the server's reliable messages, acknowledged,
     // and what each aircraft is, said as it is heard.
-    glideslope::net::Reliable& reliable = streams.reliable;
     std::uint8_t mine = glideslope::net::no_aircraft;
     std::optional<double> newest_state_s;
-    std::vector<std::uint8_t> before_take_over;
-    std::optional<std::vector<std::uint8_t>> hear_again;
+    std::optional<glideslope::net::StatePacket> before_take_over;
+    std::optional<glideslope::net::StatePacket> hear_again;
     bool asked_to_hand_over = false;
     bool asked_to_watch = false;
     // Asked for its own levers (`--stovl-at-once`), and riding in nothing
@@ -4952,14 +4892,19 @@ int stay(glideslope::platform::UdpSocket& socket,
     // itself, and a server that answered it with a fresh session would leave
     // this client sealing under keys the server had thrown away - so if the
     // pings below stop being answered, that is what happened.
-    if (!initiation_again.empty()) {
-        (void)socket.send(server, initiation_again);
+    if (initiation_again) {
+        session.send_the_initiation_again();
     }
-    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    session.keep_in_order();
+    // **What arrived and is still to be dealt with**, one a pass, in the
+    // order it came: a datagram of what must arrive can deliver several.
+    std::deque<glideslope::net::ClientSession::Arrived> waiting;
     const auto began = std::chrono::steady_clock::now();
     if (predicting) {
         predicting->began_at(began);
     }
+    // The server's knocks answered in this stay (the session answers them).
+    const int answered_before = session.answered();
     int answered = 0;
     int heard = 0;
     // The simulation's step in the first and the last update heard: a test
@@ -4986,11 +4931,6 @@ int stay(glideslope::platform::UdpSocket& socket,
     std::uint32_t applied = 0;
     double roll_seen_deg = 0.0;
     double last_heard_s = 0.0;
-    // When something last opened under this session, and when this client
-    // last knocked for want of it.
-    double last_opened_s = 0.0;
-    double knocked_at_s = -1.0;
-    std::uint64_t knocks = 0;
     double looked_for_file_at_s = -1.0;
     bool drained = true;
     for (;;) {
@@ -5090,7 +5030,7 @@ int stay(glideslope::platform::UdpSocket& socket,
             stall_once_rolled = false;
             std::printf("stalled once rolled to %.0f degrees\n", roll_seen_deg);
             std::fflush(stdout);
-            if (!stall_until_let_go(socket, server, sealer, unsealer)) {
+            if (!stall_until_let_go(session, session_now)) {
                 std::fprintf(stderr, "glideslope_cli: the server never let this client go\n");
                 return 1;
             }
@@ -5098,14 +5038,6 @@ int stay(glideslope::platform::UdpSocket& socket,
             std::fflush(stdout);
             ended = Ended::let_go;
             return 0;
-        }
-        // **A session gone quiet is knocked on from this end** - a `PING` of
-        // its own, once a second - so that a server that has it answers,
-        // and one that has let it go refuses, even from a client that sends
-        // nothing else.
-        if (up_s - last_opened_s >= 1.0 && up_s - knocked_at_s >= 1.0) {
-            knocked_at_s = up_s;
-            knock_on(socket, server, sealer, ++knocks);
         }
         // **Stay until a file appears** (`--until-exists FILE`): a test that
         // needs the server kept running while something else happens waits
@@ -5127,6 +5059,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         constexpr double wait_for_the_last_input_s = 60.0;
         constexpr double server_gone_quiet_s = 5.0;
         const bool finishing = up_s >= seconds;
+        if (finishing) {
+            session.leaving_soon();
+        }
         // **Nor is a stay over before it has answered one of the server's
         // knocks** - been in the session, which is what its exit code says -
         // a minute past its time the most: a server slow enough to say
@@ -5226,17 +5161,8 @@ int stay(glideslope::platform::UdpSocket& socket,
                 }
                 sending.add(sequence, glideslope::net::as_sent(stick.as_list()), step);
             }
-            std::vector<std::uint8_t> body{
-                static_cast<std::uint8_t>(glideslope::net::Inside::inputs)};
             const std::vector<std::uint8_t> packet = sending.packet();
-            body.insert(body.end(), packet.begin(), packet.end());
-            glideslope::net::Writer iw =
-                glideslope::net::begin(glideslope::net::Type::sealed);
-            iw.bytes(sealer.seal(
-                std::span<const std::uint8_t>(body.data(), body.size())));
-            const std::vector<std::uint8_t> out = iw.take();
-            (void)socket.send(server,
-                              std::span<const std::uint8_t>(out.data(), out.size()));
+            session.send_inputs(std::span<const std::uint8_t>(packet.data(), packet.size()));
         }
 
         // **Asking for its own aircraft to be handed to the AI, and back**
@@ -5247,7 +5173,7 @@ int stay(glideslope::platform::UdpSocket& socket,
             swap.aircraft = mine;
             swap.to = to;
             const std::vector<std::uint8_t> body = glideslope::net::write(swap);
-            (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+            (void)session.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
         };
         // **The copilot that plans it handed over** (`--hand-over-model`),
         // made once the server has said which aircraft is its own and what
@@ -5353,7 +5279,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 swap.aircraft = ai_to_take;
                 swap.to = glideslope::net::Controller::person;
                 const std::vector<std::uint8_t> body = glideslope::net::write(swap);
-                (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                (void)session.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
                 say_heard("asked to take over aircraft " + std::to_string(ai_to_take));
             }
         }
@@ -5362,10 +5288,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         const auto knock_with = [&](std::uint64_t token) {
             const std::vector<std::uint8_t> ping =
                 glideslope::net::knock(glideslope::net::Inside::ping, token);
-            glideslope::net::Writer fw = glideslope::net::begin(glideslope::net::Type::sealed);
-            fw.bytes(sealer.seal(std::span<const std::uint8_t>(ping.data(), ping.size())));
-            const std::vector<std::uint8_t> out = fw.take();
-            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
+            const std::vector<std::uint8_t> out =
+                session.sealed(std::span<const std::uint8_t>(ping.data(), ping.size()));
+            session.send_from_here(std::span<const std::uint8_t>(out.data(), out.size()));
         };
         if (flood.on && !flood.done && !flood.began_s && applied > 0) {
             flood.began_s = up_s;
@@ -5401,10 +5326,10 @@ int stay(glideslope::platform::UdpSocket& socket,
                 glideslope::net::Watch watch;
                 watch.aircraft = i % 2 == 0 ? mine : glideslope::net::no_aircraft;
                 const std::vector<std::uint8_t> body = glideslope::net::write(watch);
-                (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                (void)session.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
             }
         }
-        if (flood.asked && reliable.in_flight() == 0 && !flood.done) {
+        if (flood.asked && session.messages_in_flight() == 0 && !flood.done) {
             flood.done = true;
             // On standard error, which a test reads whatever order its
             // pipeline is in.
@@ -5415,16 +5340,11 @@ int stay(glideslope::platform::UdpSocket& socket,
                          ConnectFlood::requests);
             std::fflush(stderr);
         }
-        // Acknowledgements of what must arrive, when any are owed.
-        for (const std::vector<std::uint8_t>& datagram : reliable.to_send(up_s)) {
-            std::vector<std::uint8_t> body{
-                static_cast<std::uint8_t>(glideslope::net::Inside::reliable)};
-            body.insert(body.end(), datagram.begin(), datagram.end());
-            glideslope::net::Writer rw = glideslope::net::begin(glideslope::net::Type::sealed);
-            rw.bytes(sealer.seal(std::span<const std::uint8_t>(body.data(), body.size())));
-            const std::vector<std::uint8_t> out = rw.take();
-            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
-        }
+        // Acknowledgements of what must arrive, when any are owed, and the
+        // knocks of a session gone quiet - a `PING` of its own, once a
+        // second, so that a server that has it answers, and one that has let
+        // it go refuses, even from a client that sends nothing else.
+        session.tend(session_now());
 
         // **Everything waiting is read before a frame is drawn**, as a real
         // client reads its socket dry each frame: reading one datagram a
@@ -5440,69 +5360,70 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->advance(up_s, sequence, stick);
             predicting->render(up_s);
         }
-        std::optional<std::vector<std::uint8_t>> opened;
+        glideslope::net::ClientSession::Arrived arrived;
         if (hear_again) {
             // A test's late update (`--late-update-after-take-over`), heard
             // now as if the network had held it back.
-            opened = std::move(hear_again);
+            arrived.state = std::move(*hear_again);
             hear_again.reset();
+        } else if (!waiting.empty()) {
+            drained = false;
+            arrived = std::move(waiting.front());
+            waiting.pop_front();
         } else {
-            glideslope::platform::Address from;
-            const std::size_t got = socket.receive(into, from);
-            drained = got == 0;
-            if (got <= glideslope::net::envelope_size) {
-                if (drained) {
-                    // What was asked is counted as this client's own; only
-                    // what the machine slept past it is not.
-                    constexpr std::chrono::duration<double> nap = std::chrono::milliseconds(1);
-                    std::this_thread::sleep_for(nap);
-                    if (predicting) {
-                        predicting->slept(nap.count());
-                    }
-                }
-                continue;
-            }
-            last_heard_s = up_s;
-            glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
-            glideslope::net::Envelope envelope;
-            glideslope::net::Refusal why{};
-            if (!glideslope::net::read_envelope(r, envelope, why)) {
-                continue;
-            }
+            const bool got = session.read_one(session_now());
+            answered = session.answered() - answered_before;
             // **A refusal is believed only of a session gone quiet**, only
             // from the server's address, and only for `BAD_HANDSHAKE` - "no
-            // session here". It is sent in the clear, so anybody can forge
-            // one; one heard while the session works is ignored. One heard
-            // after nothing has opened for `quiet_before_believing_s` - the
-            // server's knocks and this client's own unanswered - says what
-            // the silence already did. Not while finishing: a client leaving
-            // has no use for another session.
-            if (!finishing &&
-                glideslope::net::lets_go(server, from,
-                                         std::span<const std::uint8_t>(into.data(), got),
-                                         up_s - last_opened_s)) {
+            // session here" (net::lets_go, in the session). Not while
+            // finishing: a client leaving has no use for another session
+            // (`leaving_soon`).
+            if (session.standing() == glideslope::net::ClientSession::Standing::joining_again) {
                 std::printf("let go by the server: refused BAD_HANDSHAKE after %.1f s of "
                             "nothing\n",
-                            up_s - last_opened_s);
+                            session.quiet_when_let_go_s());
                 std::fflush(stdout);
                 ended = Ended::let_go;
                 return 0;
             }
-            if (envelope.type != glideslope::net::Type::sealed) {
+            // **The server's goodbye** (`LEAVING`, sealed under this
+            // session, so the server's own): the operator dropped this
+            // client. It does not come back.
+            if (session.standing() == glideslope::net::ClientSession::Standing::dropped) {
+                say_heard("the server ended this session (dropped, or taken over by a newer "
+                          "session for this key); not joining again");
+                std::printf("the server ended this session (dropped, or taken over by a newer "
+                            "session for this key)\n");
+                std::fflush(stdout);
+                ended = Ended::dropped;
+                return 1;
+            }
+            drained = !got;
+            if (!got) {
+                // What was asked is counted as this client's own; only
+                // what the machine slept past it is not.
+                constexpr std::chrono::duration<double> nap = std::chrono::milliseconds(1);
+                std::this_thread::sleep_for(nap);
+                if (predicting) {
+                    predicting->slept(nap.count());
+                }
                 continue;
             }
-            opened = unsealer.open(std::span<const std::uint8_t>(into.data(), got)
-                                       .subspan(glideslope::net::envelope_size));
-            if (!opened) {
+            last_heard_s = up_s;
+            for (glideslope::net::ClientSession::Arrived& a : session.take_arrived()) {
+                waiting.push_back(std::move(a));
+            }
+            if (waiting.empty()) {
                 continue;
             }
-            last_opened_s = up_s;
+            arrived = std::move(waiting.front());
+            waiting.pop_front();
         }
-        const std::span<const std::uint8_t> inside(opened->data(), opened->size());
         // **Where everybody is.** Nothing is done with it here beyond
         // counting and printing it: this is the command-line tool, and it has
         // no sky to draw them in.
-        if (const auto state = glideslope::net::read_state(inside)) {
+        if (arrived.what == glideslope::net::ClientSession::Arrived::What::state) {
+            const glideslope::net::StatePacket* const state = &arrived.state;
             ++heard;
             // **An update the network held back past a newer one** says
             // what was so then: an aircraft since given up is not taken over
@@ -5523,10 +5444,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             // is kept for it.
             if (late_update_after_take_over && newest_state) {
                 if (state->your_aircraft == mine) {
-                    before_take_over.assign(inside.begin(), inside.end());
+                    before_take_over = *state;
                 } else if (mine != glideslope::net::no_aircraft &&
                            state->your_aircraft != glideslope::net::no_aircraft &&
-                           !before_take_over.empty()) {
+                           before_take_over) {
                     hear_again = before_take_over;
                     say_heard("an update from before the take-over is heard again after it");
                 }
@@ -5570,7 +5491,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                         glideslope::net::Watch watch;
                         watch.aircraft = a.index;
                         const std::vector<std::uint8_t> body = glideslope::net::write(watch);
-                        (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                        (void)session.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
                         asked_to_watch = true;
                         say_heard("watching aircraft " + std::to_string(a.index));
                         break;
@@ -5594,7 +5515,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                             glideslope::net::Watch nothing;
                             nothing.aircraft = glideslope::net::no_aircraft;
                             const std::vector<std::uint8_t> body = glideslope::net::write(nothing);
-                            (void)reliable.send(
+                            (void)session.send_message(
                                 std::span<const std::uint8_t>(body.data(), body.size()));
                         }
                     }
@@ -5610,7 +5531,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     glideslope::net::Watch watch;
                     watch.aircraft = *watch_for;
                     const std::vector<std::uint8_t> body = glideslope::net::write(watch);
-                    (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                    (void)session.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
                 }
             }
             if (newest_state) {
@@ -5629,7 +5550,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 const auto send_route = [&](glideslope::net::CopilotRoute route) {
                     route.aircraft = mine;
                     const std::vector<std::uint8_t> body = glideslope::net::write(route);
-                    (void)reliable.send(std::span<const std::uint8_t>(body.data(), body.size()));
+                    (void)session.send_message(std::span<const std::uint8_t>(body.data(), body.size()));
                     cc.sent_at_s = now_s;
                     say_heard("sent its copilot's route of " + std::to_string(route.waypoints.size()) +
                               " at " + std::to_string(std::llround(now_s)) + " s");
@@ -5658,7 +5579,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                             cc.route_sent = true;
                             route.aircraft = to;
                             const std::vector<std::uint8_t> body = glideslope::net::write(route);
-                            (void)reliable.send(
+                            (void)session.send_message(
                                 std::span<const std::uint8_t>(body.data(), body.size()));
                             cc.sent_at_s = now_s;
                             say_heard("sent its copilot's route of " +
@@ -5907,9 +5828,9 @@ int stay(glideslope::platform::UdpSocket& socket,
             }
             continue;
         }
-        if (!inside.empty() &&
-            inside[0] == static_cast<std::uint8_t>(glideslope::net::Inside::reliable)) {
-            for (const std::vector<std::uint8_t>& message : reliable.received(inside.subspan(1))) {
+        if (arrived.what == glideslope::net::ClientSession::Arrived::What::message) {
+            {
+                const std::vector<std::uint8_t>& message = arrived.message;
                 switch (told.hear(std::span<const std::uint8_t>(message.data(), message.size()))) {
                 case glideslope::net::Told::Heard::dataset: {
                     const glideslope::net::TerrainDataset ours =
@@ -6083,58 +6004,29 @@ int stay(glideslope::platform::UdpSocket& socket,
             }
             continue;
         }
-        // **The server's goodbye** (`LEAVING`, sealed under this session,
-        // so the server's own): the operator dropped this client. It does
-        // not come back.
-        if (glideslope::net::is_leaving(inside)) {
-            say_heard("the server ended this session (dropped, or taken over by a newer "
-                      "session for this key); not joining again");
-            std::printf("the server ended this session (dropped, or taken over by a newer "
-                        "session for this key)\n");
-            std::fflush(stdout);
-            ended = Ended::dropped;
-            return 1;
-        }
-        // The server's answers to the flood's knocks (`--flood`).
-        if (const auto pong = glideslope::net::knock_token(glideslope::net::Inside::pong, inside);
-            pong && connect_flood.on) {
-            if (*pong == ConnectFlood::last_token) {
+        // The server's answers to the flood's knocks (`--flood`); the
+        // server's own knocks the session has answered.
+        if (connect_flood.on) {
+            const std::uint64_t pong = arrived.token;
+            if (pong == ConnectFlood::last_token) {
                 connect_flood.last_answered = true;
-            } else if (*pong >= ConnectFlood::first_token &&
-                       *pong < ConnectFlood::first_token + ConnectFlood::pings) {
+            } else if (pong >= ConnectFlood::first_token &&
+                       pong < ConnectFlood::first_token + ConnectFlood::pings) {
                 ++connect_flood.answered;
             }
-            continue;
         }
-        const auto token =
-            glideslope::net::knock_token(glideslope::net::Inside::ping, inside);
-        if (!token) {
-            continue;
-        }
-        const std::vector<std::uint8_t> pong =
-            glideslope::net::knock(glideslope::net::Inside::pong, *token);
-        glideslope::net::Writer w =
-            glideslope::net::begin(glideslope::net::Type::sealed);
-        w.bytes(sealer.seal(std::span<const std::uint8_t>(pong.data(), pong.size())));
-        const std::vector<std::uint8_t> out = w.take();
-        (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
-        ++answered;
     }
     // **A client that is leaving says so** (`LEAVING`), so that the server
     // lets it go now rather than after its `--timeout` of silence. Not
     // reliable - this client will not wait to hear it acknowledged - so it
     // goes `leaving_copies` times, each sealed afresh: the first to arrive
     // lets the session go, and the server's timeout is there if none does.
+    answered = session.answered() - answered_before;
     if (goodbye) {
-        const std::vector<std::uint8_t> leaving{
-            static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
-        for (int copy = 0; copy < glideslope::net::leaving_copies; ++copy) {
-            glideslope::net::Writer lw = glideslope::net::begin(glideslope::net::Type::sealed);
-            lw.bytes(sealer.seal(std::span<const std::uint8_t>(leaving.data(), leaving.size())));
-            const std::vector<std::uint8_t> out = lw.take();
-            (void)socket.send(server, std::span<const std::uint8_t>(out.data(), out.size()));
-        }
+        session.leave();
         std::printf("said goodbye\n");
+    } else {
+        session.end_without_goodbye();
     }
     std::printf("stayed %.1f s, answered %d ping%s and heard %d state update%s\n",
                 seconds, answered, answered == 1 ? "" : "s", heard,
@@ -6293,10 +6185,8 @@ int again_once_let_go(glideslope::platform::UdpSocket& socket,
 //
 // None may let anybody go. The server says, as it lets each go, how long after
 // its admission that was, and a test holds that to the whole stay.
-bool forge_goodbyes(glideslope::platform::UdpSocket& socket,
-                    const glideslope::platform::Address& server,
-                    glideslope::net::Sealer& sealer, glideslope::net::ClientSession& other,
-                    const std::string& heard_file) {
+bool forge_goodbyes(glideslope::net::ClientSession& session,
+                    glideslope::net::ClientSession& other, const std::string& heard_file) {
     // Said to standard output, and to `--heard FILE` for a test in a pipeline.
     const auto say = [&](const std::string& line) {
         std::printf("%s\n", line.c_str());
@@ -6307,16 +6197,15 @@ bool forge_goodbyes(glideslope::platform::UdpSocket& socket,
     const std::vector<std::uint8_t> leaving{
         static_cast<std::uint8_t>(glideslope::net::Inside::leaving)};
     const std::span<const std::uint8_t> plain(leaving.data(), leaving.size());
-    glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::sealed);
-    w.bytes(sealer.seal(plain));
-    const std::vector<std::uint8_t> mine = w.take();
+    const std::vector<std::uint8_t> mine = session.sealed(plain);
     const std::span<const std::uint8_t> mine_bytes(mine.data(), mine.size());
+    const glideslope::platform::Address& server = session.server();
 
     other.send_from_here(mine_bytes);
     say("sent this session's goodbye from another session's address");
 
     const std::vector<std::uint8_t> theirs = other.sealed(plain);
-    (void)socket.send(server, std::span<const std::uint8_t>(theirs.data(), theirs.size()));
+    session.send_from_here(std::span<const std::uint8_t>(theirs.data(), theirs.size()));
     say("sent another session's goodbye from this session's address");
 
     auto nowhere = glideslope::platform::UdpSocket::bound(0);
@@ -6363,78 +6252,6 @@ void say_outcome(const std::string& heard_file, const std::string& line) {
     std::fprintf(stderr, "glideslope_cli: %s\n", line.c_str());
     if (!heard_file.empty()) {
         std::ofstream(heard_file, std::ios::app) << line << '\n';
-    }
-}
-
-// **How joining again came out**: a new session; the old one after all - it
-// answered a knock, so it was never gone; refused, and why; or no answer in a
-// minute. And how many datagrams opened under the old session that were not
-// its answer, and were not gone back for.
-struct Rejoined {
-    std::optional<glideslope::net::SessionKeys> keys;
-    bool old_session_answers = false;
-    std::optional<glideslope::net::Refusal> refused;
-    int stale = 0;
-};
-
-// **Joins again, as a client the server has let go** (`stay()`'s
-// `Ended::let_go`), by `net::Rejoin` - the same piece the client with the
-// window joins again by: a new initiation with the same static key, resent
-// every quarter of a second until it is answered, a minute the most, and the
-// old session knocked on meanwhile. **Back to the old session only on its
-// answer to that knock**: anything else that opens under it may have been
-// sealed before the server let it go, and going back on it left a ghost
-// session on the server and this client lost for its timeout.
-// `SERVER_FULL` and `DROPPED` end it, with the reason.
-Rejoined join_again(glideslope::platform::UdpSocket& socket,
-                    const glideslope::platform::Address& server,
-                    const glideslope::net::KeyPair& mine, const glideslope::net::PublicKey& theirs,
-                    glideslope::net::Sealer& old_sealing, glideslope::net::Unsealer& old_opening) {
-    Rejoined out;
-    const std::vector<std::uint8_t> payload = connect_payload();
-    glideslope::net::Rejoin rejoin(mine, theirs, old_sealing, old_opening,
-                                   std::span<const std::uint8_t>(payload.data(), payload.size()));
-    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
-    const auto began = std::chrono::steady_clock::now();
-    for (;;) {
-        const double waited =
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
-        if (waited > 60.0) {
-            return out;
-        }
-        for (const std::vector<std::uint8_t>& datagram : rejoin.due(waited)) {
-            (void)socket.send(server,
-                              std::span<const std::uint8_t>(datagram.data(), datagram.size()));
-        }
-        glideslope::platform::Address from;
-        const std::size_t got = socket.receive(into, from);
-        if (got <= glideslope::net::envelope_size) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            continue;
-        }
-        using Heard = glideslope::net::Rejoin::Heard;
-        const Heard heard =
-            rejoin.hear(server, from, std::span<const std::uint8_t>(into.data(), got));
-        out.stale = rejoin.stale();
-        switch (heard) {
-        case Heard::server_full:
-            out.refused = glideslope::net::Refusal::server_full;
-            return out;
-        case Heard::dropped:
-            out.refused = glideslope::net::Refusal::dropped;
-            return out;
-        case Heard::wrong_layout:
-            out.refused = glideslope::net::Refusal::wrong_layout;
-            return out;
-        case Heard::old_session_answers:
-            out.old_session_answers = true;
-            return out;
-        case Heard::joined:
-            out.keys = rejoin.keys();
-            return out;
-        case Heard::nothing:
-            break;
-        }
     }
 }
 
@@ -6588,12 +6405,6 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
         std::fprintf(stderr, "glideslope_cli: that is not a server key\n");
         return 2;
     }
-    auto socket = glideslope::platform::UdpSocket::bound(0);
-    if (!socket) {
-        std::fprintf(stderr, "glideslope_cli: cannot open a socket\n");
-        return 1;
-    }
-
     // **A test flag's work, too**: `--key` makes this client a known player,
     // so that a test can choose which way the players' keys sort and so
     // build the order of arrival it means to, rather than hope for it.
@@ -6607,12 +6418,6 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
         mine.secret = *secret;
         mine.publik = glideslope::net::public_from_secret(*secret);
     }
-    glideslope::net::Initiator initiator(mine, *theirs);
-    glideslope::net::Writer w =
-        glideslope::net::begin(glideslope::net::Type::handshake_initiation);
-    const std::vector<std::uint8_t> payload = connect_payload();
-    w.bytes(initiator.begin(std::span<const std::uint8_t>(payload.data(), payload.size())));
-    const std::vector<std::uint8_t> first = w.take();
     // What a STOVL landing needs, and the ground a prediction's air is
     // flown over, read before the server is asked for a session
     // (prepare_stovl_ground).
@@ -6638,11 +6443,11 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     // spoofed address to arrive first. This client must still get a session
     // of its own from its own address. The copy's answer is waited for, not
     // timed, so that it has been taken before the real one goes.
-    if (first_from_elsewhere) {
+    const auto copy_first = [&](std::span<const std::uint8_t> first) {
         auto elsewhere = glideslope::platform::UdpSocket::bound(0);
         if (!elsewhere) {
             std::fprintf(stderr, "glideslope_cli: cannot open a second socket\n");
-            return 1;
+            return false;
         }
         std::vector<std::uint8_t> back(glideslope::platform::largest_datagram);
         const auto asked = std::chrono::steady_clock::now();
@@ -6654,11 +6459,10 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
             if (waited_s > 60.0) {
                 std::fprintf(stderr, "glideslope_cli: the copy from elsewhere was "
                                      "never answered\n");
-                return 1;
+                return false;
             }
             if (waited_s - resent_at_s >= 0.25) {
-                (void)elsewhere->send(*address, std::span<const std::uint8_t>(
-                                                    first.data(), first.size()));
+                (void)elsewhere->send(*address, first);
                 resent_at_s = waited_s;
             }
             glideslope::platform::Address from;
@@ -6671,211 +6475,176 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
         std::printf("the copy from elsewhere was answered\n");
-    }
-    if (!socket->send(*address,
-                      std::span<const std::uint8_t>(first.data(), first.size()))) {
-        std::fprintf(stderr, "glideslope_cli: cannot send to %s\n", where.c_str());
-        return 1;
-    }
+        return true;
+    };
 
-    // Wait for the answer, resending while nothing comes: a handshake over
-    // UDP has to expect its first datagram to be lost, and a server that is
-    // not listening yet answers nothing at all. The same initiation goes out
-    // each time - `Noise_IK` makes one initiation, and a second would be a
-    // second handshake - which the server treats as a duplicate.
+    // **The handshake is the session's** (net::ClientSession::join), the
+    // one the client with the window joins by: the initiation resent every
+    // quarter of a second while nothing comes - a handshake over UDP has to
+    // expect its first datagram to be lost, and a server that is not
+    // listening yet answers nothing at all.
     //
     // **A minute before giving up**, not five seconds: a server builds its
     // terrain after binding its socket and answers nothing until it has, and
     // a debug server on a busy CI runner took longer than five seconds - so
     // clients started with it gave up, and tests found fewer players than
     // they had started. What arrives meanwhile waits in the socket.
-    constexpr double resend_every_s = 0.25;
-    constexpr double give_up_after_s = 60.0;
-    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
+    glideslope::net::ClientSession::Asking asking;
+    asking.payload = connect_payload();
+    asking.give_up_after_s = 60.0;
+    asking.resend_every_s = 0.25;
+    if (first_from_elsewhere) {
+        asking.before_sending = copy_first;
+    }
+    // The session's clock, from now: it runs on across every stay in it.
     const auto began = std::chrono::steady_clock::now();
-    double sent_at_s = 0.0;
-    for (;;) {
-        glideslope::platform::Address from;
-        const std::size_t got = socket->receive(into, from);
-        const double waited =
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
-                .count();
-        if (got > glideslope::net::envelope_size) {
-            glideslope::net::Reader r(std::span<const std::uint8_t>(into.data(), got));
-            glideslope::net::Envelope envelope;
-            glideslope::net::Refusal why{};
-            if (glideslope::net::read_envelope(r, envelope, why)) {
-                if (envelope.type == glideslope::net::Type::refusal) {
-                    // **By its number and its name**: `WRONG_LAYOUT` says what
-                    // to do about it, where `8` says nothing.
-                    const unsigned reason = into[glideslope::net::envelope_size];
-                    const char* name = glideslope::net::refusal_name(
-                        glideslope::net::refusal_of(into[glideslope::net::envelope_size]));
-                    std::fprintf(stderr, "glideslope_cli: refused, reason %u, %s\n", reason, name);
-                    // Said to the file too: a test in a pipeline reads that.
-                    if (!heard_file.empty()) {
-                        std::ofstream(heard_file, std::ios::app)
-                            << "refused, reason " << reason << ", " << name << '\n';
-                    }
-                    return 1;
-                }
-                if (envelope.type == glideslope::net::Type::handshake_response) {
-                    const auto session = initiator.finish(
-                        std::span<const std::uint8_t>(into.data(), got)
-                            .subspan(glideslope::net::envelope_size));
-                    if (!session) {
-                        say_outcome(heard_file, "the answer did not open");
-                        return 1;
-                    }
-                    // And seal something, so the session is used and not
-                    // merely agreed. A pong nobody pinged for: the server
-                    // ignores a token it did not send, so this costs it
-                    // nothing and shows the seal works in this direction.
-                    glideslope::net::Sealer sealer(session->sending);
-                    glideslope::net::Unsealer unsealer(session->receiving);
-                    const std::vector<std::uint8_t> plain =
-                        glideslope::net::knock(glideslope::net::Inside::pong, 0);
-                    glideslope::net::Writer sw =
-                        glideslope::net::begin(glideslope::net::Type::sealed);
-                    sw.bytes(sealer.seal(
-                        std::span<const std::uint8_t>(plain.data(), plain.size())));
-                    const std::vector<std::uint8_t> out = sw.take();
-                    (void)socket->send(
-                        *address,
-                        std::span<const std::uint8_t>(out.data(), out.size()));
-                    std::printf("session with %s\n", session->theirs.text().c_str());
-                    std::printf("sealed %zu bytes to it\n", out.size());
-                    // **A test flag's work (`--again-from-elsewhere`)**: a
-                    // copy of this client's initiation, replayed from another
-                    // port while its session is live - what anybody who saw
-                    // it on the wire could send. The server answers it with
-                    // a session nobody can use; it must not take this one's
-                    // aircraft or end this session for it.
-                    std::optional<CopyFromElsewhere> copy;
-                    if (!again_from_elsewhere.empty()) {
-                        copy.emplace(*address,
-                                     std::span<const std::uint8_t>(first.data(), first.size()),
-                                     again_from_elsewhere);
-                        if (!copy->answered()) {
-                            return 1;
-                        }
-                    }
-                    if (again_when_let_go) {
-                        return again_once_let_go(
-                            *socket, *address,
-                            std::span<const std::uint8_t>(first.data(), first.size()),
-                            std::span<const std::uint8_t>(into.data(), got), stay_s,
-                            heard_file);
-                    }
-                    if (stay_s <= 0.0) {
-                        return 0;
-                    }
-                    // **A test flag's work (`--forge-leaving`)**: goodbyes
-                    // that are not this session's own, each from where a
-                    // forger could send one. A second session is made, and
-                    // lives until this one has stayed - it says goodbye
-                    // itself when it goes, as its own client should.
-                    std::optional<glideslope::net::ClientSession> other =
-                        forge_leaving
-                            ? glideslope::net::ClientSession::connect(
-                                  where, key_hex, glideslope::sim::control_layout, 60.0)
-                            : std::nullopt;
-                    if (forge_leaving) {
-                        if (!other ||
-                            !forge_goodbyes(*socket, *address, sealer, *other, heard_file)) {
-                            return 1;
-                        }
-                    }
-                    Ended ended = Ended::stayed;
-                    SessionStreams streams;
-                    int rc = stay(*socket, *address, sealer, unsealer, stay_s,
-                                  until_exists,
-                                  again ? std::span<const std::uint8_t>(first.data(),
-                                                                       first.size())
-                                        : std::span<const std::uint8_t>(),
-                                  fly, mine.publik.text().substr(0, 8), heard_file,
-                                  until_flying_again, predict, track_file, hand_over_at_s,
-                                  take_back_at_s, dive_after_s, watch_ai, take_over_at_s,
-                                  take_over_aircraft, take_over_once_ai,
-                                  long_frame_after_switch, late_update_after_take_over,
-                                  goodbye, stall_once_rolled, false, streams, ended);
-                    // **A client the server has let go joins again by
-                    // itself**, for what is left of its stay, and flies as
-                    // it did. What it was told to do once - hand over, take
-                    // over, stall - it has done, and does not do again. One
-                    // the operator dropped does not.
-                    glideslope::net::Sealer* sealing = &sealer;
-                    glideslope::net::Unsealer* opening = &unsealer;
-                    std::unique_ptr<glideslope::net::Sealer> owned_sealer;
-                    std::unique_ptr<glideslope::net::Unsealer> owned_unsealer;
-                    while (ended == Ended::let_go) {
-                        const double left_s =
-                            stay_s - std::chrono::duration<double>(
-                                         std::chrono::steady_clock::now() - began)
-                                         .count();
-                        if (left_s <= 0.0) {
-                            break;
-                        }
-                        const Rejoined rejoined =
-                            join_again(*socket, *address, mine, *theirs, *sealing, *opening);
-                        // **What opened under the old session and was not
-                        // gone back for**, said so that a test can tell a
-                        // join made with stale updates arriving from one
-                        // made without.
-                        std::printf("while joining again, %d opened under the old session "
-                                    "that were not its answer\n",
-                                    rejoined.stale);
-                        if (rejoined.refused) {
-                            say_outcome(heard_file,
-                                        "let go, and refused when joining again, reason " +
-                                            std::to_string(
-                                                static_cast<unsigned>(*rejoined.refused)) +
-                                            ", " + glideslope::net::refusal_name(*rejoined.refused));
-                            return 1;
-                        }
-                        if (rejoined.old_session_answers) {
-                            std::printf("the old session answered; staying in it, its inputs "
-                                        "numbered on from %u\n",
-                                        streams.sequence);
-                        } else if (rejoined.keys) {
-                            std::printf("joined again: session with %s\n",
-                                        rejoined.keys->theirs.text().c_str());
-                            owned_sealer =
-                                std::make_unique<glideslope::net::Sealer>(rejoined.keys->sending);
-                            owned_unsealer = std::make_unique<glideslope::net::Unsealer>(
-                                rejoined.keys->receiving);
-                            sealing = owned_sealer.get();
-                            opening = owned_unsealer.get();
-                            streams = SessionStreams{};
-                        } else {
-                            say_outcome(heard_file, "let go, and could not join again");
-                            return 1;
-                        }
-                        std::fflush(stdout);
-                        rc = stay(*socket, *address, *sealing, *opening, left_s, until_exists,
-                                  std::span<const std::uint8_t>(), fly,
-                                  mine.publik.text().substr(0, 8), heard_file,
-                                  until_flying_again, predict, track_file, -1.0, -1.0,
-                                  dive_after_s, watch_ai, -1.0, -1, false,
-                                  long_frame_after_switch, late_update_after_take_over,
-                                  goodbye, false, stall_once_rolled, streams, ended,
-                                  leave_once_back);
-                    }
-                    return rc;
-                }
+    const std::function<double()> session_now = [began] {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+    };
+    glideslope::net::ClientSession::NotJoined why{};
+    std::optional<glideslope::net::Refusal> refused;
+    std::optional<glideslope::net::ClientSession> joined =
+        glideslope::net::ClientSession::join(*address, *theirs, mine, asking, &why, &refused);
+    if (!joined) {
+        using NotJoined = glideslope::net::ClientSession::NotJoined;
+        switch (why) {
+        case NotJoined::no_socket:
+            std::fprintf(stderr, "glideslope_cli: cannot open a socket\n");
+            return 1;
+        case NotJoined::cannot_send:
+            std::fprintf(stderr, "glideslope_cli: cannot send to %s\n", where.c_str());
+            return 1;
+        case NotJoined::held_back:
+            return 1;
+        case NotJoined::refused: {
+            // **By its number and its name**: `WRONG_LAYOUT` says what to do
+            // about it, where `8` says nothing.
+            const unsigned reason = refused ? static_cast<unsigned>(*refused) : 0U;
+            const char* name = glideslope::net::refusal_name(
+                refused ? *refused : glideslope::net::refusal_of(0));
+            std::fprintf(stderr, "glideslope_cli: refused, reason %u, %s\n", reason, name);
+            // Said to the file too: a test in a pipeline reads that.
+            if (!heard_file.empty()) {
+                std::ofstream(heard_file, std::ios::app)
+                    << "refused, reason " << reason << ", " << name << '\n';
             }
+            return 1;
         }
-        if (waited > give_up_after_s) {
+        case NotJoined::did_not_open:
+            say_outcome(heard_file, "the answer did not open");
+            return 1;
+        case NotJoined::no_answer:
             say_outcome(heard_file, "no answer from " + where);
             return 1;
         }
-        if (waited - sent_at_s >= resend_every_s) {
-            (void)socket->send(
-                *address, std::span<const std::uint8_t>(first.data(), first.size()));
-            sent_at_s = waited;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        return 1;
     }
+    glideslope::net::ClientSession& session = *joined;
+    // And something sealed, so the session is used and not merely agreed: a
+    // pong nobody pinged for, which the session sends as it is made
+    // (net::ClientSession's proof).
+    std::printf("session with %s\n", session.theirs().text().c_str());
+    std::printf("sealed %zu bytes to it\n", session.proof_size());
+    // **A test flag's work (`--again-from-elsewhere`)**: a copy of this
+    // client's initiation, replayed from another port while its session is
+    // live - what anybody who saw it on the wire could send. The server
+    // answers it with a session nobody can use; it must not take this one's
+    // aircraft or end this session for it.
+    std::optional<CopyFromElsewhere> copy;
+    if (!again_from_elsewhere.empty()) {
+        copy.emplace(*address, session.initiation(), again_from_elsewhere);
+        if (!copy->answered()) {
+            return 1;
+        }
+    }
+    if (again_when_let_go) {
+        // Quiet from here: the session is not polled, and says nothing as
+        // it goes - the server let it go.
+        const int rc = again_once_let_go(session.socket_for_a_test(), session.server(),
+                                         session.initiation(), session.first_answer(), stay_s,
+                                         heard_file);
+        session.end_without_goodbye();
+        return rc;
+    }
+    if (stay_s <= 0.0) {
+        // A test's silent client, which says no goodbye either.
+        session.end_without_goodbye();
+        return 0;
+    }
+    // **A test flag's work (`--forge-leaving`)**: goodbyes that are not this
+    // session's own, each from where a forger could send one. A second
+    // session is made, and lives until this one has stayed - it says goodbye
+    // itself when it goes, as its own client should.
+    std::optional<glideslope::net::ClientSession> other =
+        forge_leaving ? glideslope::net::ClientSession::connect(
+                            where, key_hex, glideslope::sim::control_layout, 60.0)
+                      : std::nullopt;
+    if (forge_leaving) {
+        if (!other || !forge_goodbyes(session, *other, heard_file)) {
+            return 1;
+        }
+    }
+    Ended ended = Ended::stayed;
+    SessionStreams streams;
+    int rc = stay(session, session_now, stay_s, until_exists, again, fly,
+                  mine.publik.text().substr(0, 8), heard_file, until_flying_again, predict,
+                  track_file, hand_over_at_s, take_back_at_s, dive_after_s, watch_ai,
+                  take_over_at_s, take_over_aircraft, take_over_once_ai,
+                  long_frame_after_switch, late_update_after_take_over, goodbye,
+                  stall_once_rolled, false, streams, ended);
+    // **A client the server has let go joins again by itself** - the
+    // session does (net::ClientSession, by net::Rejoin), the old session
+    // knocked on meanwhile and gone back to only on its answer to that knock
+    // - for what is left of its stay, and flies as it did. What it was told
+    // to do once - hand over, take over, stall - it has done, and does not do
+    // again. One the operator dropped does not.
+    using Standing = glideslope::net::ClientSession::Standing;
+    while (ended == Ended::let_go) {
+        const double left_s = stay_s - session_now();
+        if (left_s <= 0.0) {
+            break;
+        }
+        const int went_back = session.went_back();
+        while (session.standing() == Standing::joining_again) {
+            session.poll(session_now());
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        // **What opened under the old session and was not gone back for**,
+        // said so that a test can tell a join made with stale updates
+        // arriving from one made without.
+        std::printf("while joining again, %d opened under the old session that were not its "
+                    "answer\n",
+                    session.stale_while_joining_again());
+        if (session.standing() == Standing::refused || session.standing() == Standing::dropped) {
+            const glideslope::net::Refusal reason =
+                session.standing() == Standing::dropped
+                    ? glideslope::net::Refusal::dropped
+                    : session.refused_by().value_or(glideslope::net::Refusal::server_full);
+            say_outcome(heard_file, "let go, and refused when joining again, reason " +
+                                        std::to_string(static_cast<unsigned>(reason)) + ", " +
+                                        glideslope::net::refusal_name(reason));
+            return 1;
+        }
+        if (session.standing() != Standing::joined) {
+            say_outcome(heard_file, "let go, and could not join again");
+            return 1;
+        }
+        if (session.went_back() > went_back) {
+            std::printf("the old session answered; staying in it, its inputs numbered on "
+                        "from %u\n",
+                        streams.sequence);
+        } else {
+            std::printf("joined again: session with %s\n", session.theirs().text().c_str());
+            streams = SessionStreams{};
+        }
+        std::fflush(stdout);
+        rc = stay(session, session_now, left_s, until_exists, false, fly,
+                  mine.publik.text().substr(0, 8), heard_file, until_flying_again, predict,
+                  track_file, -1.0, -1.0, dive_after_s, watch_ai, -1.0, -1, false,
+                  long_frame_after_switch, late_update_after_take_over, goodbye, false,
+                  stall_once_rolled, streams, ended, leave_once_back);
+    }
+    return rc;
 }
 
 static int run_program(int argc, char** argv) {

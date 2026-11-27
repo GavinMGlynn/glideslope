@@ -6,7 +6,13 @@
 // This is the client half of the transport, in one place so that both
 // frontends use the same one. It was written inside `glideslope_cli` first,
 // which meant the client with the window could not connect to anything at
-// all; a session belongs to the network, not to one program's `main`.
+// all; a session belongs to the network, not to one program's `main`. And
+// then `glideslope_cli connect` kept a copy of its own beside this one, and a
+// bug was found in one and not the other: **both clients now join, read, stall
+// and say goodbye through this one** - the window client by `poll()` and
+// `take_states()`, the command-line client by `read_one()`, `tend()` and
+// `take_arrived()`, which hand it what arrived one datagram at a time and in
+// the order it came, as its measurements need.
 //
 // **It owns its socket and nothing else.** It does not step an aircraft, does
 // not draw and does not sleep: `poll()` is called as often as the caller
@@ -39,9 +45,11 @@
 #include "platform/socket.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -49,6 +57,33 @@ namespace glideslope::net {
 
 class ClientSession {
 public:
+    // **How a handshake came to no session** (`join`): no socket could be
+    // opened, the initiation could not be sent, the caller's
+    // `before_sending` said not to, the server refused (and why is said),
+    // its answer did not open, or nothing answered in time.
+    enum class NotJoined { no_socket, cannot_send, held_back, refused, did_not_open, no_answer };
+
+    // **What a handshake asks**: the initiation's payload
+    // (net::write_joining - the layout, then the aeroplane), how long to
+    // wait for an answer and how often to send the initiation again.
+    struct Asking {
+        std::vector<std::uint8_t> payload;
+        double give_up_after_s = 5.0;
+        double resend_every_s = 0.25;
+        // **A test flag's work** (`glideslope_cli connect
+        // --first-from-elsewhere`): told the initiation before it is first
+        // sent, as a replayer who saw it would; false, and none is.
+        std::function<bool(std::span<const std::uint8_t>)> before_sending;
+    };
+
+    // **The handshake** with the server at `server`, whose key is `theirs`,
+    // as `mine`: the one both clients make. `why`, given, says how it came
+    // to nothing, and `refused` why the server refused.
+    static std::optional<ClientSession> join(const platform::Address& server,
+                                             const PublicKey& theirs, const KeyPair& mine,
+                                             const Asking& asking, NotJoined* why = nullptr,
+                                             std::optional<Refusal>* refused = nullptr);
+
     // **Completes a handshake with the server at `where`.** Nothing if the
     // address is not one, the key is not one, no socket can be opened, the
     // server refuses, or nothing answers within `give_up_after_s`.
@@ -81,7 +116,43 @@ public:
     // Read whatever has arrived: answer the server's knocking, and take in
     // any state update. `now_s` is the client's own clock, in seconds.
     // Knocks when the session has gone quiet, and, let go, joins again.
+    // `read_one()` until the socket is dry, then `tend()`; joining again,
+    // the rejoin's own.
     void poll(double now_s);
+
+    // **One datagram read and dealt with**, at most: true if there was one.
+    // Answers a knock, takes in an update or what must arrive, and believes
+    // a refusal or the server's goodbye (`standing()` then says so). Only
+    // joined; joining again is `poll()`'s.
+    bool read_one(double now_s);
+    // **What is due to be sent**, joined: the knocks of a session gone quiet
+    // or not yet heard, the acknowledgements owed and what must arrive
+    // again; stalled, only a knock a second once the server's have stopped.
+    void tend(double now_s);
+
+    // **What arrived, in the order it came**, for a caller that reads one
+    // datagram at a time (`keep_in_order()`): each state update, each
+    // message that must arrive as it is delivered, and each `PONG`'s token.
+    // Kept in order, a state update is here and not in `take_states()`.
+    struct Arrived {
+        enum class What { state, message, pong };
+        What what = What::state;
+        StatePacket state;
+        std::vector<std::uint8_t> message;
+        std::uint64_t token = 0;
+    };
+    void keep_in_order() { in_order_ = true; }
+    std::vector<Arrived> take_arrived() {
+        std::vector<Arrived> out;
+        out.swap(arrived_);
+        return out;
+    }
+    // **A session about to leave believes no refusal**: it has no use for
+    // another, and joining again only to leave would leave a session on the
+    // server until its timeout.
+    void leaving_soon() { leaving_soon_ = true; }
+    // How many messages that must arrive are not yet acknowledged.
+    std::size_t messages_in_flight() const { return reliable_.in_flight(); }
 
     // **How the session stands.** `joined` is in one (the first, or one
     // joined again); `joining_again` has been let go and is asking for a new
@@ -206,6 +277,13 @@ public:
     // is sent or read after it. A session that has already left, or never
     // began, sends nothing.
     void leave();
+    // **Ends the session saying nothing** - a test flag's work
+    // (`glideslope_cli connect --no-goodbye`, `--again-when-let-go`), as a
+    // client that crashed would: the server's timeout lets it go.
+    void end_without_goodbye() {
+        sealing_.reset();
+        opening_.reset();
+    }
     // **A session going away says goodbye**, whatever way its owner goes -
     // the window closed, a flight finished, an error returned - so that no
     // clean exit leaves a server waiting on the silence. A crash does not
@@ -229,6 +307,20 @@ public:
     // they make one session's goodbye arrive from another's address.
     std::vector<std::uint8_t> sealed(std::span<const std::uint8_t> plaintext);
     void send_from_here(std::span<const std::uint8_t> datagram);
+    // **More of a test's tools**: the initiation the session was joined by,
+    // and the server's answer to the first; the size of the sealed datagram
+    // that proved the session (`prove_at_once`); where the server is; and
+    // the socket, for a test that goes quiet and listens to it raw
+    // (`--again-when-let-go`), polling nothing meanwhile.
+    std::span<const std::uint8_t> initiation() const {
+        return std::span<const std::uint8_t>(initiation_.data(), initiation_.size());
+    }
+    std::span<const std::uint8_t> first_answer() const {
+        return std::span<const std::uint8_t>(answer_.data(), answer_.size());
+    }
+    std::size_t proof_size() const { return proof_size_; }
+    const platform::Address& server() const { return server_; }
+    platform::UdpSocket& socket_for_a_test() { return *socket_; }
 
 private:
     ClientSession() = default;
@@ -262,6 +354,12 @@ private:
     std::unique_ptr<Sealer> sealing_;
     std::unique_ptr<Unsealer> opening_;
     std::vector<std::uint8_t> initiation_;
+    std::vector<std::uint8_t> answer_;
+    std::size_t proof_size_ = 0;
+    bool in_order_ = false;
+    bool leaving_soon_ = false;
+    std::vector<Arrived> arrived_;
+    std::vector<std::uint8_t> into_ = std::vector<std::uint8_t>(platform::largest_datagram);
     int answered_ = 0;
     int heard_ = 0;
     std::uint8_t mine_ = no_aircraft;
@@ -288,6 +386,7 @@ private:
     std::uint64_t proving_token_ = 0;
 
     void read_what_arrived(double now_s);
+    bool read_datagram(double now_s);
     void knock_on(std::uint64_t token);
     void prove_at_once();
     void let_go_at(double now_s);
