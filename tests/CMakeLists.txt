@@ -501,6 +501,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_stranger_on_the_port_cannot_complete_a_session
     a_client_whose_first_sealed_datagram_is_lost_still_proves_its_session
     a_session_joined_again_hands_up_nothing_of_the_one_let_go
+    a_join_that_comes_to_nothing_says_how
     the_aeroplane_asked_for_reads_back_and_a_malformed_ask_reads_as_none
     joining_again_goes_back_only_on_the_old_sessions_answer_to_its_own_knock
     a_refusal_lets_a_session_go_only_from_the_server_for_no_session_after_three_quiet_seconds

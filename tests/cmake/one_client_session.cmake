@@ -21,11 +21,16 @@
 # 3. **Every test of joining again, going back, being let go or saying
 #    goodbye runs one of the two** - by its name, among every test in
 #    tests/CMakeLists.txt - so each passes through that one session. How many
-#    there are is stated, and a new one fails this until it is counted. Left
-#    out, by name: the tests of a flag refused before anything connects
-#    (GLIDESLOPE_EXPECT_RUN), which run no session at all, and this one.
+#    there are is stated, and a new one fails this until it is counted. The
+#    tests left out are named, with why, and asserted to be exactly those.
+#    Names are read as written in add_test: the names built in loops (the
+#    `${_name}` ones) were read by hand on 2026-11-27 and none is of these
+#    kinds. The unit tests of net::ClientSession and net::Rejoin are the
+#    session itself, and are not counted.
 #
 # -DSOURCE=the source tree's root.
+
+cmake_policy(SET CMP0057 NEW) # if(IN_LIST)
 
 if(NOT SOURCE)
     message(FATAL_ERROR "one_client_session.cmake needs -DSOURCE")
@@ -80,11 +85,16 @@ endif()
 message(STATUS "both clients join through net::ClientSession")
 
 # --- 3. every such test runs one of the two ---------------------------------
-set(_expected 16)
-# This test is one by its name, and runs no client: it reads.
+set(_expected 22)
+# **Left out, each by name and why**, and asserted to be exactly these: a
+# test that runs no client cannot drop out of the count unnoticed.
+#   - this test, which reads and runs no client;
+#   - the_server_refuses_lost_goodbyes_without_a_drop: a server flag refused
+#     before anything connects (GLIDESLOPE_EXPECT_RUN).
 set(_this_test both_clients_join_read_stall_and_say_goodbye_through_one_session)
-set(_names "joins_again|join_again|joining_again|goes_back_to_it|without_going_back|let_go|"
-           "stalled_past|started_again|goodbye|is_leaving|_dropped")
+set(_expected_left_out ${_this_test} the_server_refuses_lost_goodbyes_without_a_drop)
+set(_names "joins_again|join_again|joining_again|lets?(_[a-z]+)?_go|leaving|goes_back_to_it|"
+           "without_going_back|stalled_past|started_again|goodbye|_dropped|drops|forger")
 string(REPLACE ";" "" _names "${_names}")
 file(STRINGS ${SOURCE}/tests/CMakeLists.txt _lines)
 set(_tests 0)
@@ -95,11 +105,14 @@ set(_left_out "")
 set(_all 0)
 macro(_close_test)
     if(_current)
-        if(_runner STREQUAL "expect_run" OR _current STREQUAL _this_test)
+        if(_current IN_LIST _expected_left_out)
             list(APPEND _left_out "${_current}")
         elseif(_client STREQUAL "glideslope_cli" OR _client STREQUAL "glideslope")
             math(EXPR _tests "${_tests} + 1")
             list(APPEND _found "${_current} (${_client})")
+        elseif(_runner STREQUAL "expect_run")
+            list(APPEND _wrong "${_current} runs no client (GLIDESLOPE_EXPECT_RUN) and is not "
+                               "named as left out")
         else()
             list(APPEND _wrong "${_current} runs '${_client}'")
         endif()
@@ -131,16 +144,29 @@ endforeach()
 _close_test()
 if(_wrong)
     string(REPLACE ";" "\n  " _said "${_wrong}")
-    message(FATAL_ERROR "a test of joining again, going back or goodbye runs neither client:"
-                        "\n  ${_said}")
+    message(FATAL_ERROR "a test of joining again, going back, being let go or goodbye runs "
+                        "neither client:\n  ${_said}")
+endif()
+# Exactly the tests named as left out were left out: each one exists, and
+# matched the names.
+set(_missing ${_expected_left_out})
+list(REMOVE_ITEM _missing ${_left_out})
+if(_missing OR NOT _left_out)
+    message(FATAL_ERROR "named as left out but not found among the tests the names match: "
+                        "${_missing}")
+endif()
+list(LENGTH _left_out _left_count)
+list(LENGTH _expected_left_out _expected_left_count)
+if(NOT _left_count EQUAL _expected_left_count)
+    message(FATAL_ERROR "left out ${_left_out}, where ${_expected_left_out} are named")
 endif()
 string(REPLACE ";" "\n  " _said "${_found}")
 string(REPLACE ";" ", " _left "${_left_out}")
 if(NOT _tests EQUAL _expected)
     message(FATAL_ERROR "${_tests} tests of joining again, going back, being let go or goodbye "
                         "among ${_all}, where ${_expected} are counted:\n  ${_said}\nCount a "
-                        "new one here, or say why it is left out.")
+                        "new one here, or name it as left out and say why.")
 endif()
 message(STATUS "${_tests} of ${_expected} tests of joining again, going back, being let go or "
                "goodbye, among ${_all}, run a client on the one session:\n  ${_said}\n"
-               "left out - this test, and a flag refused before anything connects: ${_left}")
+               "left out, by name: ${_left}")

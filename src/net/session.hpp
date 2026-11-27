@@ -133,7 +133,10 @@ public:
     // **What arrived, in the order it came**, for a caller that reads one
     // datagram at a time (`keep_in_order()`): each state update, each
     // message that must arrive as it is delivered, and each `PONG`'s token.
-    // Kept in order, a state update is here and not in `take_states()`.
+    // Kept in order, a state update is here and not in `take_states()`, and
+    // a message is here and not in `told()`, `take_air()`, `take_refusals()`,
+    // `take_learnt_refusals()` or `take_instructions()`: the caller hears
+    // them itself. `roster()` and `last_swap()` are still kept.
     struct Arrived {
         enum class What { state, message, pong };
         What what = What::state;
