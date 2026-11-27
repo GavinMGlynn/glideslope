@@ -117,4 +117,4 @@ writes it afresh. Its test is below.
 
 ## Done
 
-Ticked on train #431, whose full run is the item's verification: every window-client test run on macOS release, none skipped. Checked from that run's macOS release shard logs before it merged.
+Ticked on train #431, whose full run is the item's verification: every window-client test run on macOS release, none skipped but for want of a key. Checked from run 46054882634's six macOS release shard logs before it merged: of the window-client tests only the Google and Cesium ion terrain tests on Metal skipped, each saying it had no key, as CLAUDE.md requires; none skipped for terrain or weather.

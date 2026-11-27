@@ -2259,7 +2259,8 @@ What the client with the window does that the command-line client does, and what
       and a warm-up that times out fails. The HUD tick test's 334 s skip was
       the live weather not answering, not terrain: the HUD tests now fly
       recorded weather, and a skip on macOS CI prints why. *Verification: every
-      window-client test run on macOS release, none skipped.* Done 2026-11-28.
+      window-client test run on macOS release, none skipped but for want of
+      a key.* Done 2026-11-28.
 
 ---
 
