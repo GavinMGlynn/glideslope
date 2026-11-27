@@ -21,6 +21,19 @@
 //
 // It is Windows' runtime and Windows' loader, so elsewhere the test says it is
 // skipped, never passed.
+//
+// **Nor can the standard library's locks be gone.** The second test here
+// takes, at the same last call, the lock a debug build's containers take
+// whenever they are copied or destroyed (`_LOCK_DEBUG`). MSVC's standard
+// library deletes its locks as one of its own static destructors, which
+// `_cexit()` runs, and a deleted lock reads as held: the next thread to take
+// it waits on a lock nobody will free, and faults in ntdll writing 0x24. A
+// thread put into a debug-built test on the Windows development machine at
+// `LoadLibraryW` - from outside the program, between its static destructors
+// and ExitProcess - ran the program's thread_local initialisers, took that
+// lock, and died so in 65 of 300 runs of
+// a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
+// (docs/status/2026-11-27-the-parent-imagery-tests-exit-crash-was-a-thread-from-outside.md).
 
 #include <atomic>
 #include <cstring>
@@ -41,6 +54,7 @@
 namespace {
 
 std::atomic<bool> armed{false};
+std::atomic<bool> locks_armed{false};
 
 } // namespace
 
@@ -55,6 +69,16 @@ void say(const char* line) {
 } // namespace
 
 extern "C" void NTAPI glideslope_process_end_probe(PVOID, DWORD reason, PVOID) {
+    if (reason == DLL_PROCESS_DETACH && locks_armed.load()) {
+        say("the process's end reached the program's last call\n");
+        {
+            // What a debug build's vector or string does as it is copied or
+            // destroyed, in a thread_local's constructor or destructor.
+            const std::_Lockit lock(_LOCK_DEBUG);
+        }
+        say("the standard library locks still lock as the process ends\n");
+        return;
+    }
     if (reason != DLL_PROCESS_DETACH || !armed.load()) {
         return;
     }
@@ -82,5 +106,15 @@ GLIDESLOPE_TEST(a_program_that_has_ended_can_still_allocate_until_its_last_threa
 #else
     glideslope::test::skip("this is Windows' C runtime and loader; nothing here "
                            "tears the runtime down before the threads stop");
+#endif
+}
+
+GLIDESLOPE_TEST(a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone) {
+#if defined(_WIN32)
+    locks_armed.store(true);
+#else
+    glideslope::test::skip("this is MSVC's standard library and Windows' loader; "
+                           "elsewhere nothing deletes the library's locks before "
+                           "the threads stop");
 #endif
 }
