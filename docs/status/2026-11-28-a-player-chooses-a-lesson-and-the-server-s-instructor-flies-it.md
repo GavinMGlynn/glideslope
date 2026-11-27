@@ -29,7 +29,8 @@ and debriefed on her flying.
   cannot be taught, or no runway within 50 km. **Where**: the longest runway
   within 50 km of her, of the collision ground's runways, from its end
   nearer her, its elevation the ground's there (YSSY 16R from the plan's
-  start). While the instructor has her, a state update says the AI flies
+  start); a flying boat's on water, the first 3,000 m of it under her from
+  north round to the right, looked at every 100 m. While the instructor has her, a state update says the AI flies
   her; she gives way to nobody in the separation (as an operator's course
   does) and the AI traffic gives way to her. At the hand-over the server
   announces `CONTROLLER_SWAP` to `PERSON` and lets the instructor go; her
@@ -83,8 +84,22 @@ and debriefed on her flying.
   read back off its frame; the server must say it handed her over. Each
   piece asserts how many it flew of how many it holds, and the six hold the
   42. The server runs at 8 times real time: the circuit, 892 s of flying, in
-  112 s.
-- **Seen to fail**: see below.
+  112 s. On linux-debug, all 42 were flown and debriefed (the six pieces in
+  10 min side by side, and the flying boat's and the wartime twin's 12 again
+  after the water runway below); the flying boat's take-off, circuit and
+  approach first failed, wrecked alighting on YSSY's tarmac - which is why a
+  flying boat's lesson is now taught on water. **Every circuit but the light
+  aeroplane's debriefs "Hold the circuit height downwind"** on the server,
+  where the unit tests' flat sea-level ground flies them to the book: the
+  debrief is shown as it is, and the test does not require it empty.
+- **Seen to fail**, each reverted: the reader taking seven debrief lines -
+  `seven debrief lines is refused` red; the screen showing `ENDED` as
+  refused - the screen unit test red; the HUD drawing the checklist in the
+  lesson's place - the shot test red at `the lessons screen, choosing, on the
+  frame is not the one drawn`; the server telling a stage only when the part
+  changes - `airliner-approach-and-landing: the client was never told the
+  instructor flies stage 2 of 3`. (A reader taking a part of 5 was not
+  caught: the part's switch refuses it anyway, so that break was no break.)
 
 **Decisions**
 

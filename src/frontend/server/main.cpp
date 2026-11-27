@@ -2165,7 +2165,7 @@ public:
             return;
         }
         std::string why;
-        const std::optional<glideslope::sim::Runway> runway = lesson_runway(a, why);
+        const std::optional<glideslope::sim::Runway> runway = lesson_runway(a, entry->second.seaplane, why);
         if (!runway) {
             refuse(why);
             return;
@@ -2200,8 +2200,43 @@ public:
     // of the runways the collision ground is made from, from the end nearer
     // her - its elevation the ground's there, as a runway named is. None,
     // and why, where there is none.
-    std::optional<glideslope::sim::Runway> lesson_runway(const Aircraft& a, std::string& why) {
+    //
+    // **A flying boat's is water**: the runways the ground is made from are
+    // land, and one alighting on them is wrecked. Hers begins under her, on
+    // the water, pointing the first way from north round to the right along
+    // which the next 3,000 m is all water, looked at every 100 m; none where
+    // she is not over water, or no way is.
+    std::optional<glideslope::sim::Runway> lesson_runway(const Aircraft& a, bool seaplane,
+                                                         std::string& why) {
         const glideslope::sim::AircraftState s = a.aircraft->state();
+        if (seaplane) {
+            constexpr double length_m = 3000.0;
+            const double north = glideslope::sim::metres_per_degree_latitude(s.latitude_deg);
+            const double east = glideslope::sim::metres_per_degree_longitude(s.latitude_deg);
+            for (int heading = 0; heading < 360; heading += 10) {
+                const double rad = static_cast<double>(heading) * 3.14159265358979323846 / 180.0;
+                bool all_water = true;
+                for (double m = 0.0; m <= length_m && all_water; m += 100.0) {
+                    all_water = collision_->water(s.latitude_deg + m * std::cos(rad) / north,
+                                                  s.longitude_deg + m * std::sin(rad) / east) !=
+                                glideslope::world::Water::none;
+                }
+                if (all_water) {
+                    glideslope::sim::Runway water;
+                    water.name = "water " + std::to_string(heading);
+                    water.threshold_lat_deg = s.latitude_deg;
+                    water.threshold_lon_deg = s.longitude_deg;
+                    water.heading_deg = static_cast<double>(heading);
+                    water.length_m = length_m;
+                    water.elevation_ft =
+                        collision_->height_above_ellipsoid(s.latitude_deg, s.longitude_deg) *
+                        feet_per_metre;
+                    return water;
+                }
+            }
+            why = "no 3,000 m of water under her for a flying boat to be taught on";
+            return std::nullopt;
+        }
         const auto surfaces = glideslope::world::runway_surfaces(data_);
         std::optional<glideslope::sim::Runway> best;
         double best_m = 0.0;
