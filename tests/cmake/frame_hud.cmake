@@ -23,9 +23,9 @@
 #
 # **With STUB, METAR_FILE and FORECAST_FILE, the weather is recorded**, not
 # live: glideslope_http_stub answers aviationweather.gov's request with the
-# METAR file's report from YSSY and Open-Meteo's with the forecast, made
-# today's (recorded_weather.cmake), and the network is asked for nothing of
-# the weather. The HUD tests on CI run so: on live weather the HUD tick test
+# METAR file's report from YSSY, as it was recorded, and Open-Meteo's with
+# the forecast, its hours made today's (recorded_weather.cmake), and the
+# network is asked for nothing of the weather. The HUD tests on CI run so: on live weather the HUD tick test
 # on Metal skipped after 334 s, five stalled requests to a service that was
 # not answering (docs/status/2026-11-28-skipped-tests-say-why.md), and a test
 # of the HUD has no need of today's weather. The flight is this script run
@@ -38,8 +38,27 @@ include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 # The inner half of a recorded run, started beside the stub: waits for its
 # port, flies this script against it, keeps what that did in RESULT_FILE, and
 # stops the stub.
+#
+# **The wait ends.** It ends when the stub writes its port, or at once when
+# the stub has exited without one (STUB_EXITED, written by
+# run_then_say_exited.cmake) - a bad argument, a socket it could not open -
+# and after 600 looks, 0.05 s apart, whatever: the stub listens within
+# milliseconds, and a wait past that is a fault to see, not to sit through
+# to ctest's 900 s.
 if(DEFINED STUB_PORT_FILE)
+    set(_looks 0)
     while(NOT EXISTS "${STUB_PORT_FILE}")
+        if(EXISTS "${STUB_EXITED}")
+            file(READ "${STUB_EXITED}" _stub_rc)
+            string(STRIP "${_stub_rc}" _stub_rc)
+            file(WRITE "${RESULT_FILE}" "1\nthe stub exited (${_stub_rc}) without listening\n")
+            return()
+        endif()
+        if(_looks EQUAL 600)
+            file(WRITE "${RESULT_FILE}" "1\nthe stub wrote no port in 600 looks\n")
+            return()
+        endif()
+        math(EXPR _looks "${_looks} + 1")
         execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
     endwhile()
     file(STRINGS "${STUB_PORT_FILE}" _port LIMIT_COUNT 1)
@@ -54,8 +73,22 @@ if(DEFINED STUB_PORT_FILE)
                             "-DWEATHER_SERVICE=http://127.0.0.1:${_port}"
                             -P "${CMAKE_CURRENT_LIST_FILE}"
                     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    # The stub ends only when asked: asked again, a few times, if asking
+    # failed, and said if it never answered.
+    set(_stopped "")
+    foreach(_try RANGE 1 5)
+        file(DOWNLOAD "http://127.0.0.1:${_port}/stop" "${RESULT_FILE}.stop"
+             TIMEOUT 10 STATUS _status)
+        list(GET _status 0 _code)
+        if(_code EQUAL 0)
+            set(_stopped TRUE)
+            break()
+        endif()
+    endforeach()
+    if(NOT _stopped)
+        string(APPEND _err "\nthe stub was asked to stop five times and never answered: ${_status}")
+    endif()
     file(WRITE "${RESULT_FILE}" "${_rc}\n${_out}${_err}")
-    file(DOWNLOAD "http://127.0.0.1:${_port}/stop" "${RESULT_FILE}.stop")
     return()
 endif()
 
@@ -72,7 +105,8 @@ if(DEFINED STUB AND NOT DEFINED WEATHER_SERVICE)
     set(_forecast "${_dir}/forecast-${DRIVER}-${_tag}.json")
     set(_port_file "${_dir}/stub-${DRIVER}-${_tag}.port")
     set(_result_file "${_dir}/stub-${DRIVER}-${_tag}.result")
-    file(REMOVE "${_port_file}" "${_result_file}")
+    set(_exited_file "${_dir}/stub-${DRIVER}-${_tag}.exited")
+    file(REMOVE "${_port_file}" "${_result_file}" "${_exited_file}")
     glideslope_recorded_weather("${METAR_FILE}" YSSY "${FORECAST_FILE}" "${_metar}" "${_forecast}")
     set(_flying "")
     if(DEFINED FLYING)
@@ -80,13 +114,16 @@ if(DEFINED STUB AND NOT DEFINED WEATHER_SERVICE)
     endif()
     # Both at once: the stub, and this script's inner half beside it. Any
     # other request - none is expected - is answered 404, a failure.
-    execute_process(COMMAND "${STUB}" 404 "${_port_file}"
+    execute_process(COMMAND "${CMAKE_COMMAND}" "-DEXITED=${_exited_file}"
+                            -P "${CMAKE_CURRENT_LIST_DIR}/run_then_say_exited.cmake" --
+                            "${STUB}" 404 "${_port_file}"
                             /api/data/metar "${_metar}" /v1/forecast "${_forecast}"
                     COMMAND "${CMAKE_COMMAND}"
                             "-DPROGRAM=${PROGRAM}" "-DCHECK=${CHECK}" "-DCLI=${CLI}"
                             "-DDRIVER=${DRIVER}" "-DWORK=${WORK}" "-DCACHE=${CACHE}"
                             "-DFLY=${FLY}" ${_flying}
-                            "-DSTUB_PORT_FILE=${_port_file}" "-DRESULT_FILE=${_result_file}"
+                            "-DSTUB_PORT_FILE=${_port_file}" "-DSTUB_EXITED=${_exited_file}"
+                            "-DRESULT_FILE=${_result_file}"
                             -P "${CMAKE_CURRENT_LIST_FILE}"
                     RESULTS_VARIABLE _rcs ERROR_VARIABLE _stub_said)
     if(NOT EXISTS "${_result_file}")
@@ -98,24 +135,27 @@ if(DEFINED STUB AND NOT DEFINED WEATHER_SERVICE)
     math(EXPR _eol "${_eol} + 1")
     string(SUBSTRING "${_result}" ${_eol} -1 _said)
     message(STATUS "the HUD test, on recorded weather:\n${_said}")
-    # **The recorded weather was what it flew in**: both services asked,
-    # each answered from its file, and nothing else asked of it.
-    if(NOT _stub_said MATCHES "answered 0 requests 404, and ([2-9]|[1-9][0-9]+) with FILE")
-        message(FATAL_ERROR "the stub did not answer the METAR and the forecast, and "
-                            "those alone, from its files:\n${_stub_said}")
-    endif()
     # Weather not had, with the weather recorded, is a fault, not a skip.
     if(_said MATCHES "there is no weather to fly in")
-        message(FATAL_ERROR "the recorded weather was not had: ${_stub_said}")
+        message(FATAL_ERROR "the recorded weather was not had: ${_said}\n${_stub_said}")
     endif()
     if(_rc EQUAL 77)
-        # A download the network is not required for (the DEM, offline):
-        # the inner run has said so.
+        # A download the network is not required for (the DEM, offline,
+        # fetched before the weather is asked for): the inner run has said so.
         cmake_language(EXIT 77)
     endif()
     if(NOT _rc EQUAL 0)
-        message(FATAL_ERROR "the HUD test on recorded weather failed (${_rc}); the stub "
-                            "said:\n${_stub_said}")
+        message(FATAL_ERROR "the HUD test on recorded weather failed (${_rc}): ${_said}\n"
+                            "the stub said:\n${_stub_said}")
+    endif()
+    # **The recorded weather was what it flew in**: the METAR asked for once
+    # and the forecast at least once, each answered from its file, and
+    # nothing else asked of the stub.
+    if(NOT _stub_said MATCHES "answered 0 requests 404," OR
+       NOT _stub_said MATCHES "answered 1 with FILE for /api/data/metar\n" OR
+       NOT _stub_said MATCHES "answered [1-9][0-9]* with FILE for /v1/forecast\n")
+        message(FATAL_ERROR "the stub did not answer the METAR once and the forecast, and "
+                            "those alone, from its files:\n${_stub_said}")
     endif()
     return()
 endif()

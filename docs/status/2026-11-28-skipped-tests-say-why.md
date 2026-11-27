@@ -49,13 +49,18 @@ The HUD tick test is about the HUD showing the flight's state at the tick
 it was shot; it has no need of today's weather. **frame_hud.cmake, given
 STUB, METAR_FILE and FORECAST_FILE, flies recorded weather**: it runs
 glideslope_http_stub beside the flight, answering aviationweather.gov with
-YSSY's report of 1600Z on 2026-09-17 and Open-Meteo with that day's Sydney
-forecast, made today's (tests/cmake/recorded_weather.cmake, the dating
-client_quits_mid_refresh.cmake already did), and the flight's weather goes
-to the stub (GLIDESLOPE_WEATHER_SERVICE). It fails unless the stub answered
-two or more requests from its files and none otherwise, and a flight that
-says "there is no weather to fly in" on recorded weather fails rather than
-skips. The three HUD tests flown in weather - the pilot flying, the AI
+YSSY's report of 1600Z on 2026-09-17, as recorded, and Open-Meteo with that
+day's Sydney forecast, its hours alone made today's
+(tests/cmake/recorded_weather.cmake, the dating client_quits_mid_refresh.cmake
+already did), and the flight's weather goes to the stub
+(GLIDESLOPE_WEATHER_SERVICE). It fails unless the stub answered the METAR
+exactly once and the forecast at least once from its files, and nothing
+else - the stub now says how many it answered for each prefix - and a
+flight that says "there is no weather to fly in" on recorded weather fails
+rather than skips. **Its wait for the stub ends**: on the stub's port, at
+once when the stub has exited without one (tests/cmake/run_then_say_exited.cmake
+writes when it has), or after 600 looks 0.05 s apart; and the stub, which
+ends only when asked, is asked up to five times. The three HUD tests flown in weather - the pilot flying, the AI
 holding, the AI flying its plan - fly so on every driver: Metal, Vulkan and
 Direct3D 12. The HUD still shows Open-Meteo's credit, and the check still
 reads it.
@@ -69,6 +74,15 @@ the package does when the weather does not answer, and stays live.
 
 ## And a skip on macOS CI says why
 
+**tools/ci_skipped.cmake** reads ctest's JUnit report (`--output-junit`),
+which keeps every test's output, and prints each skipped test's name,
+ctest's reason and the last 60 lines of what it said. A test that ran is not
+printed (a failure's output is ctest's own to print), and neither is a
+disabled one. The macOS release and debug test jobs write the report and run
+it after ctest, whether the tests passed or not. LastTest.log could not do
+it: it says "Test Passed." of a skip, and a test that runs ctest itself
+writes it afresh. Its test is below.
+
 ## Verification
 
 - **The three HUD tests on recorded weather pass**: on Vulkan, linux-release
@@ -77,7 +91,10 @@ the package does when the weather does not answer, and stays live.
   live weather service not answering (frame_hud_no_weather.cmake) still pass.
 - **Seen red**: with the HUD's SPD drawn 2 kt high (src/gfx/hud.cpp), all
   three failed - "SPD shows 80 at tick 600 when the state is 78.242000" and
-  the like. Reverted, all three passed. Metal's and Direct3D 12's are the
+  the like. Reverted, all three passed. **And with the stub given a bad
+  argument** (status 999, which it refuses, exiting 2), the HUD tick test
+  failed in 0.07 s - "the stub exited (2) without listening" - where it
+  would have waited out ctest's 900 s. Reverted, it passed. Metal's and Direct3D 12's are the
   same script and check, run on CI; there is no Mac here to break one on.
 - **A throwaway probe** of the weather services from a macOS runner (PR
   #430) sat queued for 90 minutes behind other runs and was cancelled
