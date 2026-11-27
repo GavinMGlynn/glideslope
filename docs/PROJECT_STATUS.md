@@ -650,9 +650,9 @@ are the risks the phase order is built around:
   livery is a colour scheme of boxes painted over its materials'
   flat colours (2026-11-27). Its ailerons, elevators and rudder are cut from
   the mesh along hinge lines given in data and turned by what the flight
-  model reports, on every aircraft but the B-2's rudder, named left out; but
-  another aircraft on a server is drawn with its surfaces still, because no
-  update carries them. Propellers and undercarriage do not move: they are
+  model reports, on every aircraft but the B-2's rudder, named left out -
+  another aircraft on a server too, by the deflections every state update
+  carries, a half-degree byte each (2026-11-28). Propellers and undercarriage do not move: they are
   welded where the model has them, gear down. Its light is baked into the
   mesh, which is made again when it has banked five degrees. All of that
   is tails in `COMPLETION_PLAN.md`. Where a model and its
