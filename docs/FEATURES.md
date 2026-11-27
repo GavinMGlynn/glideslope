@@ -80,9 +80,10 @@ the controls to an AI pilot whenever you like, then take them back.
   (A320, A380, 737, 747, 787), the F-15, F-22 and F-35 fighters, and a B-2
   bomber. Each flies to its published numbers and looks like the aircraft it
   flies like.
+  Every aircraft's ailerons, elevators and rudder move as it is flown -
+  another player's, or the AI's, on a server too.
   *Not yet:* on a server a player flies the aircraft the server gives them,
-  not one they choose; and another aircraft on a server is drawn with its
-  control surfaces still - only your own aeroplane's move with its controls.
+  not one they choose.
 
 - **Joysticks, HOTAS and yokes.** `DONE`
   Proper flight controls on every platform, not only a keyboard. F1 shows

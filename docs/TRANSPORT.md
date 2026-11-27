@@ -113,6 +113,10 @@ Said first, because a transport's limits matter more than its features.
   payload begins with the fingerprint of the client's controls' layout, and
   whose server refuses another by name (`WRONG_LAYOUT`, below, "Starting a
   session").
+  Version `15` is on the same ground, and is the first whose state update
+  carries every aircraft's control surfaces - its ailerons, elevator and
+  rudder, a byte each - and its velocity in sixteenths of a metre a second
+  to make room for them (below, "State updates").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -436,6 +440,7 @@ someone else write a client.
 | `u16` | 2 | |
 | `u32` | 4 | |
 | `u64` | 8 | |
+| `i8` | 1 | two's complement |
 | `i16` | 2 | two's complement |
 | `i32` | 4 | two's complement |
 | `f64` | 8 | its IEEE-754 bits, written as a `u64`; never a NaN or an infinity |
@@ -1439,12 +1444,33 @@ Then, for each aircraft:
 | `f64` | its position, Earth-centred and Earth-fixed, metres, x |
 | `f64` | the same, y |
 | `f64` | the same, z |
-| `f32` | its velocity in the same frame, metres a second, x |
-| `f32` | the same, y |
-| `f32` | the same, z |
+| `i16` | its velocity in the same frame, metres a second, x: in sixteenths of one, -2,048 to 2,047.9375 (since `15`; an `f32` of metres a second before) |
+| `i16` | the same, y |
+| `i16` | the same, z |
 | `f32` | its heading, degrees: true, 0 to 360, clockwise from north |
 | `f32` | its pitch, degrees: positive nose up |
 | `f32` | its roll, degrees: positive right wing down |
+| `i8` | its left aileron's deflection, JSBSim's `fcs/left-aileron-pos-rad`, in half degrees, -64 to 63.5 (since `15`) |
+| `i8` | its right aileron's deflection, `fcs/right-aileron-pos-rad`, the same |
+| `i8` | its elevator's deflection, `fcs/elevator-pos-rad`, the same |
+| `i8` | its rudder's deflection, `fcs/rudder-pos-rad`, the same |
+
+**Its control surfaces** (since `15`) are where its flight model has them,
+so that a client draws another aircraft's ailerons, elevator and rudder
+moving, between two updates as it moves its attitude: each the value of the
+JSBSim property named, which is radians, written as the nearest whole number
+of half degrees and held at -128 or 127 past them - a quarter of a degree at
+most from what was flown, beyond any surface's travel at the ends. A model
+without one of the four is sent `00` for it. Which way a positive value
+moves which part is the model's own, as its flight model says it; a client
+draws each surface its model has by the one of the four its property is.
+Every byte is a deflection: nothing here is refused.
+
+**Its velocity** (since `15`) is the nearest whole number of sixteenths of
+a metre a second, held at -32,768 or 32,767 past them: 3 cm/s at most from
+what was flown, a millimetre over the 40 ms between updates, where no
+aircraft flies a third of the range. It was an `f32`; the six bytes it gives
+up an aircraft are what make room for its surfaces in a full packet.
 
 After the last aircraft, **this client's own aircraft's motion**, so that its
 prediction can be put right (see "Predicting your own aircraft" below):
@@ -1538,9 +1564,10 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,159 bytes, and 1,189 with the
+1,119 bytes, and 1,149 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
-holds it to that.
+holds it to that. Each aircraft's four surfaces would not have fitted
+twenty times beside its velocity's three `f32`s: 1,269 bytes sealed.
 
 **A server with nothing to fly sends no state updates at all.** Until the
 server is flying aircraft - AI aircraft, or a flight plan the players' aircraft
@@ -1574,7 +1601,8 @@ on a server where an engine can stop.
 
 **A reader refuses**: a kind that is not `03`, fewer bytes than the fields
 need, any byte left over at the end, more than 20 aircraft, a controller or a
-condition this version does not know, and any NaN or infinity in any of the ten numbers. It
+condition this version does not know, and any NaN or infinity in any of the seven numbers that
+can hold one - the clock, and an aircraft's position and angles. It
 does not refuse a `your_aircraft` that names no aircraft in the packet: a
 client that cannot find itself has no aircraft yet, which is what `FF` says.
 A server that starts its players on final admits a player whose turn has
