@@ -186,7 +186,7 @@ GLIDESLOPE_TEST(a_client_whose_first_sealed_datagram_is_lost_still_proves_its_se
     std::optional<glideslope::net::ClientSession> client;
     std::thread connecting([&] {
         if (auto made =
-                glideslope::net::ClientSession::connect(where, server_key.publik.text(), 5.0)) {
+                glideslope::net::ClientSession::connect(where, server_key.publik.text(), 0, 5.0)) {
             client.emplace(std::move(*made));
         }
     });
@@ -275,7 +275,7 @@ GLIDESLOPE_TEST(a_session_joined_again_hands_up_nothing_of_the_one_let_go) {
     const std::string where = "127.0.0.1:" + std::to_string(server.socket.port());
     std::optional<glideslope::net::ClientSession> session;
     std::thread connecting([&] {
-        if (auto made = glideslope::net::ClientSession::connect(where, server.key.publik.text())) {
+        if (auto made = glideslope::net::ClientSession::connect(where, server.key.publik.text(), 0)) {
             session.emplace(std::move(*made));
         }
     });

@@ -80,13 +80,16 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // several stations', each in a slot - kinds this client ignores - and on
 // 2026-11-17 to 13, when every input frame came to name the step it was
 // sent at, which this client sends as not said, and on 2026-11-27 to 14,
-// when the initiation's payload came to begin with the count of controls in
-// an input frame: the document gives the envelope's version as `14`. A test
+// when the initiation's payload came to begin with the fingerprint of the
+// controls' layout: the document gives the envelope's version as `14`. A test
 // reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
 constexpr std::uint8_t kVersion = 0x14;
-// The controls in an input frame, which the initiation's payload says first.
-constexpr std::uint8_t kControls = 21;
+// The controls in an input frame, and the fingerprint of their layout - the
+// document's, for the twenty-one it names - which the initiation's payload
+// says first.
+constexpr std::size_t kControls = 21;
+constexpr std::uint32_t kLayout = 0x03281B95;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
@@ -367,10 +370,12 @@ struct Initiator {
         const auto s_s = dh(s, rs);
         if (!s_s) return false;
         ss.mix_key(*s_s);
-        // The payload, since 14 (2026-11-27): how many controls ride in each
-        // of this client's input frames, and no aeroplane asked for after it.
-        const std::array<std::uint8_t, 1> count{kControls};
-        const Bytes payload = ss.encrypt_and_hash(count);
+        // The payload, since 14 (2026-11-27): the fingerprint of this
+        // client's controls' layout, a u32, and no aeroplane asked for after.
+        const std::array<std::uint8_t, 4> layout{
+            static_cast<std::uint8_t>(kLayout), static_cast<std::uint8_t>(kLayout >> 8),
+            static_cast<std::uint8_t>(kLayout >> 16), static_cast<std::uint8_t>(kLayout >> 24)};
+        const Bytes payload = ss.encrypt_and_hash(layout);
         out.insert(out.end(), payload.begin(), payload.end());
         return true;
     }

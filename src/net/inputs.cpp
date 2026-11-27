@@ -32,22 +32,22 @@ ControlList as_sent(const ControlList& controls) {
     return out;
 }
 
-std::vector<std::uint8_t> write_joining(std::span<const std::uint8_t> asked,
-                                        std::size_t controls) {
-    std::vector<std::uint8_t> out;
-    out.reserve(1 + asked.size());
-    out.push_back(static_cast<std::uint8_t>(std::min<std::size_t>(controls, 255)));
-    out.insert(out.end(), asked.begin(), asked.end());
-    return out;
+std::vector<std::uint8_t> write_joining(std::uint32_t layout,
+                                        std::span<const std::uint8_t> asked) {
+    Writer w;
+    w.u32(layout);
+    w.bytes(asked);
+    return w.take();
 }
 
 std::optional<Joining> read_joining(std::span<const std::uint8_t> payload) {
-    if (payload.empty()) {
+    if (payload.size() < layout_bytes) {
         return std::nullopt;
     }
+    Reader r(payload.first(layout_bytes));
     Joining out;
-    out.controls = payload[0];
-    out.asked.assign(payload.begin() + 1, payload.end());
+    out.layout = r.u32();
+    out.asked.assign(payload.begin() + static_cast<std::ptrdiff_t>(layout_bytes), payload.end());
     return out;
 }
 

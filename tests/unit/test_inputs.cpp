@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <string_view>
 #include <set>
 #include <span>
 #include <string>
@@ -326,35 +327,93 @@ GLIDESLOPE_TEST(every_control_the_flight_model_has_is_one_the_wire_carries) {
     }
 }
 
-// **A client says its layout first as it joins** (net::write_joining): every
-// count a byte can hold, with an aeroplane asked for after it and without,
-// read back as written - and an empty payload, which says no count, read as
-// nothing, so that a server refuses it `WRONG_LAYOUT` rather than guess.
-GLIDESLOPE_TEST(a_clients_count_of_controls_goes_first_in_its_payload_and_is_read_back) {
+// **A client says its layout first as it joins** (net::write_joining): a
+// `u32`, little-endian, then the aeroplane asked for. Every value each of its
+// four bytes can hold, the others nought, with an aeroplane after it and
+// without, is read back as written; and a payload shorter than four bytes -
+// each of the four lengths - says no layout, so that a server refuses it
+// `WRONG_LAYOUT` rather than guess.
+GLIDESLOPE_TEST(a_clients_layout_goes_first_in_its_payload_and_is_read_back) {
     using glideslope::net::read_joining;
     using glideslope::net::write_joining;
     const std::vector<std::uint8_t> none;
     const std::vector<std::uint8_t> cub{4, 'j', '3', 'c', 'b'};
-    const std::vector<std::uint8_t> ours = write_joining(std::span<const std::uint8_t>(none));
-    check(ours.size() == 1 && ours[0] == glideslope::net::controls_on_the_wire,
-          "this build's payload is its own count alone");
+    const std::vector<std::uint8_t> ours = write_joining(glideslope::sim::control_layout);
+    check(ours == std::vector<std::uint8_t>{0x95, 0x1B, 0x28, 0x03},
+          "this build's payload is its own fingerprint alone, little-endian");
     std::size_t walked = 0;
-    for (std::size_t count = 0; count < 256; ++count) {
-        for (const std::vector<std::uint8_t>* asked : {&none, &cub}) {
-            const std::vector<std::uint8_t> wire =
-                write_joining(std::span<const std::uint8_t>(*asked), count);
-            check(wire.size() == 1 + asked->size() && wire[0] == count,
-                  "the count " + std::to_string(count) + " goes first, in one byte");
-            const auto back = read_joining(std::span<const std::uint8_t>(wire));
-            check(back.has_value() && back->controls == count && back->asked == *asked,
-                  "and is read back with what follows it: " + std::to_string(count));
-            ++walked;
+    for (unsigned byte = 0; byte < 4; ++byte) {
+        for (unsigned value = 0; value < 256; ++value) {
+            const std::uint32_t layout = value << (8 * byte);
+            for (const std::vector<std::uint8_t>* asked : {&none, &cub}) {
+                const std::vector<std::uint8_t> wire =
+                    write_joining(layout, std::span<const std::uint8_t>(*asked));
+                check(wire.size() == 4 + asked->size() && wire[byte] == value,
+                      "the layout goes first, little-endian: " + std::to_string(layout));
+                const auto back = read_joining(std::span<const std::uint8_t>(wire));
+                check(back.has_value() && back->layout == layout && back->asked == *asked,
+                      "and is read back with what follows it: " + std::to_string(layout));
+                ++walked;
+            }
         }
     }
-    check(walked == 2 * 256, "every count of 256, with and without an aeroplane: " +
-                                 std::to_string(walked));
-    check(!read_joining(std::span<const std::uint8_t>(none)).has_value(),
-          "an empty payload says no count");
+    check(walked == 4 * 256 * 2, "every value of each of 4 bytes, with and without an "
+                                 "aeroplane: " + std::to_string(walked));
+    std::size_t short_ones = 0;
+    for (std::size_t length = 0; length < glideslope::net::layout_bytes; ++length) {
+        const std::vector<std::uint8_t> cut(ours.begin(),
+                                            ours.begin() + static_cast<std::ptrdiff_t>(length));
+        check(!read_joining(std::span<const std::uint8_t>(cut)).has_value(),
+              "a payload of " + std::to_string(length) + " bytes says no layout");
+        ++short_ones;
+    }
+    check(short_ones == 4, "every length short of the layout: " + std::to_string(short_ones));
+}
+
+// **The fingerprint is of the order and the names, not the count**: this
+// build's controls with any two swapped - every pair of 21, 210 - with any
+// one left out (21), and with any one renamed (21), each gives another
+// fingerprint than this build's, so a server refuses each `WRONG_LAYOUT`.
+GLIDESLOPE_TEST(swapping_leaving_out_or_renaming_a_control_changes_the_layouts_fingerprint) {
+    using glideslope::sim::control_fields;
+    using glideslope::sim::control_layout;
+    using glideslope::sim::layout_of;
+    std::vector<std::string_view> names;
+    for (const auto& f : control_fields) {
+        names.push_back(f.name);
+    }
+    check(layout_of(names) == control_layout && control_layout == 0x03281B95u,
+          "this build's fingerprint is the table's, 03281B95");
+    std::size_t swaps = 0;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        for (std::size_t j = i + 1; j < names.size(); ++j) {
+            std::vector<std::string_view> swapped = names;
+            std::swap(swapped[i], swapped[j]);
+            check(layout_of(swapped) != control_layout,
+                  "swapping " + std::string(names[i]) + " and " + std::string(names[j]) +
+                      " changes it");
+            ++swaps;
+        }
+    }
+    std::size_t dropped = 0;
+    std::size_t renamed = 0;
+    std::vector<std::string> other_names(names.size());
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        std::vector<std::string_view> without = names;
+        without.erase(without.begin() + static_cast<std::ptrdiff_t>(i));
+        check(layout_of(without) != control_layout,
+              "leaving out " + std::string(names[i]) + " changes it");
+        ++dropped;
+        std::vector<std::string_view> other = names;
+        other_names[i] = std::string(names[i]) + " 2";
+        other[i] = other_names[i];
+        check(layout_of(other) != control_layout,
+              "renaming " + std::string(names[i]) + " changes it");
+        ++renamed;
+    }
+    check(swaps == 210 && dropped == 21 && renamed == 21,
+          "every swap, omission and renaming: " + std::to_string(swaps) + ", " +
+              std::to_string(dropped) + " and " + std::to_string(renamed));
 }
 
 // **The document and the code say the same thing about the inputs.**
@@ -380,6 +439,26 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_inputs) {
           "and how many controls there are");
     check(says("`-32767` is -1 and `32767` is 1"),
           "and what the ends of the range are");
+    // **And the layout's fingerprint**: its value, its bytes, and every name
+    // it is made from, in order, as the code's table has them.
+    char layout[16];
+    std::snprintf(layout, sizeof layout, "`%08X`",
+                  static_cast<unsigned>(glideslope::sim::control_layout));
+    std::string flat;
+    for (const char c : text) {
+        flat += c == '\n' ? ' ' : c;
+    }
+    check(flat.find(std::string("the fingerprint is ") + layout) != std::string::npos,
+          std::string("the document gives the layout's fingerprint as ") + layout);
+    check(says("`95 1B 28 03`"), "and its bytes, little-endian");
+    std::string listed;
+    for (std::size_t i = 0; i < glideslope::sim::control_fields.size(); ++i) {
+        const std::string name(glideslope::sim::control_fields[i].name);
+        listed += (i == 0 ? "" : i + 1 == glideslope::sim::control_fields.size() ? " and " : ", ") +
+                  ("`" + name + "`");
+    }
+    check(flat.find(listed) != std::string::npos,
+          "the document names the fingerprint's controls in the table's order: " + listed);
     // The ends really are those numbers.
     check(glideslope::net::quantise(1.0) == 32767, "one is 32767");
     check(glideslope::net::quantise(-1.0) == -32767, "and minus one is -32767");

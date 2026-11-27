@@ -128,7 +128,7 @@ void Online::leave() {
 Standing Online::standing() const {
     const auto lock = held();
     return {session_.standing(), session_.let_go(), session_.quiet_when_let_go_s(),
-            session_.went_back()};
+            session_.went_back(), session_.refused_by()};
 }
 
 void Online::stall() {

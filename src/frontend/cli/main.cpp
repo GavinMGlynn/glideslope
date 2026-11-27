@@ -69,6 +69,7 @@
 #include "world/winds_aloft.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <optional>
 #include <memory>
@@ -431,18 +432,80 @@ std::vector<std::uint8_t> connect_asked_aircraft;
 // F-35B light enough to hover - in the same payload (protocol 14).
 std::string connect_asked_id;
 std::string connect_asked_loading;
-// **A test flag's work (`--controls N`)**: the count of controls this client
-// says it sends, as a client of another layout would (net::write_joining);
-// `--controls none`, an empty payload, which says no count.
-std::optional<std::size_t> connect_controls = glideslope::net::controls_on_the_wire;
+// **A test flag's work (`--layout WHICH`)**: the controls' layout this
+// client says as it joins (net::write_joining), as a client of another
+// layout would; nothing, an empty payload, which says none.
+std::optional<std::uint32_t> connect_layout = glideslope::sim::control_layout;
 // **The initiation's payload**: the layout said first, then the aeroplane.
 std::vector<std::uint8_t> connect_payload() {
-    if (!connect_controls) {
+    if (!connect_layout) {
         return {};
     }
     return glideslope::net::write_joining(
-        std::span<const std::uint8_t>(connect_asked_aircraft.data(), connect_asked_aircraft.size()),
-        *connect_controls);
+        *connect_layout,
+        std::span<const std::uint8_t>(connect_asked_aircraft.data(), connect_asked_aircraft.size()));
+}
+
+// **`--layout WHICH`, read**: `none`; eight hex digits, a fingerprint as
+// given; `swap:I:J`, this build's controls with the I-th and J-th swapped;
+// `without:I`, with the I-th left out; `with:NAME`, with one more, NAME,
+// last. Anything else is an error, said, rather than a guess.
+std::optional<std::string> read_layout_flag(const std::string& text,
+                                            std::optional<std::uint32_t>& out) {
+    namespace sim = glideslope::sim;
+    const auto index = [](const std::string& s) -> std::optional<std::size_t> {
+        if (s.empty() || s.size() > 2 ||
+            !std::all_of(s.begin(), s.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+            return std::nullopt;
+        }
+        const std::size_t i = static_cast<std::size_t>(std::stoul(s));
+        return i < sim::Controls::control_count ? std::optional<std::size_t>(i) : std::nullopt;
+    };
+    const std::string range =
+        "0 to " + std::to_string(sim::Controls::control_count - 1);
+    std::vector<std::string_view> names(sim::control_fields.size());
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        names[i] = sim::control_fields[i].name;
+    }
+    if (text == "none") {
+        out.reset();
+        return std::nullopt;
+    }
+    if (text.size() == 8 && std::all_of(text.begin(), text.end(), [](char c) {
+            return std::isxdigit(static_cast<unsigned char>(c)) != 0;
+        })) {
+        out = static_cast<std::uint32_t>(std::stoul(text, nullptr, 16));
+        return std::nullopt;
+    }
+    if (text.rfind("swap:", 0) == 0) {
+        const std::string rest = text.substr(5);
+        const std::size_t colon = rest.find(':');
+        const auto i = index(rest.substr(0, colon));
+        const auto j = colon == std::string::npos ? std::nullopt : index(rest.substr(colon + 1));
+        if (!i || !j || *i == *j) {
+            return "swap:I:J wants two different controls, each " + range;
+        }
+        std::swap(names[*i], names[*j]);
+        out = sim::layout_of(names);
+        return std::nullopt;
+    }
+    if (text.rfind("without:", 0) == 0) {
+        const auto i = index(text.substr(8));
+        if (!i) {
+            return "without:I wants a control, " + range;
+        }
+        names.erase(names.begin() + static_cast<std::ptrdiff_t>(*i));
+        out = sim::layout_of(names);
+        return std::nullopt;
+    }
+    if (text.rfind("with:", 0) == 0 && text.size() > 5) {
+        const std::string extra = text.substr(5);
+        names.push_back(extra);
+        out = sim::layout_of(names);
+        return std::nullopt;
+    }
+    return "--layout wants none, eight hex digits, swap:I:J, without:I or with:NAME, not '" +
+           text + "'";
 }
 
 // **A test flag's work (`--until-told-ground`)**: stay until the server has
@@ -746,10 +809,10 @@ void print_usage(std::FILE* out) {
         "                            pings at 1,000 a second and, once they are read,\n"
         "                            50 requests at once,\n"
         "                            says how many pings were answered, and leaves\n"
-        "                            --controls N says, as it joins, that it sends N\n"
-        "                            controls in an input frame: a client of another\n"
-        "                            layout, which the server refuses WRONG_LAYOUT;\n"
-        "                            --controls none says no count at all\n"
+        "                            --layout WHICH says another controls' layout as\n"
+        "                            it joins, which the server refuses WRONG_LAYOUT:\n"
+        "                            none, eight hex digits, swap:I:J, without:I or\n"
+        "                            with:NAME\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
         "                            address or keys: its own from a second session's\n"
@@ -6714,7 +6777,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                     // itself when it goes, as its own client should.
                     std::optional<glideslope::net::ClientSession> other =
                         forge_leaving
-                            ? glideslope::net::ClientSession::connect(where, key_hex, 60.0)
+                            ? glideslope::net::ClientSession::connect(
+                                  where, key_hex, glideslope::sim::control_layout, 60.0)
                             : std::nullopt;
                     if (forge_leaving) {
                         if (!other ||
@@ -6973,14 +7037,13 @@ static int run_program(int argc, char** argv) {
                     connect_flood.on = true;
                     continue;
                 }
-                // **A test flag's work (`--controls N`)**: says N controls
-                // in an input frame as it joins, a client of another layout.
-                if (args[i] == "--controls" && i + 1 < args.size()) {
-                    const std::string count(args[++i]);
-                    if (count == "none") {
-                        connect_controls.reset();
-                    } else {
-                        connect_controls = static_cast<std::size_t>(std::stoul(count));
+                // **A test flag's work (`--layout WHICH`)**: another layout
+                // said as it joins (read_layout_flag).
+                if (args[i] == "--layout" && i + 1 < args.size()) {
+                    if (const auto wrong =
+                            read_layout_flag(std::string(args[++i]), connect_layout)) {
+                        std::fprintf(stderr, "glideslope_cli: %s\n", wrong->c_str());
+                        return 2;
                     }
                     continue;
                 }

@@ -47,6 +47,7 @@
 #include "net/session.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
+#include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
@@ -1130,7 +1131,8 @@ static int run_program(int argc, char** argv) {
             }
             std::optional<glideslope::net::Refusal> refused_by;
             if (auto made = glideslope::net::ClientSession::connect(
-                    where, key, 5.0, 0.25, o.aircraft_given ? o.aircraft : std::string(),
+                    where, key, glideslope::sim::control_layout, 5.0, 0.25,
+                    o.aircraft_given ? o.aircraft : std::string(),
                     o.aircraft_given ? o.loading : std::string(), o.player_key, &refused_by)) {
                 session.emplace(std::move(*made));
             }
@@ -2011,12 +2013,17 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: the old session answered; staying in it\n");
                 }
                 using Standing = glideslope::net::ClientSession::Standing;
+                // **Refused, by name**: `SERVER_FULL` is full; `WRONG_LAYOUT`
+                // is a server started again on another build.
+                const std::string refused =
+                    std::string("refused by the server when joining again, ") +
+                    (s.refused_by ? glideslope::net::refusal_name(*s.refused_by) : "UNKNOWN");
                 const char* why = s.standing == Standing::dropped
                                       ? "the server ended this session (dropped, or taken "
                                         "over by a newer session for this key); not joining "
                                         "again"
                                   : s.standing == Standing::refused
-                                      ? "refused by the server when joining again: it is full"
+                                      ? refused.c_str()
                                   : s.standing == Standing::gave_up
                                       ? "let go, and could not join again in a minute"
                                       : nullptr;
