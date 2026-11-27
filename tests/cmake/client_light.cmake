@@ -22,6 +22,10 @@
 # geoid, fetched into CACHE: without the network the test is skipped (exit 77)
 # unless GLIDESLOPE_REQUIRE_NETWORK is set. No imagery, so that each pair of
 # shots differs where she is drawn and nowhere else.
+#
+# **Its figures, passed or not**, are added to WORK/figures.txt, which CI's
+# "The figures said" step prints: the 8% the ratio is held to was set from
+# one driver's, and every platform's are wanted.
 
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
@@ -83,6 +87,10 @@ execute_process(COMMAND "${CHECK}" "${WORK}/light-${DRIVER}-level.bmp"
                         ${level_SUN_Z} ${banked_SUN_Z}
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 message(STATUS "${_out}${_err}")
+string(REPLACE "\n" "\n  " _said "${_out}${_err}")
+file(APPEND "${WORK}/figures.txt"
+     "the Cessna's light on ${DRIVER}: her meshes made ${banked_MADE} times; the sun's z "
+     "${level_SUN_Z} level, ${banked_SUN_Z} banked\n  ${_said}\n")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the Cessna's light: ${_err}")
 endif()

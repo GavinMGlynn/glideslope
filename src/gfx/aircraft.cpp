@@ -79,12 +79,13 @@ std::string view_names() {
 Mesh mesh_from_model(const Model& model) {
     Mesh mesh;
     mesh.vertices.reserve(model.vertices.size());
+    mesh.normals.reserve(model.vertices.size());
     for (const ModelVertex& v : model.vertices) {
         Vertex out;
         out.position = v.position;
         out.colour = v.colour;
-        out.normal = v.normal;
         mesh.vertices.push_back(out);
+        mesh.normals.push_back(v.normal);
     }
     mesh.indices = model.indices;
     return mesh;

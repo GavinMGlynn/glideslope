@@ -130,8 +130,12 @@ enum class Layering {
     overlay,     // over everything, blended likewise
 };
 
-// The mesh pipeline, layered as asked.
-SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering layering) {
+// The mesh pipeline, layered as asked. A `lit` mesh's normals are a vertex
+// each, in a buffer of their own; any other's pipeline reads one normal, of
+// nothing, for every vertex - stepped by instance, of which there is one - so
+// a mesh unlit spends nothing on them.
+SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering layering,
+                                            bool lit) {
     const bool depth_test = layering != Layering::overlay;
     SDL_GPUShader* vertex = make_shader(device, shaders::mesh_vertex);
     SDL_GPUShader* fragment = nullptr;
@@ -142,10 +146,14 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering laye
         throw;
     }
 
-    SDL_GPUVertexBufferDescription buffer{};
-    buffer.slot = 0;
-    buffer.pitch = sizeof(Vertex);
-    buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+    SDL_GPUVertexBufferDescription buffers[2]{};
+    buffers[0].slot = 0;
+    buffers[0].pitch = sizeof(Vertex);
+    buffers[0].input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+    buffers[1].slot = 1;
+    buffers[1].pitch = sizeof(std::array<float, 3>);
+    buffers[1].input_rate =
+        lit ? SDL_GPU_VERTEXINPUTRATE_VERTEX : SDL_GPU_VERTEXINPUTRATE_INSTANCE;
     SDL_GPUVertexAttribute attributes[4]{};
     attributes[0].location = 0;
     attributes[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
@@ -157,8 +165,9 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering laye
     attributes[2].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
     attributes[2].offset = offsetof(Vertex, uv);
     attributes[3].location = 3;
+    attributes[3].buffer_slot = 1;
     attributes[3].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-    attributes[3].offset = offsetof(Vertex, normal);
+    attributes[3].offset = 0;
 
     SDL_GPUColorTargetDescription colour{};
     colour.format = colour_format;
@@ -179,8 +188,8 @@ SDL_GPUGraphicsPipeline* make_mesh_pipeline(SDL_GPUDevice* device, Layering laye
     SDL_GPUGraphicsPipelineCreateInfo info{};
     info.vertex_shader = vertex;
     info.fragment_shader = fragment;
-    info.vertex_input_state.vertex_buffer_descriptions = &buffer;
-    info.vertex_input_state.num_vertex_buffers = 1;
+    info.vertex_input_state.vertex_buffer_descriptions = buffers;
+    info.vertex_input_state.num_vertex_buffers = 2;
     info.vertex_input_state.vertex_attributes = attributes;
     info.vertex_input_state.num_vertex_attributes = 4;
     info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
@@ -238,9 +247,11 @@ Renderer::Renderer(const std::string& driver, SDL_Window* window, int width, int
         if (depth_ == nullptr) {
             throw sdl_error("no depth buffer");
         }
-        mesh_pipeline_ = make_mesh_pipeline(device_, Layering::opaque);
-        translucent_pipeline_ = make_mesh_pipeline(device_, Layering::translucent);
-        overlay_pipeline_ = make_mesh_pipeline(device_, Layering::overlay);
+        mesh_pipeline_ = make_mesh_pipeline(device_, Layering::opaque, false);
+        translucent_pipeline_ = make_mesh_pipeline(device_, Layering::translucent, false);
+        overlay_pipeline_ = make_mesh_pipeline(device_, Layering::overlay, false);
+        lit_pipeline_ = make_mesh_pipeline(device_, Layering::opaque, true);
+        lit_translucent_pipeline_ = make_mesh_pipeline(device_, Layering::translucent, true);
         // Linear within and between mip levels, clamped at the edges: imagery
         // tiles meet their neighbours, and must not wrap into them.
         SDL_GPUSamplerCreateInfo sampler{};
@@ -258,6 +269,8 @@ Renderer::Renderer(const std::string& driver, SDL_Window* window, int width, int
         }
         const std::uint8_t white[4] = {255, 255, 255, 255};
         white_ = upload_texture(1, 1, white);
+        const std::array<float, 3> nothing{};
+        no_normal_ = upload_buffer(nothing.data(), sizeof nothing);
     } catch (...) {
         release();
         throw;
@@ -280,8 +293,11 @@ void Renderer::release() {
         if (mesh.vertices != nullptr) {
             SDL_ReleaseGPUBuffer(device_, mesh.vertices);
             SDL_ReleaseGPUBuffer(device_, mesh.indices);
+            SDL_ReleaseGPUBuffer(device_, mesh.normals);
         }
     }
+    SDL_ReleaseGPUBuffer(device_, no_normal_);
+    no_normal_ = nullptr;
     meshes_.clear();
     free_meshes_.clear();
     for (SDL_GPUTexture* texture : textures_) {
@@ -303,6 +319,12 @@ void Renderer::release() {
     SDL_ReleaseGPUBuffer(device_, overlay_.indices);
     if (overlay_pipeline_ != nullptr) {
         SDL_ReleaseGPUGraphicsPipeline(device_, overlay_pipeline_);
+    }
+    if (lit_translucent_pipeline_ != nullptr) {
+        SDL_ReleaseGPUGraphicsPipeline(device_, lit_translucent_pipeline_);
+    }
+    if (lit_pipeline_ != nullptr) {
+        SDL_ReleaseGPUGraphicsPipeline(device_, lit_pipeline_);
     }
     if (translucent_pipeline_ != nullptr) {
         SDL_ReleaseGPUGraphicsPipeline(device_, translucent_pipeline_);
@@ -328,8 +350,22 @@ std::string Renderer::driver() const {
 }
 
 MeshId Renderer::add_mesh(const Mesh& mesh) {
+    if (!mesh.normals.empty() && mesh.normals.size() != mesh.vertices.size()) {
+        throw std::runtime_error("a mesh's normals are not one a vertex");
+    }
     GpuMesh gpu;
     upload(gpu, mesh, false);
+    if (!mesh.normals.empty()) {
+        try {
+            gpu.normals = upload_buffer(
+                mesh.normals.data(),
+                static_cast<Uint32>(mesh.normals.size() * sizeof(std::array<float, 3>)));
+        } catch (...) {
+            SDL_ReleaseGPUBuffer(device_, gpu.vertices);
+            SDL_ReleaseGPUBuffer(device_, gpu.indices);
+            throw;
+        }
+    }
     if (!free_meshes_.empty()) {
         const MeshId id = free_meshes_.back();
         free_meshes_.pop_back();
@@ -435,8 +471,46 @@ void Renderer::remove_mesh(MeshId id) {
     }
     SDL_ReleaseGPUBuffer(device_, mesh.vertices);
     SDL_ReleaseGPUBuffer(device_, mesh.indices);
+    SDL_ReleaseGPUBuffer(device_, mesh.normals);
     mesh = {};
     free_meshes_.push_back(id);
+}
+
+SDL_GPUBuffer* Renderer::upload_buffer(const void* data, Uint32 bytes) {
+    SDL_GPUBufferCreateInfo buffer_info{};
+    buffer_info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+    buffer_info.size = bytes;
+    SDL_GPUBuffer* buffer = SDL_CreateGPUBuffer(device_, &buffer_info);
+    if (buffer == nullptr) {
+        throw sdl_error("no vertex buffer");
+    }
+    SDL_GPUTransferBufferCreateInfo transfer_info{};
+    transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    transfer_info.size = bytes;
+    SDL_GPUTransferBuffer* transfer = SDL_CreateGPUTransferBuffer(device_, &transfer_info);
+    void* mapped =
+        transfer == nullptr ? nullptr : SDL_MapGPUTransferBuffer(device_, transfer, false);
+    if (mapped == nullptr) {
+        const auto error = sdl_error("a vertex buffer could not be uploaded");
+        SDL_ReleaseGPUTransferBuffer(device_, transfer);
+        SDL_ReleaseGPUBuffer(device_, buffer);
+        throw error;
+    }
+    std::memcpy(mapped, data, bytes);
+    SDL_UnmapGPUTransferBuffer(device_, transfer);
+    SDL_GPUCommandBuffer* commands = SDL_AcquireGPUCommandBuffer(device_);
+    SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(commands);
+    SDL_GPUTransferBufferLocation from{transfer, 0};
+    SDL_GPUBufferRegion to{buffer, 0, bytes};
+    SDL_UploadToGPUBuffer(copy, &from, &to, false);
+    SDL_EndGPUCopyPass(copy);
+    const bool submitted = SDL_SubmitGPUCommandBuffer(commands);
+    SDL_ReleaseGPUTransferBuffer(device_, transfer);
+    if (!submitted) {
+        SDL_ReleaseGPUBuffer(device_, buffer);
+        throw sdl_error("a vertex buffer's upload was not submitted");
+    }
+    return buffer;
 }
 
 // Uploads `mesh` into `gpu`, making its buffers, or with `reuse` making them
@@ -576,22 +650,29 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
         camera.vertical_fov_rad,
         static_cast<double>(width_) / static_cast<double>(height_), camera.near_m);
     const auto draw_all = [&](bool translucent) {
-        bool bound = false;
+        SDL_GPUGraphicsPipeline* bound = nullptr;
         for (const Draw& draw : draws) {
             if (draw.translucent != translucent) {
                 continue;
-            }
-            if (!bound) {
-                SDL_BindGPUGraphicsPipeline(pass, translucent ? translucent_pipeline_
-                                                              : mesh_pipeline_);
-                bound = true;
             }
             const GpuMesh& mesh = meshes_.at(draw.mesh);
             if (mesh.vertices == nullptr) {
                 throw std::logic_error("a removed mesh drawn");
             }
-            SDL_GPUBufferBinding vertices{mesh.vertices, 0};
-            SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
+            const bool lit = draw.sun.has_value();
+            if (lit && mesh.normals == nullptr) {
+                throw std::logic_error("a mesh with no normals drawn lit");
+            }
+            SDL_GPUGraphicsPipeline* pipeline =
+                lit ? (translucent ? lit_translucent_pipeline_ : lit_pipeline_)
+                    : (translucent ? translucent_pipeline_ : mesh_pipeline_);
+            if (pipeline != bound) {
+                SDL_BindGPUGraphicsPipeline(pass, pipeline);
+                bound = pipeline;
+            }
+            const SDL_GPUBufferBinding vertices[2] = {
+                {mesh.vertices, 0}, {lit ? mesh.normals : no_normal_, 0}};
+            SDL_BindGPUVertexBuffers(pass, 0, vertices, 2);
             SDL_GPUBufferBinding indices{mesh.indices, 0};
             SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
             SDL_GPUTexture* texture = white_;
@@ -630,8 +711,8 @@ void Renderer::render(const Camera& camera, std::span<const Draw> draws,
     draw_all(true);
     if (overlay != nullptr && !overlay->indices.empty()) {
         SDL_BindGPUGraphicsPipeline(pass, overlay_pipeline_);
-        SDL_GPUBufferBinding vertices{overlay_.vertices, 0};
-        SDL_BindGPUVertexBuffers(pass, 0, &vertices, 1);
+        const SDL_GPUBufferBinding vertices[2] = {{overlay_.vertices, 0}, {no_normal_, 0}};
+        SDL_BindGPUVertexBuffers(pass, 0, vertices, 2);
         SDL_GPUBufferBinding indices{overlay_.indices, 0};
         SDL_BindGPUIndexBuffer(pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
         SDL_GPUTextureSamplerBinding image{white_, sampler_};

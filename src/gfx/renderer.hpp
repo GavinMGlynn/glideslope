@@ -146,12 +146,15 @@ private:
     struct GpuMesh {
         SDL_GPUBuffer* vertices = nullptr;
         SDL_GPUBuffer* indices = nullptr;
+        SDL_GPUBuffer* normals = nullptr; // a lit mesh's only
         std::uint32_t index_count = 0;
     };
 
     void release();
     void upload(GpuMesh& gpu, const Mesh& mesh, bool reuse);
     SDL_GPUTexture* upload_texture(int width, int height, const std::uint8_t* rgba);
+    // A vertex buffer of `bytes` bytes from `data`. Throws on failure.
+    SDL_GPUBuffer* upload_buffer(const void* data, std::uint32_t bytes);
 
     SDL_GPUDevice* device_ = nullptr;
     SDL_Window* window_ = nullptr;
@@ -160,6 +163,12 @@ private:
     SDL_GPUGraphicsPipeline* mesh_pipeline_ = nullptr;
     SDL_GPUGraphicsPipeline* translucent_pipeline_ = nullptr;
     SDL_GPUGraphicsPipeline* overlay_pipeline_ = nullptr;
+    // The same, for a mesh lit as it is drawn: its normals a vertex each.
+    SDL_GPUGraphicsPipeline* lit_pipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline* lit_translucent_pipeline_ = nullptr;
+    // One normal, of nothing, which an unlit mesh's pipeline reads for every
+    // vertex (as the instance's): the shader's normal is there, unused.
+    SDL_GPUBuffer* no_normal_ = nullptr;
     std::vector<GpuMesh> meshes_;
     std::vector<MeshId> free_meshes_;
     std::vector<SDL_GPUTexture*> textures_;
