@@ -44,14 +44,16 @@ struct Vertex {
     std::array<float, 3> position{}; // metres, relative to the mesh's origin
     std::array<float, 4> colour{};   // linear RGBA, 0..1; times the texture
     std::array<float, 2> uv{};       // texture coordinates, before the draw's transform
-    // Unit, in the mesh's own frame, for a mesh lit as it is drawn (a Draw
-    // given a sun); nothing for one whose colours already say its light.
-    std::array<float, 3> normal{};
 };
 
 struct Mesh {
     std::vector<Vertex> vertices;
     std::vector<std::uint32_t> indices; // triangles, counter-clockwise from outside
+    // **For a mesh lit as it is drawn** (a Draw given a sun): a unit normal
+    // a vertex, in the mesh's own frame, kept in a buffer of their own. Empty
+    // for one whose colours already say its light - terrain's - which so
+    // spends nothing on them.
+    std::vector<std::array<float, 3>> normals;
 };
 
 // Where a mesh is: its origin in ECEF, and its axes in ECEF.

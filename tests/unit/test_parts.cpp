@@ -543,22 +543,24 @@ GLIDESLOPE_TEST(every_aircrafts_drawn_meshes_carry_a_unit_normal_at_every_vertex
         double worst = 0.0;
         for (const Model* part : drawn) {
             const glideslope::gfx::Mesh mesh = glideslope::gfx::mesh_from_model(*part);
-            if (mesh.vertices.size() != part->vertices.size() || mesh.vertices.empty()) {
+            if (mesh.vertices.size() != part->vertices.size() ||
+                mesh.normals.size() != part->vertices.size() || mesh.vertices.empty()) {
                 failed += "\n  " + e.id + ": a mesh of " + std::to_string(mesh.vertices.size()) +
-                          " vertices from a part of " + std::to_string(part->vertices.size());
+                          " vertices and " + std::to_string(mesh.normals.size()) +
+                          " normals from a part of " + std::to_string(part->vertices.size());
                 continue;
             }
             for (std::size_t i = 0; i < mesh.vertices.size(); ++i) {
                 const glideslope::gfx::Vertex& v = mesh.vertices[i];
                 double l2 = 0.0;
-                for (const float n : v.normal) {
+                for (const float n : mesh.normals[i]) {
                     l2 += static_cast<double>(n) * static_cast<double>(n);
                 }
                 worst = std::max(worst, std::abs(std::sqrt(l2) - 1.0));
                 if (v.colour[0] != part->vertices[i].colour[0] ||
                     v.colour[1] != part->vertices[i].colour[1] ||
                     v.colour[2] != part->vertices[i].colour[2] ||
-                    v.normal != part->vertices[i].normal) {
+                    mesh.normals[i] != part->vertices[i].normal) {
                     failed += "\n  " + e.id + ": vertex " + std::to_string(i) +
                               " is not the model's colour and normal";
                     break;
