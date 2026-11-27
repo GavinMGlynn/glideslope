@@ -157,6 +157,26 @@ std::vector<std::uint8_t> Reader::bytes(std::size_t count) {
     return std::vector<std::uint8_t>(from, from + count);
 }
 
+Refusal refusal_of(std::uint8_t reason) {
+    return reason <= static_cast<std::uint8_t>(Refusal::wrong_layout) ? static_cast<Refusal>(reason)
+                                                                     : Refusal::unknown;
+}
+
+const char* refusal_name(Refusal why) {
+    switch (why) {
+    case Refusal::unknown: return "UNKNOWN";
+    case Refusal::not_this_protocol: return "NOT_THIS_PROTOCOL";
+    case Refusal::wrong_version: return "WRONG_VERSION";
+    case Refusal::unknown_type: return "UNKNOWN_TYPE";
+    case Refusal::too_short: return "TOO_SHORT";
+    case Refusal::server_full: return "SERVER_FULL";
+    case Refusal::bad_handshake: return "BAD_HANDSHAKE";
+    case Refusal::dropped: return "DROPPED";
+    case Refusal::wrong_layout: return "WRONG_LAYOUT";
+    }
+    return "UNKNOWN";
+}
+
 Writer begin(Type type) {
     Writer w;
     w.bytes(std::span<const std::uint8_t>(magic.data(), magic.size()));

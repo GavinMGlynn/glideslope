@@ -1,5 +1,6 @@
 #include "net/session.hpp"
 
+#include "net/inputs.hpp"
 #include "net/inside.hpp"
 #include "net/protocol.hpp"
 
@@ -21,7 +22,8 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                                                     double resend_every_s,
                                                     const std::string& aircraft,
                                                     const std::string& loading,
-                                                    const std::string& secret_hex) {
+                                                    const std::string& secret_hex,
+                                                    std::optional<Refusal>* refused) {
     const auto address = platform::address_of(where);
     if (!address) {
         return std::nullopt;
@@ -51,7 +53,10 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
     if ((!aircraft.empty() && asked.empty()) || (aircraft.empty() && !loading.empty())) {
         return std::nullopt; // not an aircraft's id, or a loading's name, or a loading of nothing
     }
-    w.bytes(initiator.begin(all_of(asked)));
+    // **The layout first** (net::write_joining): a server of another refuses
+    // it `WRONG_LAYOUT`, by name, rather than drop every input it sends.
+    const std::vector<std::uint8_t> payload = write_joining(all_of(asked));
+    w.bytes(initiator.begin(all_of(payload)));
     const std::vector<std::uint8_t> first = w.take();
     if (!socket->send(*address, all_of(first))) {
         return std::nullopt;
@@ -72,7 +77,11 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
             Refusal why{};
             if (read_envelope(r, envelope, why)) {
                 if (envelope.type == Type::refusal) {
-                    return std::nullopt; // the server said no, and said why
+                    // The server said no, and said why.
+                    if (refused != nullptr) {
+                        *refused = refusal_of(into[envelope_size]);
+                    }
+                    return std::nullopt;
                 }
                 if (envelope.type == Type::handshake_response) {
                     const auto session =
@@ -90,7 +99,7 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                     out.opening_ = std::make_unique<Unsealer>(session->receiving);
                     out.initiation_ = first;
                     out.mine_key_ = mine;
-                    out.asked_ = asked;
+                    out.asked_ = payload;
                     out.prove_at_once();
                     return out;
                 }
@@ -277,7 +286,7 @@ void ClientSession::keep_joining_again(double now_s) {
             standing_ = Standing::dropped;
             return;
         }
-        if (heard == Rejoin::Heard::server_full) {
+        if (heard == Rejoin::Heard::server_full || heard == Rejoin::Heard::wrong_layout) {
             standing_ = Standing::refused;
             return;
         }

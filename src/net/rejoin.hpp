@@ -23,7 +23,8 @@
 // sealed by a server that had the session after that, which nothing held from
 // before can be. What opens otherwise is counted (`stale()`) and dropped.
 //
-// Refusals from the server's address: `SERVER_FULL` and `DROPPED` end it.
+// Refusals from the server's address: `SERVER_FULL`, `DROPPED` and
+// `WRONG_LAYOUT` (a server started again on another build) end it.
 // `BAD_HANDSHAKE` does not - sealed datagrams sent under the old session,
 // knocks among them, may still be on their way to be refused.
 
@@ -68,8 +69,8 @@ std::vector<std::uint8_t> sealed_knock(Sealer& sealing, std::uint64_t token);
 class Rejoin {
 public:
     // The old session's keys are the caller's, and must outlive this.
-    // `payload` goes in the initiation, as the first one's did: the
-    // aeroplane asked for (net::write_asked_aircraft), or nothing.
+    // `payload` goes in the initiation, as the first one's did: the layout
+    // and the aeroplane asked for (net::write_joining).
     Rejoin(const KeyPair& mine, const PublicKey& theirs, Sealer& old_sealing,
            Unsealer& old_opening, std::span<const std::uint8_t> payload = {});
 
@@ -78,7 +79,7 @@ public:
     std::vector<std::vector<std::uint8_t>> due(double now_s);
     static constexpr double every_s = 0.25;
 
-    enum class Heard { nothing, old_session_answers, joined, server_full, dropped };
+    enum class Heard { nothing, old_session_answers, joined, server_full, dropped, wrong_layout };
     // **What one datagram says.** `joined`: `keys()` are the new session's.
     Heard hear(const platform::Address& server, const platform::Address& from,
                std::span<const std::uint8_t> datagram);

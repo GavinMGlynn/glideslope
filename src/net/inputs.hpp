@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -51,6 +52,26 @@ inline constexpr std::size_t redundancy = 4;
 // be tested without a flight model.
 inline constexpr std::size_t controls_on_the_wire = 21;
 using ControlList = std::array<double, controls_on_the_wire>;
+static_assert(controls_on_the_wire <= 255, "the count goes on the wire in one byte");
+
+// **The layout a client sends, said as it joins** (since protocol 20): the
+// initiation's payload begins with one byte, how many controls ride in each
+// of its input frames - `controls_on_the_wire`, the number the frame's own
+// layout is made from, so it is never written down twice - and the aeroplane
+// asked for follows it (net::write_asked_aircraft), or nothing does. A server
+// whose count is another refuses the initiation `WRONG_LAYOUT`, so a client
+// of another day's controls is told why at once, rather than let in and its
+// every input dropped as the wrong length (docs/TRANSPORT.md, "Starting a
+// session"). `controls` is for a test, to be a client of another layout.
+std::vector<std::uint8_t> write_joining(std::span<const std::uint8_t> asked,
+                                        std::size_t controls = controls_on_the_wire);
+struct Joining {
+    std::size_t controls = 0;
+    // The rest of the payload: the aeroplane asked for, or nothing.
+    std::vector<std::uint8_t> asked;
+};
+// Nothing for an empty payload, which says no layout at all.
+std::optional<Joining> read_joining(std::span<const std::uint8_t> payload);
 
 // **A frame's step not said**: a client not yet counting its steps - before
 // its prediction begins, or while the AI flies her - sends this.

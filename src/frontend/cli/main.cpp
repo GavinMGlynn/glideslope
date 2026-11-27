@@ -431,6 +431,19 @@ std::vector<std::uint8_t> connect_asked_aircraft;
 // F-35B light enough to hover - in the same payload (protocol 14).
 std::string connect_asked_id;
 std::string connect_asked_loading;
+// **A test flag's work (`--controls N`)**: the count of controls this client
+// says it sends, as a client of another layout would (net::write_joining);
+// `--controls none`, an empty payload, which says no count.
+std::optional<std::size_t> connect_controls = glideslope::net::controls_on_the_wire;
+// **The initiation's payload**: the layout said first, then the aeroplane.
+std::vector<std::uint8_t> connect_payload() {
+    if (!connect_controls) {
+        return {};
+    }
+    return glideslope::net::write_joining(
+        std::span<const std::uint8_t>(connect_asked_aircraft.data(), connect_asked_aircraft.size()),
+        *connect_controls);
+}
 
 // **A test flag's work (`--until-told-ground`)**: stay until the server has
 // said its collision ground and this client has answered one of its knocks -
@@ -733,6 +746,10 @@ void print_usage(std::FILE* out) {
         "                            pings at 1,000 a second and, once they are read,\n"
         "                            50 requests at once,\n"
         "                            says how many pings were answered, and leaves\n"
+        "                            --controls N says, as it joins, that it sends N\n"
+        "                            controls in an input frame: a client of another\n"
+        "                            layout, which the server refuses WRONG_LAYOUT;\n"
+        "                            --controls none says no count at all\n"
         "                            --forge-leaving tries, as a forger would, to\n"
         "                            end sessions with goodbyes from the wrong\n"
         "                            address or keys: its own from a second session's\n"
@@ -6311,9 +6328,9 @@ Rejoined join_again(glideslope::platform::UdpSocket& socket,
                     const glideslope::net::KeyPair& mine, const glideslope::net::PublicKey& theirs,
                     glideslope::net::Sealer& old_sealing, glideslope::net::Unsealer& old_opening) {
     Rejoined out;
+    const std::vector<std::uint8_t> payload = connect_payload();
     glideslope::net::Rejoin rejoin(mine, theirs, old_sealing, old_opening,
-                                   std::span<const std::uint8_t>(connect_asked_aircraft.data(),
-                                                                 connect_asked_aircraft.size()));
+                                   std::span<const std::uint8_t>(payload.data(), payload.size()));
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
     for (;;) {
@@ -6342,6 +6359,9 @@ Rejoined join_again(glideslope::platform::UdpSocket& socket,
             return out;
         case Heard::dropped:
             out.refused = glideslope::net::Refusal::dropped;
+            return out;
+        case Heard::wrong_layout:
+            out.refused = glideslope::net::Refusal::wrong_layout;
             return out;
         case Heard::old_session_answers:
             out.old_session_answers = true;
@@ -6527,8 +6547,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     glideslope::net::Initiator initiator(mine, *theirs);
     glideslope::net::Writer w =
         glideslope::net::begin(glideslope::net::Type::handshake_initiation);
-    w.bytes(initiator.begin(std::span<const std::uint8_t>(connect_asked_aircraft.data(),
-                                                          connect_asked_aircraft.size())));
+    const std::vector<std::uint8_t> payload = connect_payload();
+    w.bytes(initiator.begin(std::span<const std::uint8_t>(payload.data(), payload.size())));
     const std::vector<std::uint8_t> first = w.take();
     // What a STOVL landing needs, and the ground a prediction's air is
     // flown over, read before the server is asked for a session
@@ -6623,12 +6643,16 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
             glideslope::net::Refusal why{};
             if (glideslope::net::read_envelope(r, envelope, why)) {
                 if (envelope.type == glideslope::net::Type::refusal) {
+                    // **By its number and its name**: `WRONG_LAYOUT` says what
+                    // to do about it, where `8` says nothing.
                     const unsigned reason = into[glideslope::net::envelope_size];
-                    std::fprintf(stderr, "glideslope_cli: refused, reason %u\n", reason);
+                    const char* name = glideslope::net::refusal_name(
+                        glideslope::net::refusal_of(into[glideslope::net::envelope_size]));
+                    std::fprintf(stderr, "glideslope_cli: refused, reason %u, %s\n", reason, name);
                     // Said to the file too: a test in a pipeline reads that.
                     if (!heard_file.empty()) {
                         std::ofstream(heard_file, std::ios::app)
-                            << "refused, reason " << reason << '\n';
+                            << "refused, reason " << reason << ", " << name << '\n';
                     }
                     return 1;
                 }
@@ -6741,7 +6765,8 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
                             say_outcome(heard_file,
                                         "let go, and refused when joining again, reason " +
                                             std::to_string(
-                                                static_cast<unsigned>(*rejoined.refused)));
+                                                static_cast<unsigned>(*rejoined.refused)) +
+                                            ", " + glideslope::net::refusal_name(*rejoined.refused));
                             return 1;
                         }
                         if (rejoined.old_session_answers) {
@@ -6946,6 +6971,17 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--flood") {
                     connect_flood.on = true;
+                    continue;
+                }
+                // **A test flag's work (`--controls N`)**: says N controls
+                // in an input frame as it joins, a client of another layout.
+                if (args[i] == "--controls" && i + 1 < args.size()) {
+                    const std::string count(args[++i]);
+                    if (count == "none") {
+                        connect_controls.reset();
+                    } else {
+                        connect_controls = static_cast<std::size_t>(std::stoul(count));
+                    }
                     continue;
                 }
                 // **A test flag's work (`--asked-payload HEX`)**: the
