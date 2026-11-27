@@ -53,6 +53,7 @@
 # writes what they said to RESULT_FILE, and stops the stub.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake); the inner
 # half, run by this, holds it already.
@@ -110,10 +111,7 @@ file(WRITE "${_plan}" "aircraft 737-300\nstart -33.93176 151.06051 2500 279 250\
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}" --plan "${_plan}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
-if(NOT _rc EQUAL 0)
-    message(STATUS "the server could not get its terrain: ${_err}")
-    cmake_language(EXIT 77)
-endif()
+glideslope_warmed_up("${_rc}" "${_err}")
 
 # **The forecast's hours, three days of them** (client_quits_mid_refresh.cmake).
 set(_had_epoch "")

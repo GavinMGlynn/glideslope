@@ -40,6 +40,7 @@
 # (exit 77), never passed.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake): another
 # build's run of this test on the same port waits for it.
@@ -145,10 +146,7 @@ execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
             --players-on-final ${_spec}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
-if(NOT _rc EQUAL 0)
-    message(STATUS "the server could not get its terrain: ${_err}")
-    cmake_language(EXIT 77)
-endif()
+glideslope_warmed_up("${_rc}" "${_err}")
 
 # The clients, each writing down the pipe to the next; the server, last, to
 # here. **In their order, by events**: the first once the server is flying
@@ -253,8 +251,7 @@ if(_how STREQUAL "window")
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _window ERROR_VARIABLE _out)
     port_listened("${_window}" "${_out}")
     if(_out MATCHES "no GPU|could not create|no device")
-        message(STATUS "the window client cannot draw here: ${_out}")
-        cmake_language(EXIT 77)
+        glideslope_cannot_draw("${_out}")
     endif()
     glideslope_judge_leaks("${_out}")
     file(WRITE "${WORK}/window.txt" "${_window}")
