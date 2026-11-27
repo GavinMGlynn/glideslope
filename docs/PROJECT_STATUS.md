@@ -254,8 +254,9 @@ real time and against one keeping it, every update is under 0.65 m. Main's
 window client already did this; the test is new (2026-11-22).
 On macOS the window-client tests on a server now run on Metal, and all 45
 pass. Before, they asked for Vulkan and reported themselves skipped. The HUD
-tick test on Metal still skips there, its cause not yet found. A warm-up
-server that times out now fails its test (2026-11-27).
+tick test on Metal skipped there when the live weather did not answer, not
+for terrain; a test skipped on macOS CI now prints why (2026-11-28). A
+warm-up server that times out now fails its test (2026-11-27).
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
 refused. A player's aircraft is held trimmed until her first input, and
