@@ -248,8 +248,9 @@ The window client is held to the command-line client's bound by a test too:
 in the C172P, flying a pilot's changing controls against a server at 0.6 of
 real time and against one keeping it, every update is under 0.65 m. Main's
 window client already did this; the test is new (2026-11-22).
-On macOS the window-client tests on a server now run, on Metal, and pass:
-before, they asked for Vulkan and reported themselves skipped. A warm-up
+On macOS the window-client tests on a server now run on Metal, and all 45
+pass. Before, they asked for Vulkan and reported themselves skipped. The HUD
+tick test on Metal still skips there, its cause not yet found. A warm-up
 server that times out now fails its test (2026-11-27).
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was

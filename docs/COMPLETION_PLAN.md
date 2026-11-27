@@ -2236,16 +2236,11 @@ What the client with the window does that the command-line client does, and what
       run on SDL's dummy audio driver, the mix follows the flight (the
       engine's pitch rising with RPM, silence with the engine stopped), and
       every aircraft has a sound set, asserted.*
-- [x] **On macOS a dozen window-client tests report themselves skipped
-      after 300 s**: they asked for Vulkan, which macOS has not got; now on
-      Metal there, a warm-up that times out fails, and a client that cannot
-      draw fails where a window is required. *Verification: all 45 tests
-      on the client's driver ran and passed on macOS release, none skipped,
-      and the timeout made a skip again turns its test red.*
-- [ ] **On macOS the HUD's tick test skips after 155 to 334 s**
-      (the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_metal).
-      *Verification: the cause found, and it run and passing on macOS
-      release, or failing where it cannot.*
+- [ ] **On macOS a dozen window-client tests report themselves skipped
+      after 300 s**: they asked for Vulkan; now on Metal, all 45 run and pass,
+      and a warm-up that times out fails. Missing: the HUD tick test on Metal,
+      which skips after 334 s, cause not yet found. *Verification: every
+      window-client test run on macOS release, none skipped for terrain.*
 
 ---
 
@@ -2560,6 +2555,10 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
       Google URL carries the key it was asked with - the user's own, on that
       way in. *Verification: a refused request through the stand-in logs no
       key, and a test reading every client's standard error finds none.*
+- [ ] **Two server tests still skip on any failure of their server**
+      (server_ai.cmake and server_flies.cmake, line 39 of each). *Verification:
+      a server that stops for anything but a missing download fails them,
+      seen red.*
 
 ---
 

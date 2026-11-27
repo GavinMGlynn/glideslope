@@ -142,40 +142,9 @@ function(glideslope_judge_leaks stderr_text)
     endif()
 endfunction()
 
-# **The one rule for a run that could not download what it needed**, given
-# its exit code and standard error, and any other words (ALSO, a regular
-# expression) that say the same of this test's own downloads. It reports the
-# test skipped (exit 77), never passed:
-#
-# - "the weather could not be had": always. The weather is live, somebody
-#   else's and never kept, so a service having a bad minute is not a fault
-#   here, even where the network is required.
-# - "could not download", or ALSO: unless GLIDESLOPE_REQUIRE_NETWORK is set.
-#   What else is downloaded - the DEM, the geoid, imagery - is pinned and
-#   kept, so CI requires it and a failure there is a failure.
-#
-# Anything else, or a run that exited 0, it leaves to the caller.
-#
-# **A run whose imagery could not be fetched draws its frame anyway**, on
-# the DEM's colours, exits 0 and says so; a test that is about the imagery
-# itself asks glideslope_skip_when_imagery_not_fetched, below, as well.
-function(glideslope_skip_when_not_downloaded rc err)
-    if(rc EQUAL 0)
-        return()
-    endif()
-    if(err MATCHES "the weather could not be had")
-        message(STATUS "there is no weather to fly in, so this is skipped: ${err}")
-        cmake_language(EXIT 77)
-    endif()
-    set(_pattern "could not download")
-    if(ARGC GREATER 2)
-        string(APPEND _pattern "|${ARGV2}")
-    endif()
-    if(err MATCHES "${_pattern}" AND "$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
-        message(STATUS "what this needs could not be downloaded, so it is skipped: ${err}")
-        cmake_language(EXIT 77)
-    endif()
-endfunction()
+# glideslope_skip_when_not_downloaded is in skip_or_fail.cmake, with the
+# rule for a warm-up server that builds on it.
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **A test of the imagery itself, whose imagery could not be fetched**, is
 # skipped (exit 77) as a download that failed is: unless
