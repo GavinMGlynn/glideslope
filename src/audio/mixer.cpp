@@ -31,14 +31,19 @@ void Mixer::hear(const Heard& heard) {
     if (heard_once_) {
         gear_moving_ = own_.gear.has_value() && std::abs(heard.gear - heard_.gear) > 1e-6;
         flaps_moving_ = own_.flaps.has_value() && std::abs(heard.flaps - heard_.flaps) > 1e-6;
-        if (heard.on_surface && !heard_.on_surface) {
+        if (heard.on_surface && !heard_.on_surface && static_cast<double>(off_surface_frames_) >=
+                                                             touchdown_after_off_s * rate_) {
             // Louder the faster she comes down: full at 10 ft/s, and never
             // less than a quarter of it.
             thump_ = own_.touchdown_gain * std::clamp(heard.sink_fps / 10.0, 0.25, 1.0);
             ++touchdowns_;
         }
     }
-    stall_on_ = !heard.on_surface && heard.alpha_deg >= own_.stall_alpha_deg;
+    if (heard.on_surface) {
+        off_surface_frames_ = 0;
+    }
+    stall_on_ = !heard.on_surface &&
+                heard.alpha_deg >= own_.stall_warning_alpha_deg(heard.flaps);
     engines_.resize(heard.engines.size());
     for (auto it = others_.begin(); it != others_.end();) {
         const bool still = std::any_of(heard.others.begin(), heard.others.end(),
@@ -91,6 +96,9 @@ void Mixer::mix(float* out, std::size_t frames) {
     const double wind_cut = low_pass(150.0 + 6.0 * std::max(heard_.airspeed_kts, 0.0), rate_);
     const double thump_decay = std::exp(-1.0 / (0.12 * rate_));
     const double thump_cut = low_pass(200.0, rate_);
+    if (!heard_.on_surface) {
+        off_surface_frames_ += frames;
+    }
     for (std::size_t f = 0; f < frames; ++f) {
         double middle = 0.0;
         for (std::size_t i = 0; i < engines_.size(); ++i) {

@@ -95,6 +95,10 @@ struct InitialConditions {
     // stated attitude).
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // **The angle of attack it starts at**, degrees, its flight path kept
+    // and its pitch made to suit - where given. What sim::lift_peak reads
+    // her lift at; nothing else gives it.
+    std::optional<double> alpha_deg;
 };
 
 // **A STOVL aeroplane's lift system** - the F-35B's lift fan, roll posts and

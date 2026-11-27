@@ -16,7 +16,9 @@
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/learnt.hpp"
+#include "sim/lift_peak.hpp"
 #include "sim/terrain.hpp"
+#include "sim/test_pilot.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -64,7 +66,7 @@ std::vector<double> channel(const std::vector<float>& mix, std::size_t c, std::s
                             std::size_t to) {
     std::vector<double> out;
     for (std::size_t f = from; f < to && 2 * f + c < mix.size(); ++f) {
-        out.push_back(mix[2 * f + c]);
+        out.push_back(static_cast<double>(mix[2 * f + c]));
     }
     return out;
 }
@@ -228,7 +230,7 @@ GLIDESLOPE_TEST(every_aircraft_in_the_catalogue_has_a_sound_set_that_matches_her
 // out of its range, and each line every set must give, left out.
 GLIDESLOPE_TEST(a_sound_set_with_a_line_wrong_or_missing_is_refused) {
     const std::string whole = "engine piston 4 0.25\nwind 0.15 110\ntouchdown 0.4\n"
-                              "stall-warning 14 1600 0.1\nheard-as-other 2400\n";
+                              "stall-warning 1600 0.1\nheard-as-other 2400\n";
     (void)glideslope::audio::parse_sound_set("whole", whole);
     const std::vector<std::pair<std::string, std::string>> wrong = {
         {"an unknown line", whole + "horn 1\n"},
@@ -236,14 +238,14 @@ GLIDESLOPE_TEST(a_sound_set_with_a_line_wrong_or_missing_is_refused) {
         {"a turbine with no blades", "engine turbine 5000 0.28\n" +
                                          whole.substr(whole.find('\n') + 1)},
         {"no engine", whole.substr(whole.find('\n') + 1)},
-        {"no wind", "engine piston 4 0.25\ntouchdown 0.4\nstall-warning 14 1600 0.1\n"
+        {"no wind", "engine piston 4 0.25\ntouchdown 0.4\nstall-warning 1600 0.1\n"
                     "heard-as-other 2400\n"},
-        {"no touchdown", "engine piston 4 0.25\nwind 0.15 110\nstall-warning 14 1600 0.1\n"
+        {"no touchdown", "engine piston 4 0.25\nwind 0.15 110\nstall-warning 1600 0.1\n"
                          "heard-as-other 2400\n"},
         {"no stall warning", "engine piston 4 0.25\nwind 0.15 110\ntouchdown 0.4\n"
                              "heard-as-other 2400\n"},
         {"no drive heard as another", "engine piston 4 0.25\nwind 0.15 110\ntouchdown 0.4\n"
-                                      "stall-warning 14 1600 0.1\n"},
+                                      "stall-warning 1600 0.1\n"},
     };
     std::size_t refused = 0;
     for (const auto& [what, text] : wrong) {
@@ -486,7 +488,8 @@ GLIDESLOPE_TEST(every_event_is_heard_from_the_step_it_happens_in_every_aircraft)
     enum Event { gear, flaps, touchdown, stall };
     const char* names[] = {"gear", "flaps", "touchdown", "stall warning"};
     for (const CatalogueEntry& e : all) {
-        const SoundSet set = glideslope::audio::read_sound_set(data(), e.id);
+        const SoundSet set =
+            glideslope::audio::own_sound_set(data(), e.id, e.model, e.start_airspeed_kts);
         glideslope::sim::Aircraft model(data() / "jsbsim", e.model);
         const int engines = model.engine_count();
         std::string line;
@@ -519,7 +522,7 @@ GLIDESLOPE_TEST(every_event_is_heard_from_the_step_it_happens_in_every_aircraft)
                         h.on_surface = true;
                         h.sink_fps = 8.0;
                     } else if (on && ev == stall) {
-                        h.alpha_deg = set.stall_alpha_deg + 2.0;
+                        h.alpha_deg = set.stall_warning_alpha_deg(h.flaps) + 2.0;
                     }
                     mixer.hear(h);
                     if (on && i == begins) {
@@ -642,4 +645,257 @@ GLIDESLOPE_TEST(another_aircraft_is_heard_louder_nearer_and_on_the_side_she_is_o
           std::to_string(walked) + " of " +
               std::to_string(all.size() * places.size() * distances.size()) +
               " placings heard");
+}
+
+// **Every aircraft's stall warning sounds at the angle her own flight model
+// gives** (sim/lift_peak.hpp): clean and with her flaps fully down, her lift
+// coefficient peaks inside her tables, and her warning's angle - where the
+// coefficient first reaches its peak over her warning margin squared
+// (sim::stall_warning_margin) - lies below the peak and above level
+// flight's. Her set loaded to be flown (audio::own_sound_set) carries those
+// two angles, and the mix sounds her horn at each, and half way between them
+// at half flap, and not a tenth of a degree below. Every aircraft, both
+// configurations, asserted.
+GLIDESLOPE_TEST(every_aircrafts_stall_warning_sounds_at_the_angle_her_own_lift_curve_gives) {
+    const std::vector<CatalogueEntry> all = catalogue();
+    std::size_t read = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : all) {
+        const double margin = glideslope::sim::stall_warning_margin(data(), e.model);
+        const SoundSet own =
+            glideslope::audio::own_sound_set(data(), e.id, e.model, e.start_airspeed_kts);
+        for (const double flaps : {0.0, 1.0}) {
+            const glideslope::sim::LiftPeak p = glideslope::sim::lift_peak(
+                data() / "jsbsim", e.model, e.start_airspeed_kts, flaps, margin);
+            const double carried = flaps > 0.0 ? own.stall_alpha_flaps_deg
+                                               : own.stall_alpha_clean_deg;
+            bool ok = p.peaked && p.cl_max > 0.0 && p.warning_alpha_deg > 0.0 &&
+                      p.warning_alpha_deg < p.alpha_deg && carried == p.warning_alpha_deg;
+            for (const double f : {flaps, 0.5}) {
+                const double at = own.stall_warning_alpha_deg(f);
+                for (const double alpha : {at - 0.1, at}) {
+                    Mixer mixer(own, glideslope::audio::mix_rate);
+                    Heard h;
+                    h.flaps = f;
+                    h.alpha_deg = alpha;
+                    mixer.hear(h);
+                    ok = ok && mixer.stall_warning() == (alpha == at);
+                }
+            }
+            ok = ok && own.stall_warning_alpha_deg(0.5) ==
+                           0.5 * (own.stall_alpha_clean_deg + own.stall_alpha_flaps_deg);
+            std::printf("  %-13s flaps %.0f: CLmax %.2f at %.2f degrees, warned from %.2f "
+                        "(her warning %.3f times her stall speed)%s\n",
+                        e.id.c_str(), flaps, p.cl_max, p.alpha_deg, p.warning_alpha_deg, margin,
+                        ok ? "" : "  <- WRONG");
+            if (ok) {
+                ++read;
+            } else {
+                failed += " " + e.id + (flaps > 0.0 ? "(flaps down)" : "(clean)");
+            }
+        }
+    }
+    check(failed.empty(), "every stall warning at her lift curve's angle; not:" + failed);
+    check(all.size() == aircraft_in_the_catalogue && read == 2 * all.size(),
+          std::to_string(read) + " of " + std::to_string(2 * all.size()) + " lift curves read");
+}
+
+// **Her engine's note is the fundamental worked by hand**: a C172P's
+// four-cylinder Lycoming at 2,700 RPM fires 2,700 / 60 x 4 / 2 = 90 times a
+// second, and a 737-300's CFM56-3 at 100% N1 turns its fan at the 5,179 RPM
+// her set gives, 86.32 Hz. Her set says so, and the mix of each, at full
+// power on the dummy driver, is strongest there within a bin.
+GLIDESLOPE_TEST(a_c172p_at_2700_rpm_is_heard_at_90_hz_and_a_737_300_at_full_n1_at_86_hz) {
+    const auto device = dummy_device();
+    struct Pinned {
+        const char* id;
+        double drive;
+        double hz;
+        std::size_t engines;
+    };
+    const std::vector<Pinned> pinned = {{"c172p", 2700.0, 90.0, 1},
+                                        {"737-300", 100.0, 5179.0 / 60.0, 2}};
+    const double bin_hz = glideslope::audio::mix_rate / 65536.0;
+    std::size_t heard_right = 0;
+    for (const Pinned& p : pinned) {
+        const SoundSet set = glideslope::audio::read_sound_set(data(), p.id);
+        Mixer mixer(set, glideslope::audio::mix_rate);
+        Heard h;
+        h.engines.assign(p.engines, EngineHeard{true, p.drive, 1.0});
+        h.on_surface = true;
+        mixer.hear(h);
+        std::vector<float> mix;
+        device->tap(&mix);
+        for (int i = 0; i < 2 * steps_per_second; ++i) {
+            device->play(mixer, step_s);
+        }
+        device->tap(nullptr);
+        const double heard = peak_hz(mix, 5.0, 2000.0);
+        const bool ok = std::abs(set.fundamental_hz(p.drive) - p.hz) < 1e-9 &&
+                        std::abs(heard - p.hz) <= bin_hz;
+        std::printf("  %-8s at %.0f: her set says %.3f Hz, heard %.3f, by hand %.3f%s\n", p.id,
+                    p.drive, set.fundamental_hz(p.drive), heard, p.hz, ok ? "" : "  <- WRONG");
+        heard_right += ok ? 1 : 0;
+    }
+    check(heard_right == pinned.size(), std::to_string(heard_right) + " of 2 heard as worked");
+}
+
+// **A bounce is a landing again only after a quarter second off the
+// surface** (audio::touchdown_after_off_s): built a step at a time, she
+// touches, leaves the surface for N steps and touches again - one thump for
+// 1, 15 and 29 steps off, two for 30, 60 and 240 - and the first touch of a
+// flight is a thump whenever it comes.
+GLIDESLOPE_TEST(a_bounce_off_the_surface_is_heard_again_only_after_a_quarter_second_off_it) {
+    const auto device = dummy_device();
+    const SoundSet set = glideslope::audio::read_sound_set(data(), "c172p");
+    const std::vector<std::pair<int, std::size_t>> cases = {{1, 1},  {15, 1},  {29, 1},
+                                                            {30, 2}, {60, 2}, {240, 2}};
+    std::size_t right = 0;
+    for (const auto& [off, thumps] : cases) {
+        Mixer mixer(set, glideslope::audio::mix_rate);
+        for (int i = 0; i < 300 + off; ++i) {
+            Heard h;
+            h.on_surface = (i >= 10 && i < 20) || i >= 20 + off;
+            h.sink_fps = 5.0;
+            mixer.hear(h);
+            device->play(mixer, step_s);
+        }
+        const bool ok = mixer.touchdowns() == thumps;
+        std::printf("  off %3d steps: %zu thumps, %zu expected%s\n", off, mixer.touchdowns(),
+                    thumps, ok ? "" : "  <- WRONG");
+        right += ok ? 1 : 0;
+    }
+    check(right == cases.size(), std::to_string(right) + " of 6 bounces heard as they should");
+}
+
+// **Every aircraft's landing is heard from the step her flight model puts
+// her on the surface**: set down at idle on level ground - a seaplane on
+// water - from 30 ft at six tenths of her catalogue airspeed, the nose held
+// two degrees up (six for a flying boat), in JSBSim, each step's sound mixed
+// on the dummy driver, for 20 s. Flown twice, the same but for her
+// touchdown's gain (nought the second time), the two mixes are the same,
+// sample for sample, until the step a wheel or her hull first meets the
+// surface; the difference from it - the thump - is at least a tenth of the
+// rest of the mix over a quarter second. The mix counts as many landings as
+// the flight has touches after a quarter second off the surface - the
+// first among them; a wheel lifting for less on the rollout is not one.
+GLIDESLOPE_TEST(every_aircrafts_landing_in_her_flight_model_is_heard_from_the_step_she_touches) {
+    const auto device = dummy_device();
+    const std::vector<CatalogueEntry> all = catalogue();
+    constexpr int steps = 20 * steps_per_second;
+    constexpr int quarter_steps = steps_per_second / 4;
+    std::size_t heard_right = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : all) {
+        SoundSet set = glideslope::audio::read_sound_set(data(), e.id);
+        std::vector<float> mixes[2];
+        int touched_at = -1;
+        std::size_t edges = 0;
+        std::size_t landings = 0;
+        std::size_t counted = 0;
+        for (int run = 0; run < 2; ++run) {
+            if (run == 1) {
+                set.touchdown_gain = 0.0;
+            }
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; },
+                [&e](double, double) { return e.seaplane; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = -33.9;
+            ic.longitude_deg = 151.2;
+            ic.altitude_ft = 30.0;
+            ic.airspeed_kts = 0.6 * e.start_airspeed_kts;
+            ic.engine_running = true;
+            ic.gear = 1.0;
+            aircraft.initialize(ic);
+            glideslope::sim::TestPilot pilot(aircraft);
+            glideslope::sim::Controls c;
+            c.gear = 1.0;
+            c.throttle = 0.0;
+            Mixer mixer(set, glideslope::audio::mix_rate);
+            device->tap(&mixes[run]);
+            bool was_on = false;
+            int off_steps = 1000000;
+            for (int i = 0; i < steps; ++i) {
+                c.elevator = pilot.pitch_to(e.seaplane ? 6.0 : 2.0);
+                c.aileron = pilot.roll_to(0.0);
+                aircraft.set_controls(c);
+                aircraft.step();
+                const Heard h = glideslope::audio::heard_of(aircraft, set);
+                if (run == 0) {
+                    if (h.on_surface && !was_on) {
+                        ++edges;
+                        landings += off_steps >= quarter_steps ? 1 : 0;
+                        if (touched_at < 0) {
+                            touched_at = i;
+                        }
+                    }
+                    off_steps = h.on_surface ? 0 : off_steps + 1;
+                }
+                was_on = h.on_surface;
+                mixer.hear(h);
+                device->play(mixer, step_s);
+            }
+            device->tap(nullptr);
+            if (run == 0) {
+                counted = mixer.touchdowns();
+            }
+        }
+        bool ok = touched_at > 0 && mixes[0].size() == mixes[1].size() && counted == landings &&
+                  landings >= 1;
+        double ratio = 0.0;
+        if (ok) {
+            // The step's sound is mixed after the step is heard: the thump
+            // begins with the frames of the step she touched on.
+            const std::size_t at = mixes[0].size() / 2 * static_cast<std::size_t>(touched_at) /
+                                   static_cast<std::size_t>(steps);
+            double before = 0.0;
+            for (std::size_t i = 0; i < 2 * at; ++i) {
+                before = std::max(before,
+                                  std::abs(static_cast<double>(mixes[0][i] - mixes[1][i])));
+            }
+            std::vector<float> difference(mixes[0].size());
+            for (std::size_t i = 0; i < difference.size(); ++i) {
+                difference[i] = mixes[0][i] - mixes[1][i];
+            }
+            const std::size_t quarter = glideslope::audio::mix_rate / 4;
+            ratio = rms_of(difference, at, at + quarter) / rms_of(mixes[1], at, at + quarter);
+            ok = before == 0.0 && ratio >= 0.1;
+        }
+        std::printf("  %-13s touched at step %d, %zu touches, %zu landings, %zu thumps, the "
+                    "first %.2f of the rest%s\n",
+                    e.id.c_str(), touched_at, edges, landings, counted, ratio,
+                    ok ? "" : "  <- WRONG");
+        if (ok) {
+            ++heard_right;
+        } else {
+            failed += " " + e.id;
+        }
+    }
+    check(failed.empty(), "every landing heard from its step; not:" + failed);
+    check(all.size() == aircraft_in_the_catalogue && heard_right == all.size(),
+          std::to_string(heard_right) + " of " + std::to_string(all.size()) +
+              " landings heard");
+}
+
+// **A mix made faster than it is played is trimmed, not dropped**: a whole
+// second mixed at once on the dummy driver, with nothing queued yet, gives
+// SDL the quarter second that fits (audio::most_queued_s) and counts the
+// rest not queued - where it once gave nothing at all, a cut a click.
+GLIDESLOPE_TEST(a_mix_made_faster_than_it_is_played_is_trimmed_to_what_fits_not_dropped) {
+    const auto device = dummy_device();
+    const SoundSet set = glideslope::audio::read_sound_set(data(), "c172p");
+    Mixer mixer(set, glideslope::audio::mix_rate);
+    Heard h;
+    h.engines.assign(1, EngineHeard{true, 2700.0, 1.0});
+    mixer.hear(h);
+    device->play(mixer, 1.0);
+    const auto fits =
+        static_cast<std::size_t>(glideslope::audio::most_queued_s * glideslope::audio::mix_rate);
+    std::printf("  mixed %zu frames, %zu not queued, %zu fit\n", device->mixed_frames(),
+                device->not_queued_frames(), fits);
+    check(device->mixed_frames() == static_cast<std::size_t>(glideslope::audio::mix_rate) &&
+              device->not_queued_frames() == device->mixed_frames() - fits,
+          "a second mixed at once queues the quarter second that fits");
 }

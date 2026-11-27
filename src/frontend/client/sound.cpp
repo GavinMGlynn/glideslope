@@ -1,6 +1,7 @@
 #include "sound.hpp"
 
 #include <cstdio>
+#include <exception>
 #include <utility>
 
 namespace glideslope::client {
@@ -21,17 +22,32 @@ const audio::SoundSet* Sound::set_of(const std::string& id) {
     return it->second ? &*it->second : nullptr;
 }
 
+const audio::SoundSet* Sound::own_set_of(const sim::CatalogueEntry& entry) {
+    auto it = own_sets_.find(entry.id);
+    if (it == own_sets_.end()) {
+        std::optional<audio::SoundSet> set;
+        try {
+            set = audio::own_sound_set(data_, entry.id, entry.model, entry.start_airspeed_kts);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "glideslope: %s is not heard: %s\n", entry.id.c_str(), e.what());
+        }
+        it = own_sets_.emplace(entry.id, std::move(set)).first;
+    }
+    return it->second ? &*it->second : nullptr;
+}
+
 void Sound::play(const Flight& flight, const std::vector<Other>& others, std::uint8_t own,
                  double seconds) {
-    const std::string& id = flight.aircraft().id;
-    const audio::SoundSet* set = set_of(id);
+    const audio::SoundSet* set = own_set_of(flight.aircraft());
     if (set == nullptr) {
         return;
     }
-    if (!mixer_ || flown_ != id) {
+    const double now_s = flight.time_s();
+    if (!mixer_ || flown_ != &flight || now_s < flown_time_s_) {
         mixer_ = std::make_unique<audio::Mixer>(*set, audio::mix_rate);
-        flown_ = id;
+        flown_ = &flight;
     }
+    flown_time_s_ = now_s;
     audio::Heard heard = flight.heard(*set);
     const sim::AircraftState s = flight.state();
     const Axes listener = axes_at(flight.centre(), s.heading_deg, s.pitch_deg, s.roll_deg);

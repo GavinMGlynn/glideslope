@@ -104,6 +104,7 @@ elseif(CASES STREQUAL "allowed")
         "#include \"gfxtools/x.hpp\"\n"
         "#include \"uikit.hpp\"\n"
         "#include \"platforms/x.hpp\"\n"
+        "#include \"audiofile/x.hpp\"\n"
         "#include <cmath>\n"
         "// #include <SDL3/SDL_video.h>\n"
         "/* #include \"gfx/renderer.hpp\" */\n"

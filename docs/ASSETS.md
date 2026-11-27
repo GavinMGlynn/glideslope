@@ -1114,7 +1114,8 @@ in the catalogue has her set, and that it matches her flight model.
 
 Each set's figures are **stand-ins**, chosen to sound like her kind of
 aeroplane and not taken from a source, but for her engines' cylinders: her
-fans' speeds and blades, her motors' and horn's notes, the angle of attack
-her stall warning sounds at and every gain. Phase 15's "Every aircraft
+fans' speeds and blades, her motors' and horn's notes and every gain. The
+angle of attack her stall warning sounds at is not in her set: it is read
+from her flight model's lift curve (`src/sim/lift_peak.hpp`). Phase 15's "Every aircraft
 heard as herself" replaces them with recordings of each type, or of one
 close to it, recorded here with their sources and licences.

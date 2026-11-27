@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <cmath>
 
 namespace glideslope::audio {
@@ -51,14 +52,35 @@ void Device::play(Mixer& mixer, double seconds) {
     if (tap_ != nullptr) {
         tap_->insert(tap_->end(), buffer_.begin(), buffer_.end());
     }
-    const int bytes = static_cast<int>(buffer_.size() * sizeof(float));
-    const int most = static_cast<int>(most_queued_s * mix_rate) * 2 *
-                     static_cast<int>(sizeof(float));
-    if (SDL_GetAudioStreamQueued(stream_) + bytes > most) {
-        not_queued_frames_ += frames;
+    constexpr std::size_t frame_bytes = 2 * sizeof(float);
+    const auto most = static_cast<std::size_t>(most_queued_s * mix_rate) * frame_bytes;
+    const auto queued = static_cast<std::size_t>(std::max(SDL_GetAudioStreamQueued(stream_), 0));
+    const std::size_t room = queued < most ? (most - queued) / frame_bytes : 0;
+    const std::size_t put = std::min(frames, room);
+    not_queued_frames_ += frames - put;
+    if (put == 0) {
+        fade_in_next_ = true;
         return;
     }
-    SDL_PutAudioStreamData(stream_, buffer_.data(), bytes);
+    const auto fade = std::min(put, static_cast<std::size_t>(fade_s * mix_rate));
+    const auto ramp = [&](std::size_t from, bool in) {
+        for (std::size_t i = 0; i < fade; ++i) {
+            const float g = static_cast<float>(i) / static_cast<float>(fade);
+            const std::size_t f = from + i;
+            const float k = in ? g : 1.0f - g;
+            buffer_[2 * f] *= k;
+            buffer_[2 * f + 1] *= k;
+        }
+    };
+    if (fade_in_next_) {
+        ramp(0, true);
+        fade_in_next_ = false;
+    }
+    if (put < frames) {
+        ramp(put - fade, false);
+        fade_in_next_ = true;
+    }
+    SDL_PutAudioStreamData(stream_, buffer_.data(), static_cast<int>(put * frame_bytes));
 }
 
 } // namespace glideslope::audio
