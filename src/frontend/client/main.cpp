@@ -1370,6 +1370,13 @@ static int run_program(int argc, char** argv) {
             } else {
                 std::printf("glideslope: the server gave this client no aircraft; "
                             "flying alone\n");
+                // **A lesson is the server's to teach**: with no aircraft
+                // there is none, and a run waiting on one would wait for
+                // ever.
+                if (o.quit_once_lesson_over || !o.test_lesson_states.empty()) {
+                    std::fprintf(stderr, "glideslope: no aircraft to be taught a lesson in\n");
+                    return 1;
+                }
             }
             std::fflush(stdout);
         }

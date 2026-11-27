@@ -4949,6 +4949,27 @@ set_tests_properties(every_state_of_the_lessons_screen_is_drawn_and_reads_back_o
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lesson_screen)
 
+# **Every lesson there is, chosen in the client with the window, is flown by
+# the server's instructor, handed over and debriefed**: in six pieces, each
+# every sixth lesson of the list from its own, so that ctest runs them side
+# by side; each asserts how many it flew of how many it holds. See
+# cmake/client_every_lesson.cmake.
+foreach(_piece RANGE 0 5)
+    math(EXPR _port "25012 + 2 * ${_piece}")
+    math(EXPR _first "${_piece} + 1")
+    set(_name every_lesson_from_${_first}_by_sixes_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
+            -DCHECK=$<TARGET_FILE:glideslope_lesson_check>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/every_lesson_${_piece} -DPORT=${_port}
+            -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER} -DFROM=${_piece} -DEVERY=6
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_every_lesson.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 PROCESSORS 2)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/every_lesson_${_piece})
+endforeach()
+
 # **Every aeroplane with a learnt landing, joined on final by the client
 # with the window and left alone, is still at its gate thirty seconds
 # later**: the server's own verdict, asked for by L. See

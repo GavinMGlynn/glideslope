@@ -2151,10 +2151,11 @@ What the client with the window does that the command-line client does, and what
       run whose cached imagery is stale and refused when asked for again
       writes its frame and exits 0, failing with the fix taken out.* Done
       2026-10-30; shown to be the 2026-10-10 crash too on 2026-11-27.
-- [ ] **No player can fly a lesson or watch the instructor.** No window
-      client or server starts one. Since 2026-11-28 the instructor is the simulation's
-      and `glideslope_cli lesson` flies any of the 42; missing: the window
-      client's lessons screen and the server running a lesson.
+- [ ] **No player can fly a lesson herself.** Since 2026-11-28 a player
+      chooses any of the 42 in the window client and the server's instructor
+      flies it, hands over and shows its debrief; missing: her own flying
+      after the hand-over is not staged or judged - the debrief is the
+      demonstration's.
       *Verification: a player chooses a lesson in the window client, the
       instructor flies it first and hands over, and the debrief is shown.*
 - [ ] **The tests' demonstrations fly their own copy of the instructor**

@@ -5,7 +5,7 @@
 #         -DDATA=<data> -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
 #         -DDRIVER=<gpu driver> -P client_lesson_screen.cmake
 #
-# **Built, not hoped for**: a server with no AI aircraft, and the client with
+# **Built, not hoped for**: a server with one AI aircraft flying its plan, and the client with
 # the window joining it in a Cessna, the lesson in turns chosen by flag
 # (`--lesson light-aircraft-turns`) and every state of the screen shot the
 # first time it is drawn (`--shot-lesson`): closed, before it is chosen; the
@@ -45,7 +45,7 @@ if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
 endif()
 set(_key "${CMAKE_MATCH_1}")
 execute_process(
-    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 0 --data "${DATA}"
+    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
 glideslope_warmed_up("${_rc}" "${_err}")
 
@@ -53,7 +53,7 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
 execute_process(
-    COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 0 --players 1
+    COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --players 1
             --headless --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 640x480 --aircraft c172p
             --lesson light-aircraft-turns --shot-lesson "${_prefix}"
