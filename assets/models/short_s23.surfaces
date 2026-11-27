@@ -18,9 +18,9 @@
 #
 # wing -12.08..-8.30 at 10.76 m, -10.92..-8.76 at 16.15 m
 surface left-aileron    fcs/left-aileron-pos-rad   down  -11.137 -10.764 -2.798  -10.380 -16.146 -3.060  0.000 1.109 0.601
-surface right-aileron   fcs/right-aileron-pos-rad  down  -11.137 10.764 -2.798  -10.380 16.146 -3.060  0.000 1.109 0.601
+surface right-aileron   fcs/right-aileron-pos-rad  up    -11.137 10.764 -2.798  -10.380 16.146 -3.060  0.000 1.109 0.601
 # tail -26.03..-18.28 at 0.80 m, -25.65..-24.31 at 4.30 m
 surface left-elevator   fcs/elevator-pos-rad       down  -23.707 -0.800 -3.247  -25.245 -4.300 -3.300  0.000 2.693 0.386
 surface right-elevator  fcs/elevator-pos-rad       down  -23.707 0.800 -3.247  -25.245 4.300 -3.300  0.000 2.693 0.386
 # fin -26.44..-23.05 at -3.90 m, -26.03..-23.91 at -7.00 m
-surface rudder          fcs/rudder-pos-rad         left  -25.426 0.000 -3.900  -25.394 0.000 -7.000  0.000 1.189 0.422
+surface rudder          fcs/rudder-pos-rad         right -25.426 0.000 -3.900  -25.394 0.000 -7.000  0.000 1.189 0.422

@@ -23,6 +23,6 @@ surface right-aileron   fcs/right-aileron-pos-rad  down  -3.461 4.089 -0.501  -3
 surface left-elevator   fcs/elevator-pos-rad       down  -5.933 -2.000 -0.443  -6.388 -3.000 -0.419  0.689 2.028 0.111
 surface right-elevator  fcs/elevator-pos-rad       down  -5.933 2.000 -0.443  -6.388 3.000 -0.419  0.689 2.028 0.111
 # fin -5.96..-5.03 at -1.00 m, -6.48..-5.06 at -2.50 m
-surface left-rudder     fcs/rudder-pos-rad         left  -5.681 -1.452 -1.000  -6.052 -1.984 -2.500  0.000 0.509 0.162
+surface left-rudder     fcs/rudder-pos-rad         right -5.681 -1.452 -1.000  -6.052 -1.984 -2.500  0.000 0.509 0.162
 # fin -5.96..-5.03 at -1.00 m, -6.48..-5.06 at -2.50 m
-surface right-rudder    fcs/rudder-pos-rad         left  -5.681 1.452 -1.000  -6.052 1.983 -2.500  0.000 0.509 0.162
+surface right-rudder    fcs/rudder-pos-rad         right -5.681 1.452 -1.000  -6.052 1.983 -2.500  0.000 0.509 0.162
