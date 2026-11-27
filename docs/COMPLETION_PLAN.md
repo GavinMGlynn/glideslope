@@ -2136,19 +2136,17 @@ What the client with the window does that the command-line client does, and what
       stick.*
 - [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
       its lighting follows a roll with no mesh remade.*
-- [ ] **The window client crashes on exit (signal 11) after giving up on an
-      imagery tile.** A headless `--shot` run writes its frame, then exits
-      139 once a Sentinel-2 tile is "given up, unfinished" - the Cessna 172P
-      and the Learjet 35A alike; the same run with `--imagery off` exits 0
-      (PROJECT_STATUS, 2026-10-10, the Learjet drawn). *Verification: a shot
-      run with imagery on, whose tile is refused, exits 0.*
+- [x] **The window client crashes on exit (signal 11) after giving up on an
+      imagery tile** (2026-10-10, the Cessna 172P and the Learjet 35A): the
+      stale-tile crash below, shown on that command - 20 of 20 crash without
+      its fix, 20 of 20 exit 0 with it. *Verification: a shot of each, imagery
+      on, its stale tiles refused, exits 0, failing with the fix out.* Done 2026-11-27.
 - [x] **A stale cached imagery tile, refused when asked for again, crashed
       the window client** (seen 2026-10-30): Cesium Native's cache read the
       status of a failed refetch that had no response. *Verification: a shot
       run whose cached imagery is stale and refused when asked for again
       writes its frame and exits 0, failing with the fix taken out.* Done
-      2026-10-30. Whether this was also the 2026-10-10 crash above is not
-      shown.
+      2026-10-30; shown to be the 2026-10-10 crash too on 2026-11-27.
 - [ ] **No player can fly a lesson or watch the instructor.** Lessons and
       the instructor run in the simulation and its tests alone; no client,
       server or command line starts one (PROJECT_STATUS, 2026-10-13).
