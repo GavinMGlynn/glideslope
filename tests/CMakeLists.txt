@@ -2423,8 +2423,12 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_light.cmake)
+    # Four launches of the client, one of them flying a second and a half:
+    # about 330 s on the Windows debug machine, where the livery test's three
+    # took 197. Ample margin over that; costed in tests/ci_costs, estimated,
+    # until CI has measured it.
     set_tests_properties(the_cessnas_light_follows_her_bank_with_no_mesh_made_again_on_${_driver}
-        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1500)
     # **The HUD's horizon on the horizon drawn**, a test a bank, each walking
     # its pitches (cmake/frame_horizon.cmake says what is walked and what is
     # left out).
