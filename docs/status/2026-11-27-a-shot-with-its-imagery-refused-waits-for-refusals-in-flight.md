@@ -49,6 +49,16 @@ what held it. New test
 (port 24959) runs the refused-imagery shot with the flag and requires the
 moment built and the frame as deep as without imagery.
 
+**What the late test does and does not show.** It builds a worse version
+of the failure than CI saw, and only with Cesium Native's two loading limits
+raised: every tile's imagery in flight at once, where CI's runners had a few.
+At the default limits, as shipped, the failure was not reproduced here: that
+CI hit this cause at those limits is inferred - from Cesium Native's
+progress formula and by ruling out every other way an undrawable tile can go
+uncounted - not shown. The setup as shipped is covered by the original
+refused-imagery test, back on pull requests at the default limits; the
+week of CI runs this item waits for is its evidence there.
+
 **Verified, linux-release.**
 - **Red without the fix**: the wait's break put back to Cesium Native's 100%
   alone, the new test failed "its imagery refused, the client drew 1 tiles
