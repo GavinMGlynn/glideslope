@@ -988,7 +988,7 @@ std::shared_ptr<glideslope::frontend::HeardAir> heard_over_the_loopback(
     std::optional<glideslope::net::ClientSession> session;
     std::thread connecting([&] {
         if (auto made =
-                glideslope::net::ClientSession::connect(where, stand_in.key.publik.text())) {
+                glideslope::net::ClientSession::connect(where, stand_in.key.publik.text(), 0)) {
             session.emplace(std::move(*made));
         }
     });

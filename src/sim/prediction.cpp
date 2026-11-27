@@ -15,16 +15,7 @@ namespace glideslope::sim {
 namespace {
 constexpr double metres_per_foot = 0.3048;
 
-// The controls' names, in Controls::as_list's order.
-constexpr std::array<const char*, Controls::control_count> control_names = {
-    "elevator",          "aileron",           "rudder",           "throttle",
-    "mixture",           "flaps",             "left brake",       "right brake",
-    "pitch trim",        "propeller",         "gear",             "supercharger",
-    "speedbrake",        "throttle offset 0", "throttle offset 1", "cooling flaps 0",
-    "cooling flaps 1",   "reverse",           "stovl",            "roll trim",
-    "yaw trim"};
-// A control added to Controls without a name here would leave a null name.
-static_assert(control_names.back() != nullptr, "every control needs its name");
+// The controls' names are `control_fields`' (sim/aircraft.hpp).
 
 } // namespace
 
@@ -75,7 +66,7 @@ std::optional<std::string> first_not_finite(const Controls& c) {
     const auto v = c.as_list();
     for (std::size_t i = 0; i < v.size(); ++i) {
         if (!std::isfinite(v[i])) {
-            return std::string(control_names[i]);
+            return std::string(control_fields[i].name);
         }
     }
     return std::nullopt;

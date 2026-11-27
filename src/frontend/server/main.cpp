@@ -5494,14 +5494,17 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         // nothing would say why (docs/TRANSPORT.md, "Starting a session").
         const auto joining = glideslope::net::read_joining(
             std::span<const std::uint8_t>(payload.data(), payload.size()));
-        if (!joining || joining->controls != glideslope::net::controls_on_the_wire) {
+        if (!joining || joining->layout != glideslope::sim::control_layout) {
             refuse(socket, from, glideslope::net::Refusal::wrong_layout);
-            std::printf("refused %s from %s: it sends %s in an input frame, and this "
-                        "server reads %zu\n",
-                        answer->session.theirs.text().substr(0, 8).c_str(), who.c_str(),
-                        joining ? (std::to_string(joining->controls) + " controls").c_str()
-                                : "no count of controls",
-                        glideslope::net::controls_on_the_wire);
+            char theirs[16] = "none";
+            if (joining) {
+                std::snprintf(theirs, sizeof theirs, "%08X",
+                              static_cast<unsigned>(joining->layout));
+            }
+            std::printf("refused %s from %s: its controls' layout is %s, and this "
+                        "server's is %08X\n",
+                        answer->session.theirs.text().substr(0, 8).c_str(), who.c_str(), theirs,
+                        static_cast<unsigned>(glideslope::sim::control_layout));
             std::fflush(stdout);
             return;
         }

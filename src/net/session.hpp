@@ -53,6 +53,11 @@ public:
     // address is not one, the key is not one, no socket can be opened, the
     // server refuses, or nothing answers within `give_up_after_s`.
     //
+    // `layout` is the fingerprint of the controls this client sends
+    // (`sim::control_layout`), said first in the initiation and every one
+    // joining again (net::write_joining); the network does not know what it
+    // means, and a server whose own is another refuses `WRONG_LAYOUT`.
+    //
     // `resend_every_s` is how often the initiation goes out again while
     // nothing has come back.
     //
@@ -65,6 +70,7 @@ public:
     // (net::write_joining) - so that a client can say it by name.
     static std::optional<ClientSession> connect(const std::string& where,
                                                 const std::string& key_hex,
+                                                std::uint32_t layout,
                                                 double give_up_after_s = 5.0,
                                                 double resend_every_s = 0.25,
                                                 const std::string& aircraft = "",
@@ -84,6 +90,10 @@ public:
     // this key taking over, or `DROPPED` when joining again, `refused` (`SERVER_FULL`, or `WRONG_LAYOUT` from a server started again on another build), `gave_up` (a minute unanswered).
     enum class Standing { joined, joining_again, dropped, refused, gave_up };
     Standing standing() const { return standing_; }
+    // **Why it was refused**, when it stands `refused`: `SERVER_FULL`, or
+    // `WRONG_LAYOUT` from a server started again on another build - for a
+    // client to say by name.
+    std::optional<Refusal> refused_by() const { return refused_by_; }
     // How many times the server has let it go, and it has joined again; how
     // long nothing had opened when the last refusal was believed; how many
     // times it went back to the old session, which was not gone after all.
@@ -231,6 +241,7 @@ private:
     KeyPair mine_key_;
     std::vector<std::uint8_t> asked_;
     Standing standing_ = Standing::joined;
+    std::optional<Refusal> refused_by_;
     // By this end's clock: when anything last opened, and it last knocked.
     std::optional<double> last_opened_s_;
     double knocked_s_ = -1.0e9;

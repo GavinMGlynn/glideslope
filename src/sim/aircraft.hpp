@@ -4,12 +4,14 @@
 #include "sim/runway_condition.hpp"
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -174,44 +176,103 @@ struct Controls {
     // **Every control as a flat list, and back again.** The wire sends a
     // client's inputs to the server (net/inputs.hpp), and the network knows
     // nothing about this structure: it is handed these numbers and hands
-    // them back. Keeping the list here rather than in the network is what
-    // stops the two drifting apart when a control is added - and
-    // `sizeof(Controls)` is held by a test, so a new field that is not put
-    // in here is caught rather than quietly left out of every flight.
+    // them back. **The list is one table, `control_fields`** (below): each
+    // control's name and where it lives, in the wire's order. `as_list`
+    // and `from_list` walk it, and the layout's fingerprint a client says
+    // as it joins (`control_layout`) is made from it, so the order cannot
+    // be written down twice. `sizeof(Controls)` is held by a test, so a new
+    // field that is not put in the table is caught rather than quietly left
+    // out of every flight.
     static constexpr std::size_t control_count = 21;
-    std::array<double, control_count> as_list() const {
-        return {elevator,      aileron,    rudder,         throttle,
-                mixture,       flaps,      left_brake,     right_brake,
-                pitch_trim,    propeller,  gear,           supercharger,
-                speedbrake,    throttle_offset[0],         throttle_offset[1],
-                cooling_flaps[0],          cooling_flaps[1],
-                reverse,       stovl,      roll_trim,      yaw_trim};
-    }
-    static Controls from_list(const std::array<double, control_count>& v) {
-        Controls c;
-        c.elevator = v[0];
-        c.aileron = v[1];
-        c.rudder = v[2];
-        c.throttle = v[3];
-        c.mixture = v[4];
-        c.flaps = v[5];
-        c.left_brake = v[6];
-        c.right_brake = v[7];
-        c.pitch_trim = v[8];
-        c.propeller = v[9];
-        c.gear = v[10];
-        c.supercharger = v[11];
-        c.speedbrake = v[12];
-        c.throttle_offset = {v[13], v[14]};
-        c.cooling_flaps = {v[15], v[16]};
-        c.reverse = v[17];
-        c.stovl = v[18];
-        c.roll_trim = v[19];
-        c.yaw_trim = v[20];
-        return c;
-    }
+    std::array<double, control_count> as_list() const;
+    static Controls from_list(const std::array<double, control_count>& v);
     bool operator==(const Controls&) const = default;
 };
+
+// **The controls, in the wire's order**: each one's name and where it is in
+// `Controls`. The one definition of the order, which `as_list`, `from_list`
+// and `control_layout` all read.
+struct ControlField {
+    std::string_view name;
+    double& (*of)(Controls&);
+};
+inline constexpr std::array<ControlField, Controls::control_count> control_fields = {{
+    {"elevator", [](Controls& c) -> double& { return c.elevator; }},
+    {"aileron", [](Controls& c) -> double& { return c.aileron; }},
+    {"rudder", [](Controls& c) -> double& { return c.rudder; }},
+    {"throttle", [](Controls& c) -> double& { return c.throttle; }},
+    {"mixture", [](Controls& c) -> double& { return c.mixture; }},
+    {"flaps", [](Controls& c) -> double& { return c.flaps; }},
+    {"left brake", [](Controls& c) -> double& { return c.left_brake; }},
+    {"right brake", [](Controls& c) -> double& { return c.right_brake; }},
+    {"pitch trim", [](Controls& c) -> double& { return c.pitch_trim; }},
+    {"propeller", [](Controls& c) -> double& { return c.propeller; }},
+    {"gear", [](Controls& c) -> double& { return c.gear; }},
+    {"supercharger", [](Controls& c) -> double& { return c.supercharger; }},
+    {"speedbrake", [](Controls& c) -> double& { return c.speedbrake; }},
+    {"throttle offset 0", [](Controls& c) -> double& { return c.throttle_offset[0]; }},
+    {"throttle offset 1", [](Controls& c) -> double& { return c.throttle_offset[1]; }},
+    {"cooling flaps 0", [](Controls& c) -> double& { return c.cooling_flaps[0]; }},
+    {"cooling flaps 1", [](Controls& c) -> double& { return c.cooling_flaps[1]; }},
+    {"reverse", [](Controls& c) -> double& { return c.reverse; }},
+    {"stovl", [](Controls& c) -> double& { return c.stovl; }},
+    {"roll trim", [](Controls& c) -> double& { return c.roll_trim; }},
+    {"yaw trim", [](Controls& c) -> double& { return c.yaw_trim; }},
+}};
+
+inline std::array<double, Controls::control_count> Controls::as_list() const {
+    std::array<double, control_count> v{};
+    Controls copy = *this;
+    for (std::size_t i = 0; i < control_count; ++i) {
+        v[i] = control_fields[i].of(copy);
+    }
+    return v;
+}
+
+inline Controls Controls::from_list(const std::array<double, control_count>& v) {
+    Controls c;
+    for (std::size_t i = 0; i < control_count; ++i) {
+        control_fields[i].of(c) = v[i];
+    }
+    return c;
+}
+
+// **A control layout's fingerprint**: 32-bit FNV-1a (offset basis
+// 811C9DC5, prime 01000193) over, for each control in order, its name, then
+// `:i16` - how it goes on the wire - then a newline. A client says it as it
+// joins (net::write_joining), and a server whose layout is another refuses
+// it `WRONG_LAYOUT`: another count, another order, a control renamed or
+// replaced. `names` is any list, so that a test can make a layout that is
+// not this one.
+template <typename Names>
+constexpr std::uint32_t layout_of(const Names& names) {
+    std::uint32_t h = 0x811C9DC5u;
+    const auto mix = [&h](char ch) {
+        h ^= static_cast<std::uint8_t>(ch);
+        h *= 0x01000193u;
+    };
+    for (const std::string_view name : names) {
+        for (const char ch : name) {
+            mix(ch);
+        }
+        for (const char ch : std::string_view(":i16\n")) {
+            mix(ch);
+        }
+    }
+    return h;
+}
+
+// The names in `control_fields`, in order.
+constexpr std::array<std::string_view, Controls::control_count> control_names() {
+    std::array<std::string_view, Controls::control_count> out{};
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        out[i] = control_fields[i].name;
+    }
+    return out;
+}
+
+// This build's layout's fingerprint.
+inline constexpr std::uint32_t control_layout = layout_of(control_names());
 
 // What is on board, by JSBSim's index for each point mass (seats, baggage) and
 // each fuel tank. Anything not named keeps the model's own value.
