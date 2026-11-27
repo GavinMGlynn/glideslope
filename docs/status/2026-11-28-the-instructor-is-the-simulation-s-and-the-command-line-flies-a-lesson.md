@@ -28,7 +28,7 @@ server owns every aircraft), with the window-client test over every lesson.
   it needs (`lesson_speeds`, `book_departure_speeds`, `load_for_the_take_off`,
   `load_for_the_approach`, `load_as_its_figures_were_measured`,
   `a_climb_it_can_manage`) are the tests' own, moved into the simulation; the
-  tests still keep their copies (a tail below).
+  tests now fly it (2026-11-28).
 - **`glideslope_cli lessons`** lists the lessons and who teaches each;
   **`glideslope_cli lesson LESSON [AIRCRAFT]`** flies one: each stage said as
   it begins with what to do, "handed over: you have control", three seconds

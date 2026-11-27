@@ -2157,10 +2157,11 @@ What the client with the window does that the command-line client does, and what
       client's lessons screen and the server running a lesson.
       *Verification: a player chooses a lesson in the window client, the
       instructor flies it first and hands over, and the debrief is shown.*
-- [ ] **The tests' demonstrations fly their own copy of the instructor**
-      (found 2026-11-28): `test_lesson.cpp` keeps the recipes now in the
+- [x] **The tests' demonstrations fly their own copy of the instructor**
+      (found 2026-11-28): `test_lesson.cpp` kept the recipes now in the
       simulation's instructor. *Verification: every `an_instructor_*` test
-      flies through the simulation's instructor and passes unchanged.*
+      flies through the simulation's instructor and passes unchanged.* Done
+      2026-11-28; a deliberate break in the instructor turned the climb test red.
 - [x] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
       model. *Verification: a model whose source and licence are in
       `ASSETS.md` is held to the Learjet's size and drawn in a shot.* Done

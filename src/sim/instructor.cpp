@@ -359,6 +359,10 @@ void Instructor::begin_in_the_air(double agl_ft, double flaps) {
     part_ = Part::settling;
 }
 
+void Instructor::leave_in_the_stall(double seconds) {
+    dawdle_steps_ = static_cast<std::int64_t>(std::lround(seconds * steps_per_second));
+}
+
 const LessonStage* Instructor::stage() const {
     return run_.finished() ? nullptr : &run_.lesson().stages[run_.stage()];
 }
@@ -401,6 +405,12 @@ void Instructor::instruct() {
             fly_the_stall_entry(m, speeds_);
             controller_->autopilot()->set(m);
         } else if (!recovering_ && run_.stage() >= 1) {
+            if (stalled_at_ < 0) {
+                stalled_at_ = since;
+            }
+            if (since - stalled_at_ < dawdle_steps_) {
+                return;
+            }
             recovering_ = true;
             fly_the_stall_recovery(m, run_.lesson(), speeds_);
             controller_->autopilot()->set(m);
@@ -436,7 +446,7 @@ Controls Instructor::step() {
     if (part_ == Part::settling && tick_ >= settle_until_) {
         part_ = Part::demonstrating;
     }
-    if (part_ == Part::demonstrating && run_.finished()) {
+    if (part_ == Part::demonstrating && run_.finished() && !(showing_ && showing_())) {
         part_ = Part::handed_over;
         handed_over_at_ = tick_;
         controller_->to_pilot();
