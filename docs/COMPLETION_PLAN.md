@@ -2249,12 +2249,12 @@ What the client with the window does that the command-line client does, and what
       every aircraft has a sound set, asserted.* Done 2026-11-28: her stall
       warning's angle is read from her own lift curve; the sounds themselves
       are synthesised stand-ins until Phase 15's recordings.
-- [ ] **On macOS a dozen window-client tests report themselves skipped
-      after 300 s**: they asked for Vulkan; now on Metal, all 45 run and pass,
-      and a warm-up that times out fails. The HUD tick test on Metal's 334 s
-      skip was the live weather not answering, not terrain: the HUD tests now
-      fly recorded weather, and a skip on macOS CI prints why. *Verification: every window-client
-      test run on macOS release, none skipped for terrain.*
+- [x] **On macOS a dozen window-client tests report themselves skipped
+      after 300 s**: they asked for Vulkan; now on Metal, all run and pass,
+      and a warm-up that times out fails. The HUD tick test's 334 s skip was
+      the live weather not answering, not terrain: the HUD tests now fly
+      recorded weather, and a skip on macOS CI prints why. *Verification: every
+      window-client test run on macOS release, none skipped.* Done 2026-11-28.
 
 ---
 
