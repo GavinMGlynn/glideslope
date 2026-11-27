@@ -46,6 +46,7 @@
 
 name Take-off from water in a flying boat
 teaches seaplane
+instructor take-off
 
 stage Over the hump
 do Throttles open smoothly and evenly to full

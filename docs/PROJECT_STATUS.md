@@ -143,7 +143,10 @@ landing - for all seven classes, 42 lesson files, each flown by the book to
 an empty debrief by every aeroplane whose figures give the speeds it names,
 and each flown with a stated fault naming that fault and no other; and the
 instructor, the AI pilot, demonstrating each and handing the controls over
-and back with no step. The AI pilot takes off, flies the pattern, lands and
+and back with no step. Since 2026-11-28 the instructor is the
+simulation's, not the tests': every lesson says how it is demonstrated, and
+`glideslope_cli lesson` flies one - demonstrated, handed over, debriefed - but
+no window client or server starts one yet. The AI pilot takes off, flies the pattern, lands and
 stops - on water, too, in the flying boat, and in moderate turbulence on
 every gust seed on Linux and Windows (2026-11-04) - every one of the fourteen
 upright on its wheels from the touch to the stop, the jets as the FAA lands

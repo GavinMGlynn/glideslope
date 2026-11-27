@@ -27,6 +27,7 @@
 
 name Climbs and descents in a business jet
 teaches business-jet
+instructor climb-and-descent
 
 stage The climb
 do Set the climbing power and let the speed settle at the climbing speed

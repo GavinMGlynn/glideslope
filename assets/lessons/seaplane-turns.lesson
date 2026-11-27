@@ -26,6 +26,7 @@
 
 name Turns in a flying boat
 teaches seaplane
+instructor turns
 
 stage Rolling into the turn
 do Look out, then roll smoothly into the turn to the left
