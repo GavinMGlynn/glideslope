@@ -1208,7 +1208,8 @@ the lesson's id - the name of its file in the data's `lessons/`, less
 answers every one with a `LESSON` to that client: begun - **the server's
 instructor takes her**, puts her where the lesson begins (on the threshold
 of the longest runway within 50 km of her, from the end nearer her; two
-miles out on its approach; or in the air over it), flies the lesson first
+miles out on its approach; or in the air over it - a flying boat's on the
+first 3,000 m of water under her, from north round to the right), flies the lesson first
 as the AI, and then hands her over - or refused, saying why: another
 client's aircraft, a lesson the server has not got, one for another class
 of aeroplane than hers (`c172p is light-aircraft, and fighter-turns teaches
