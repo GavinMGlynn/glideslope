@@ -114,9 +114,9 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     // Where there is one, there is an alignment saying where it sits on this
     // aeroplane, and a model without one is a mistake rather than an absence.
     if (auto visual = visual_of(data, aircraft_entry_.id)) {
-        model_ = std::move(visual->model);
-        model_radius_ = gfx::model_radius(*model_);
-        alignment_ = visual->alignment;
+        visual_ = std::move(*visual);
+        model_radius_ = gfx::model_radius(visual_->model);
+        alignment_ = visual_->alignment;
     }
     const std::shared_ptr<world::CollisionGround> ground = collision_;
     aircraft_->set_terrain(std::make_shared<sim::FunctionTerrain>(
@@ -635,7 +635,24 @@ std::optional<Visual> visual_of(const std::filesystem::path& data, const std::st
         throw std::runtime_error(id + " has a visual model and no alignment in "
                                       "models/alignment.txt");
     }
-    return Visual{gfx::read_model(mesh), found->second};
+    Visual visual{gfx::read_model(mesh), found->second, {}, {}, {}, {}};
+    visual.livery = gfx::read_livery(data / "models" / (id + ".livery"));
+    visual.surfaces = gfx::read_surfaces(data / "models" / (id + ".surfaces"));
+    for (const gfx::Surface& surface : visual.surfaces) {
+        visual.hinges.push_back(gfx::hinge_of(surface));
+    }
+    visual.parts = gfx::split_model(visual.model, visual.livery, visual.surfaces);
+    return visual;
+}
+
+std::vector<double> Flight::surface_angles_rad() const {
+    std::vector<double> out;
+    if (visual_) {
+        for (const gfx::Surface& surface : visual_->surfaces) {
+            out.push_back(aircraft_->property(surface.property));
+        }
+    }
+    return out;
 }
 
 world::Ecef sun_in_body_of(const gfx::Placement& placement) {

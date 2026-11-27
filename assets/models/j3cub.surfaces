@@ -1,0 +1,26 @@
+# The Piper J-3 Cub's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/j3cub.mesh), by
+# slicing it where each surface ends: the ailerons between 50% and 93% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 0.2 m out to 1.3 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 0.1 m above the origin to 0.8 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -1.57..-0.04 at 2.66 m, -1.33..-0.09 at 4.95 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -1.183 -2.664 0.035  -1.019 -4.955 -0.133  0.000 0.459 0.386
+surface right-aileron   fcs/right-aileron-pos-rad  down  -1.183 2.664 0.035  -1.019 4.955 -0.133  0.000 0.459 0.386
+# tail -5.16..-4.22 at 0.20 m, -5.15..-4.59 at 1.30 m
+surface left-elevator   fcs/elevator-pos-rad       down  -4.875 -0.200 0.199  -4.978 -1.300 0.199  0.000 0.343 0.107
+surface right-elevator  fcs/elevator-pos-rad       down  -4.875 0.200 0.199  -4.978 1.300 0.199  0.000 0.343 0.107
+# fin -5.34..-4.23 at -0.10 m, -5.12..-4.61 at -0.75 m
+surface rudder          fcs/rudder-pos-rad         left  -5.007 -0.001 -0.100  -4.966 -0.000 -0.750  0.000 0.404 0.077

@@ -1,0 +1,14 @@
+# The F-15C's livery: air-superiority grey, with darker grey fins.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/f15c.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name Two greys
+coat all-over    125 135 145    -9.81    9.89    -6.40    6.40   -3.74   2.15
+coat fin          80  85  95    -9.81   -5.50    -2.20    2.20   -3.74  -0.90

@@ -1,0 +1,26 @@
+# The Boeing 787-8's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/787-8.mesh), by
+# slicing it where each surface ends: the ailerons between 72% and 92% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 1.6 m out to 8.6 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 4.0 m above the origin to 11.0 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -9.23..-5.68 at 21.46 m, -11.91..-9.82 at 27.42 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -8.343 -21.463 -2.614  -11.387 -27.425 -3.447  0.000 1.042 0.386
+surface right-aileron   fcs/right-aileron-pos-rad  down  -8.343 21.463 -2.614  -11.387 27.425 -3.447  0.000 1.042 0.386
+# tail -27.78..-22.52 at 1.60 m, -30.28..-28.18 at 8.60 m
+surface left-elevator   fcs/elevator-pos-rad       down  -26.202 -1.600 -2.022  -29.649 -8.600 -2.976  0.000 1.834 0.452
+surface right-elevator  fcs/elevator-pos-rad       down  -26.202 1.600 -2.022  -29.649 8.600 -2.976  0.000 1.834 0.452
+# fin -26.39..-20.21 at -4.00 m, -29.05..-26.35 at -11.00 m
+surface rudder          fcs/rudder-pos-rad         left  -24.533 0.001 -4.000  -28.241 -0.002 -11.000  0.000 2.151 0.736

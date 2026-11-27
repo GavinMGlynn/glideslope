@@ -1,0 +1,16 @@
+# The Learjet 35A's livery: white, with gold tip tanks, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/learjet35a.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with gold trim
+coat tip-left    200 150  20     0.50   12.69    -6.10   -5.28   -4.87  -0.83
+coat tip-right   200 150  20     0.50   12.69     5.28    6.10   -4.87  -0.83
+coat fin         200 150  20    -3.11    0.50    -0.60    0.60   -4.87  -3.15
+coat cheatline   200 150  20    -3.11   12.69    -0.85    0.85   -2.45  -2.30

@@ -418,9 +418,14 @@ and not a grant by the author; the project owner decided on 2026-09-20 that
 those six ship on it, and each entry below says so and says what was looked
 at.
 
-No mesh carries a texture, so no livery ships and a surface takes the flat
-diffuse colour of its AC3D material; none carries an animation, so control
-surfaces, gear and propellers are welded where the model has them. Each
+No mesh carries a texture, so a surface takes the flat diffuse colour of its
+AC3D material; none carries an animation, so gear and propellers are welded
+where the model has them. **The liveries and the control surfaces are this
+project's own data**, not FlightGear's: each aircraft's
+`assets/models/<id>.livery` is a colour scheme of boxes painted over the
+mesh, and its `assets/models/<id>.surfaces` the hinge lines its ailerons,
+elevators and rudder turn about, each measured off the mesh's own sections
+and saying so; no airline's or air force's markings are copied. Each
 model's origin is its FlightGear aircraft's, which is not always its flight
 model's, so a model is drawn at its flight model's visual reference point
 moved by the offset in `assets/models/alignment.txt`, which

@@ -1,0 +1,28 @@
+# The F-15C's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/f15c.mesh), by
+# slicing it where each surface ends: the ailerons between 62% and 92% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the all-moving tailplane from 2.2 m out to 4.0 m, pivoted a quarter of
+# its chord aft of its leading edge;
+# each rudder, on its own fin, from 1.1 m above the origin to 3.2 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -5.26..-1.65 at 3.90 m, -5.35..-3.60 at 5.79 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -4.354 -3.905 -0.570  -4.909 -5.794 -0.443  0.000 1.057 0.169
+surface right-aileron   fcs/right-aileron-pos-rad  down  -4.354 3.905 -0.570  -4.909 5.794 -0.443  0.000 1.057 0.169
+# tail -9.41..-6.76 at 2.20 m, -9.39..-8.62 at 4.00 m
+surface left-elevator   fcs/elevator-pos-rad       down  -7.423 -2.200 -0.054  -8.812 -4.000 -0.054  0.781 2.303 0.121
+surface right-elevator  fcs/elevator-pos-rad       down  -7.423 2.200 -0.054  -8.812 4.000 -0.054  0.781 2.303 0.121
+# fin -8.33..-5.80 at -1.10 m, -8.42..-7.40 at -3.20 m
+surface left-rudder     fcs/rudder-pos-rad         left  -7.569 -1.738 -1.100  -8.116 -1.755 -3.200  0.000 0.894 0.148
+# fin -8.33..-5.80 at -1.10 m, -8.42..-7.40 at -3.20 m
+surface right-rudder    fcs/rudder-pos-rad         left  -7.569 1.737 -1.100  -8.116 1.755 -3.200  0.000 0.894 0.148

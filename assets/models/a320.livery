@@ -1,0 +1,16 @@
+# The Airbus A320's livery: white, with green wingtips, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/a320.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with green trim
+coat tip-left      0 120  90   -10.00   18.90   -17.98  -15.74   -8.79   3.66
+coat tip-right     0 120  90   -10.00   18.90    15.74   17.98   -8.79   3.66
+coat fin           0 120  90   -18.90  -10.00    -0.60    0.60   -8.79  -3.10
+coat cheatline     0 120  90   -18.90   18.90    -2.20    2.20   -1.00  -0.75

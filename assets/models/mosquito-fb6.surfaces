@@ -1,0 +1,26 @@
+# The Mosquito FB Mk VI's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/mosquito-fb6.mesh), by
+# slicing it where each surface ends: the ailerons between 62% and 95% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 0.5 m out to 2.8 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 0.8 m above the origin to 2.4 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -4.65..-2.57 at 5.04 m, -3.76..-2.66 at 7.72 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -4.127 -5.041 -0.299  -3.482 -7.725 -0.389  0.000 0.619 0.245
+surface right-aileron   fcs/right-aileron-pos-rad  down  -4.127 5.041 -0.299  -3.482 7.725 -0.389  0.000 0.619 0.245
+# tail -11.99..-10.31 at 0.50 m, -11.72..-10.96 at 2.80 m
+surface left-elevator   fcs/elevator-pos-rad       down  -11.485 -0.500 -0.467  -11.490 -2.800 -0.464  0.000 0.598 0.141
+surface right-elevator  fcs/elevator-pos-rad       down  -11.485 0.500 -0.467  -11.490 2.800 -0.464  0.000 0.598 0.141
+# fin -11.30..-9.71 at -0.80 m, -11.07..-10.25 at -2.40 m
+surface rudder          fcs/rudder-pos-rad         left  -10.822 0.000 -0.800  -10.825 0.000 -2.400  0.000 0.566 0.225
