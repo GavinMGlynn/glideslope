@@ -52,17 +52,24 @@ glideslope_warmed_up("${_rc}" "${_err}")
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
+# The client's words to a file, the server's down the pipe: both are read.
+set(_said "${WORK}/said.txt")
+file(REMOVE "${_said}")
 execute_process(
-    COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --players 1
-            --headless --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 640x480 --aircraft c172p
             --lesson light-aircraft-turns --shot-lesson "${_prefix}"
-            --test-lesson-states fighter-turns
+            --test-lesson-states fighter-turns --stdout "${_said}"
             --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
-    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-port_listened("${_out}" "${_err}")
-file(WRITE "${WORK}/said.txt" "${_out}")
-list(GET _rcs -1 _rc)
+    COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --players 1
+            --headless --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _server ERROR_VARIABLE _err)
+port_listened("${_server}" "${_err}")
+file(WRITE "${WORK}/server.txt" "${_server}")
+set(_out "")
+if(EXISTS "${_said}")
+    file(READ "${_said}" _out)
+endif()
+list(GET _rcs 0 _rc)
 if(NOT EXISTS "${_prefix}-closed.bmp")
     if(_err MATCHES "no GPU|could not|device")
         glideslope_cannot_draw("${_err}")
@@ -136,10 +143,18 @@ foreach(_told "light-aircraft-turns: settling" "light-aircraft-turns: demonstrat
               "light-aircraft-turns: demonstrating, stage 3 of 3"
               "light-aircraft-turns: handed-over, 3 of 3 stages flown"
               "fighter-turns: refused; c172p is light-aircraft, and fighter-turns teaches fighter"
-              "light-aircraft-turns: ended; taken back from the instructor")
+              "light-aircraft-turns: ended; taken back from the instructor"
+              "light-aircraft-turns: ended; handed to the AI")
     if(NOT _out MATCHES "the server says of the lesson ${_told}")
         message(FATAL_ERROR "the client was never told '${_told}':\n${_out}")
     endif()
 endforeach()
+# **Handed to the AI as the instructor demonstrates, the AI has her**: the
+# server's hand-over made (sim::Controller::to_ai, holding what she is
+# doing), not the lesson's last asking left flying her.
+if(NOT _server MATCHES "lesson light-aircraft-turns ended: handed to the AI\naircraft ([0-9]+) handed to the AI\n")
+    message(FATAL_ERROR "handed to the AI during the lesson, the AI was not given her:\n"
+                        "${_server}")
+endif()
 message(STATUS "every one of the lessons screen's ${_all} states was drawn, read back off "
                "its frame and says what it is")

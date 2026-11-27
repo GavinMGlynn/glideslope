@@ -160,6 +160,22 @@ foreach(_row IN LISTS _rows)
                             "every stage flown:\n${_out}\n${_server}")
     endif()
     string(REGEX REPLACE "^; " "" _debrief "${CMAKE_MATCH_1}")
+    # **Nothing sent that a reader refuses**: every stage told as flown is
+    # below the count (TRANSPORT.md, `LESSON`) - one past it is dropped by
+    # the client, and nothing above would notice.
+    string(REGEX MATCHALL "client told of ${_lesson}: part 2, stage [0-9]+, stages [0-9]+"
+           _demonstrated "${_server}")
+    list(LENGTH _demonstrated _told_n)
+    if(NOT _told_n EQUAL _stages)
+        message(FATAL_ERROR "${_lesson}: the server told ${_told_n} stages flown of the "
+                            "${_stages} there are:\n${_demonstrated}")
+    endif()
+    foreach(_told IN LISTS _demonstrated)
+        string(REGEX MATCH "stage ([0-9]+), stages ([0-9]+)" _ "${_told}")
+        if(NOT CMAKE_MATCH_1 LESS CMAKE_MATCH_2)
+            message(FATAL_ERROR "${_lesson}: the server told a stage past the count: ${_told}")
+        endif()
+    endforeach()
     if(NOT _server MATCHES "aircraft [0-9]+'s lesson ${_lesson}: handed over at ([0-9.]+) s")
         message(FATAL_ERROR "${_lesson}: the server did not say it handed her over:\n${_server}")
     endif()

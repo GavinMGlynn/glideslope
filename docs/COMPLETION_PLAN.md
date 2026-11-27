@@ -2158,6 +2158,14 @@ What the client with the window does that the command-line client does, and what
       demonstration's.
       *Verification: a player chooses a lesson in the window client, the
       instructor flies it first and hands over, and the debrief is shown.*
+- [ ] **A lesson's loading is not told to the player's client.** The server
+      flies her at the weight her lesson's figures were measured at, but her
+      client still predicts her at the loading she joined with.
+      *Verification: after a hand-over, her client says she is loaded as the server flies her.*
+- [ ] **The instructor's circuits on a server are not flown to the book.**
+      Every circuit but the light aeroplane's is debriefed "Hold the circuit
+      height downwind" on the server, where the tests' flat ground flies them clean.
+      *Verification: every circuit lesson on a server debriefs "flown to the book".*
 - [ ] **The tests' demonstrations fly their own copy of the instructor**
       (found 2026-11-28): `test_lesson.cpp` kept the recipes now in the
       simulation's instructor. Done: every `an_instructor_*` test flies the

@@ -463,7 +463,15 @@ aircraft only: the server refuses one naming another's, and looks the
 lesson's id up among the lessons it read at start - never joined to a
 path. The worst a client can do with it is move its own aircraft to where
 a lesson begins, near where she is, and have the AI fly her; it can make
-the server step no more than one instructor an aircraft. **`LESSON` is the
+the server step no more than one instructor an aircraft. **It does cost the
+server work on its step thread**: each one accepted reads her figures files
+again (her lesson's speeds, her loadings, her take-off and approach
+speeds), and loads and initialises her JSBSim instance again where the
+lesson begins - work the step that read it waits for. A client asking over
+and over is bounded only by its rate of requests
+(`net::session_requests_per_second`, 8 a second, as every reliable request
+is), so at worst eight such restarts a second for its own aircraft; nothing
+caches the figures or limits lessons more tightly than that. **`LESSON` is the
 server's alone**: a hostile server could tell a client a stage or a
 debrief that is not so, which is words she reads; its reader refuses any
 byte outside printable ASCII and any count past the limits.
