@@ -1,4 +1,4 @@
-### The HUD tick test on Metal: it skipped for the weather; a skip on macOS CI now says why, 2026-11-28
+### The HUD tests fly recorded weather, and a skip on macOS CI says why, 2026-11-28
 
 Phase 12c, "On macOS a dozen window-client tests report themselves skipped
 after 300 s" - its missing part, the HUD tick test on Metal
@@ -6,11 +6,11 @@ after 300 s" - its missing part, the HUD tick test on Metal
 
 **What is still not true, first.**
 - **The cause is read from timings, not from what the test said.** No run
-  kept its output: ctest prints nothing of a skip. From now on macOS's test
-  jobs print it (below), so the next such skip says why in its own words.
-- The weather is live and somebody else's, and a skip for it is the rule
-  (tests/cmake/skip_or_fail.cmake). Nothing here makes the weather services
-  answer.
+  kept its output: ctest prints nothing of a skip. macOS's test jobs now
+  print it (below), so a skip anywhere in them says why in its own words.
+- The live weather's own handling - a service that does not answer is a
+  skip - is still tested, by frame_hud_no_weather.cmake's tests and the
+  package smoke; nothing here makes a live service answer.
 
 ## Why it skipped
 
@@ -43,19 +43,45 @@ when a weather service did not answer through every retry
 - Not terrain, and not Metal: the test passes on Metal whenever the weather
   answers, and its terrain is the warm downloads cache.
 
-## The fix: a skip on macOS CI says why
+## The fix: the HUD tests fly recorded weather
 
-**tools/ci_skipped.cmake** reads ctest's JUnit report (`--output-junit`),
-which keeps every test's output, and prints each skipped test's name,
-ctest's reason and the last 60 lines of what it said. A test that ran is
-not printed (a failure's output is ctest's), and neither is a disabled one.
-The macOS release and debug test jobs write the report and run it after
-ctest, whether the tests passed or not. LastTest.log could not do it: it
-says "Test Passed." of a skip, and a test that runs ctest itself writes it
-afresh.
+The HUD tick test is about the HUD showing the flight's state at the tick
+it was shot; it has no need of today's weather. **frame_hud.cmake, given
+STUB, METAR_FILE and FORECAST_FILE, flies recorded weather**: it runs
+glideslope_http_stub beside the flight, answering aviationweather.gov with
+YSSY's report of 1600Z on 2026-09-17 and Open-Meteo with that day's Sydney
+forecast, made today's (tests/cmake/recorded_weather.cmake, the dating
+client_quits_mid_refresh.cmake already did), and the flight's weather goes
+to the stub (GLIDESLOPE_WEATHER_SERVICE). It fails unless the stub answered
+two or more requests from its files and none otherwise, and a flight that
+says "there is no weather to fly in" on recorded weather fails rather than
+skips. The three HUD tests flown in weather - the pilot flying, the AI
+holding, the AI flying its plan - fly so on every driver: Metal, Vulkan and
+Direct3D 12. The HUD still shows Open-Meteo's credit, and the check still
+reads it.
+
+**Other window-client tests on live weather: none left.** Every script
+that runs the window client with `--weather` was read: client_quits_mid_refresh,
+window_stations and window_joins_mid_change already fly a stub's recorded
+weather, and the rest are given a METAR (`--metar`). The one other on live
+weather is the package smoke (package_weather.cmake), which is about what
+the package does when the weather does not answer, and stays live.
+
+## And a skip on macOS CI says why
 
 ## Verification
 
+- **The three HUD tests on recorded weather pass**: on Vulkan, linux-release
+  locally with GLIDESLOPE_REQUIRE_NETWORK set, in 8 to 10 s with the caches
+  warm, the stub having answered from its files alone. The six tests of a
+  live weather service not answering (frame_hud_no_weather.cmake) still pass.
+- **Seen red**: with the HUD's SPD drawn 2 kt high (src/gfx/hud.cpp), all
+  three failed - "SPD shows 80 at tick 600 when the state is 78.242000" and
+  the like. Reverted, all three passed. Metal's and Direct3D 12's are the
+  same script and check, run on CI; there is no Mac here to break one on.
+- **A throwaway probe** of the weather services from a macOS runner (PR
+  #430) sat queued for 90 minutes behind other runs and was cancelled
+  unrun: with the weather recorded, its answer no longer decides anything.
 - **what_every_skipped_test_said_is_printed_from_ctests_report_and_nothing_of_any_other**
   writes seven tests, one for each way ctest ends a test - skipped by return
   code, by regular expression, for a required file missing, and by return

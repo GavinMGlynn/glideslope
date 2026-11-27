@@ -20,8 +20,105 @@
 # instead of both services (GLIDESLOPE_WEATHER_SERVICE), so a test can build
 # that on purpose (frame_hud_no_weather.cmake).
 
+#
+# **With STUB, METAR_FILE and FORECAST_FILE, the weather is recorded**, not
+# live: glideslope_http_stub answers aviationweather.gov's request with the
+# METAR file's report from YSSY and Open-Meteo's with the forecast, made
+# today's (recorded_weather.cmake), and the network is asked for nothing of
+# the weather. The HUD tests on CI run so: on live weather the HUD tick test
+# on Metal skipped after 334 s, five stalled requests to a service that was
+# not answering (docs/status/2026-11-28-skipped-tests-say-why.md), and a test
+# of the HUD has no need of today's weather. The flight is this script run
+# again, beside the stub, with WEATHER_SERVICE its address. What a live
+# service that does not answer does is frame_hud_no_weather.cmake's to test.
+
 cmake_minimum_required(VERSION 3.28)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
+
+# The inner half of a recorded run, started beside the stub: waits for its
+# port, flies this script against it, keeps what that did in RESULT_FILE, and
+# stops the stub.
+if(DEFINED STUB_PORT_FILE)
+    while(NOT EXISTS "${STUB_PORT_FILE}")
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
+    endwhile()
+    file(STRINGS "${STUB_PORT_FILE}" _port LIMIT_COUNT 1)
+    set(_flying "")
+    if(DEFINED FLYING)
+        set(_flying "-DFLYING=${FLYING}")
+    endif()
+    execute_process(COMMAND "${CMAKE_COMMAND}"
+                            "-DPROGRAM=${PROGRAM}" "-DCHECK=${CHECK}" "-DCLI=${CLI}"
+                            "-DDRIVER=${DRIVER}" "-DWORK=${WORK}" "-DCACHE=${CACHE}"
+                            "-DFLY=${FLY}" ${_flying}
+                            "-DWEATHER_SERVICE=http://127.0.0.1:${_port}"
+                            -P "${CMAKE_CURRENT_LIST_FILE}"
+                    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    file(WRITE "${RESULT_FILE}" "${_rc}\n${_out}${_err}")
+    file(DOWNLOAD "http://127.0.0.1:${_port}/stop" "${RESULT_FILE}.stop")
+    return()
+endif()
+
+if(DEFINED STUB AND NOT DEFINED WEATHER_SERVICE)
+    include("${CMAKE_CURRENT_LIST_DIR}/recorded_weather.cmake")
+    if(NOT DEFINED FLYING)
+        set(_tag "pilot")
+    else()
+        string(MAKE_C_IDENTIFIER "${FLYING}" _tag)
+    endif()
+    set(_dir "${WORK}/recorded-weather")
+    file(MAKE_DIRECTORY "${_dir}")
+    set(_metar "${_dir}/metar-${DRIVER}-${_tag}.json")
+    set(_forecast "${_dir}/forecast-${DRIVER}-${_tag}.json")
+    set(_port_file "${_dir}/stub-${DRIVER}-${_tag}.port")
+    set(_result_file "${_dir}/stub-${DRIVER}-${_tag}.result")
+    file(REMOVE "${_port_file}" "${_result_file}")
+    glideslope_recorded_weather("${METAR_FILE}" YSSY "${FORECAST_FILE}" "${_metar}" "${_forecast}")
+    set(_flying "")
+    if(DEFINED FLYING)
+        set(_flying "-DFLYING=${FLYING}")
+    endif()
+    # Both at once: the stub, and this script's inner half beside it. Any
+    # other request - none is expected - is answered 404, a failure.
+    execute_process(COMMAND "${STUB}" 404 "${_port_file}"
+                            /api/data/metar "${_metar}" /v1/forecast "${_forecast}"
+                    COMMAND "${CMAKE_COMMAND}"
+                            "-DPROGRAM=${PROGRAM}" "-DCHECK=${CHECK}" "-DCLI=${CLI}"
+                            "-DDRIVER=${DRIVER}" "-DWORK=${WORK}" "-DCACHE=${CACHE}"
+                            "-DFLY=${FLY}" ${_flying}
+                            "-DSTUB_PORT_FILE=${_port_file}" "-DRESULT_FILE=${_result_file}"
+                            -P "${CMAKE_CURRENT_LIST_FILE}"
+                    RESULTS_VARIABLE _rcs ERROR_VARIABLE _stub_said)
+    if(NOT EXISTS "${_result_file}")
+        message(FATAL_ERROR "the HUD test was not run against the stub (${_rcs}):\n${_stub_said}")
+    endif()
+    file(READ "${_result_file}" _result)
+    string(FIND "${_result}" "\n" _eol)
+    string(SUBSTRING "${_result}" 0 ${_eol} _rc)
+    math(EXPR _eol "${_eol} + 1")
+    string(SUBSTRING "${_result}" ${_eol} -1 _said)
+    message(STATUS "the HUD test, on recorded weather:\n${_said}")
+    # **The recorded weather was what it flew in**: both services asked,
+    # each answered from its file, and nothing else asked of it.
+    if(NOT _stub_said MATCHES "answered 0 requests 404, and ([2-9]|[1-9][0-9]+) with FILE")
+        message(FATAL_ERROR "the stub did not answer the METAR and the forecast, and "
+                            "those alone, from its files:\n${_stub_said}")
+    endif()
+    # Weather not had, with the weather recorded, is a fault, not a skip.
+    if(_said MATCHES "there is no weather to fly in")
+        message(FATAL_ERROR "the recorded weather was not had: ${_stub_said}")
+    endif()
+    if(_rc EQUAL 77)
+        # A download the network is not required for (the DEM, offline):
+        # the inner run has said so.
+        cmake_language(EXIT 77)
+    endif()
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "the HUD test on recorded weather failed (${_rc}); the stub "
+                            "said:\n${_stub_said}")
+    endif()
+    return()
+endif()
 
 file(MAKE_DIRECTORY "${WORK}")
 # FLY, if given, is what else the client is told - `--autopilot`, or a
