@@ -8,7 +8,7 @@
 #
 # **Every lesson, not a sample**: the lessons are those `glideslope_cli
 # lessons` lists, each with the aeroplane that teaches it - the first of its
-# class able to be taught it - and for each a server with no AI aircraft and
+# class able to be taught it - and for each a server with one AI aircraft flying its plan and
 # the client with the window joining it in that aeroplane, the lesson chosen
 # by flag (`--lesson`). The client must be told the instructor settling her,
 # where the lesson begins in the air, and flying every stage of it in turn;
@@ -54,13 +54,23 @@ set(_store "${WORK}/every-lesson.sqlite")
 file(REMOVE "${_store}")
 
 # The lessons, and who teaches each.
-execute_process(COMMAND "${CLI}" lessons --data "${DATA}"
+execute_process(COMMAND "${CLI}" --data "${DATA}" lessons
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _list ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0 OR NOT _list MATCHES "\n([0-9]+) lessons\n")
     message(FATAL_ERROR "glideslope_cli lessons did not list them (${_rc}):\n${_list}${_err}")
 endif()
 set(_there ${CMAKE_MATCH_1})
-string(REGEX MATCHALL "[a-z0-9-]+ +[a-z0-9_]+ +[^\n]+\n" _rows "${_list}")
+# A row a line - an id, the aeroplane, the name - whose id is a lesson's
+# file; JSBSim's words on loading a model are among them, and are not rows.
+string(REPLACE ";" "," _list_lines "${_list}")
+string(REPLACE "\n" ";" _list_lines "${_list_lines}")
+set(_rows "")
+foreach(_line IN LISTS _list_lines)
+    if(_line MATCHES "^([a-z0-9-]+) +([a-z0-9_]+|\\(none\\)) +" AND
+       EXISTS "${DATA}/lessons/${CMAKE_MATCH_1}.lesson")
+        list(APPEND _rows "${CMAKE_MATCH_1} ${CMAKE_MATCH_2}")
+    endif()
+endforeach()
 list(LENGTH _rows _rows_n)
 if(NOT _rows_n EQUAL _there)
     message(FATAL_ERROR "${_rows_n} rows read of the ${_there} lessons listed:\n${_list}")
@@ -74,7 +84,7 @@ if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
 endif()
 set(_key "${CMAKE_MATCH_1}")
 execute_process(
-    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 0 --data "${DATA}"
+    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
 glideslope_warmed_up("${_rc}" "${_err}")
 set(ENV{LSAN_OPTIONS} "exitcode=0")
@@ -89,10 +99,10 @@ foreach(_row IN LISTS _rows)
         continue()
     endif()
     math(EXPR _given "${_given} + 1")
-    string(REGEX MATCH "^([a-z0-9-]+) +([a-z0-9_]+)" _ "${_row}")
+    string(REGEX MATCH "^([a-z0-9-]+) (.+)$" _ "${_row}")
     set(_lesson "${CMAKE_MATCH_1}")
     set(_aircraft "${CMAKE_MATCH_2}")
-    if(_aircraft STREQUAL "none")
+    if(_aircraft STREQUAL "(none)")
         message(FATAL_ERROR "no aeroplane teaches ${_lesson}")
     endif()
     # How many stages it has: its file's `stage` lines.
@@ -108,7 +118,7 @@ foreach(_row IN LISTS _rows)
                 --aircraft ${_aircraft} --lesson ${_lesson} --quit-once-lesson-over
                 --shot-lesson "${_prefix}" --stdout "${_said}"
                 --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
-        COMMAND "${SERVER}" --port ${PORT} --seconds 3600 --until-empty --ai 0 --players 1
+        COMMAND "${SERVER}" --port ${PORT} --seconds 3600 --until-empty --ai 1 --players 1
                 --headless --data "${DATA}" --timeout 30 --store "${_store}"
                 --ready-file "${_ready}" --test-pace ${PACE}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _server ERROR_VARIABLE _err)
