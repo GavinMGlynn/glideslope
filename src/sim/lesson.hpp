@@ -15,6 +15,12 @@
 //   height FEET                   the height above the ground the lesson is
 //                                 practised at, where a safe height is part
 //                                 of it: a stall lesson must give one
+//   instructor EXERCISE           how the instructor demonstrates it
+//                                 (sim/instructor.hpp): take-off,
+//                                 approach-and-landing, circuit,
+//                                 climb-and-descent, stalls or turns - where
+//                                 the lesson begins, and what the AI pilot is
+//                                 asked to fly through it
 //   stage TEXT...                 a stage of the lesson, in the order flown
 //   do TEXT...                    what to do at this stage: what the pilot is
 //                                 told, and what the instructor demonstrates
@@ -131,6 +137,13 @@ struct LessonStage {
     std::vector<LessonWatch> needs;
 };
 
+// **How the instructor demonstrates a lesson** (sim/instructor.hpp): where
+// it begins and what the AI pilot is asked to fly through it.
+enum class Demonstration { take_off, approach, circuit, climb_and_descent, stalls, turns };
+// As a lesson's file writes it: "take-off", "approach-and-landing", ...
+const char* name_of(Demonstration demonstration);
+std::optional<Demonstration> demonstration_from_name(std::string_view name);
+
 struct Lesson {
     std::string id; // the file's name, less .lesson
     std::string name;
@@ -145,6 +158,8 @@ struct Lesson {
     // what height is the lesson's to say, since what an aeroplane can do
     // there - be level again with her flaps and gear down - depends on it.
     std::optional<double> practised_at_ft;
+    // How the instructor demonstrates it; none, it cannot be demonstrated.
+    std::optional<Demonstration> demonstration;
     std::vector<LessonStage> stages;
 };
 

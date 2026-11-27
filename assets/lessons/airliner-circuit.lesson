@@ -27,6 +27,7 @@
 
 name The circuit in an airliner
 teaches airliner
+instructor circuit
 
 stage The take-off
 do Take-off thrust, keep her straight on the centreline, and rotate at the rotation speed

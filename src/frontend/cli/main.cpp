@@ -51,6 +51,7 @@
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/instructor.hpp"
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
 #include "sim/orbit_trial.hpp"
@@ -590,6 +591,14 @@ void print_usage(std::FILE* out) {
         "                            learning (data/rl/AIRCRAFT-landing.txt), rolled\n"
         "                            out by the autopilot; exits 1 unless it touched\n"
         "                            and stopped on the runway\n"
+        "  lessons                   list the lessons, and the aeroplane each is\n"
+        "                            taught in by default\n"
+        "  lesson LESSON [AIRCRAFT]  fly LESSON: the instructor demonstrates it in\n"
+        "                            AIRCRAFT (by default the first of its class that\n"
+        "                            can be taught it), over level ground, saying each\n"
+        "                            stage as it begins; hands the controls over; and\n"
+        "                            prints the debrief. Exits 1 if the lesson was not\n"
+        "                            flown to its end within fifteen minutes\n"
         "  takeoff-speeds AIRCRAFT [FROM_KT]\n"
         "                            measure the rotation and climb-away speeds of\n"
         "                            an aircraft that publishes none (its figures\n"
@@ -984,6 +993,110 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
 // orbit from 30,000 ft both ways round with its engines stopped, until one
 // goes round (sim::GlideOrbitFlown::round) and stalls neither way. What to write in its figures file's `<glide_speeds>` is
 // printed.
+// **Who is taught a lesson by default**: the first aeroplane in the roster of
+// its class that can be taught it (sim::cannot_be_taught), or nothing.
+std::optional<glideslope::sim::CatalogueEntry> taught_by(const std::filesystem::path& data,
+                                                         const glideslope::sim::Lesson& lesson) {
+    for (const auto& entry : glideslope::sim::read_catalogue(data)) {
+        if (entry.aircraft_class == lesson.teaches &&
+            glideslope::sim::cannot_be_taught(lesson,
+                                              glideslope::sim::lesson_speeds(data, entry.model))
+                .empty()) {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+int lessons_command(const std::filesystem::path& data) {
+    const auto lessons = glideslope::sim::read_lessons(data);
+    for (const auto& lesson : lessons) {
+        const auto entry = taught_by(data, lesson);
+        std::printf("%-38s %-13s %s\n", lesson.id.c_str(),
+                    entry ? entry->id.c_str() : "(none)", lesson.name.c_str());
+    }
+    std::printf("%zu lessons\n", lessons.size());
+    return 0;
+}
+
+// **A lesson flown from the command line**: the instructor's demonstration
+// (sim::Instructor), each stage said as it begins, then the controls handed
+// over and held three seconds where the instructor left the pilot's hands,
+// and the debrief. Over level ground at sea level, as `land` is.
+int lesson_command(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
+    const auto lessons = glideslope::sim::read_lessons(data);
+    const auto found = std::find_if(lessons.begin(), lessons.end(),
+                                    [&](const auto& l) { return l.id == args[1]; });
+    if (found == lessons.end()) {
+        std::fprintf(stderr, "glideslope_cli: no lesson \"%s\" (glideslope_cli lessons)\n",
+                     std::string(args[1]).c_str());
+        return 1;
+    }
+    const std::optional<glideslope::sim::CatalogueEntry> entry =
+        args.size() == 3 ? std::optional(glideslope::sim::find_aircraft(data, std::string(args[2])))
+                         : taught_by(data, *found);
+    if (!entry) {
+        std::fprintf(stderr, "glideslope_cli: no aeroplane can be taught %s\n", found->id.c_str());
+        return 1;
+    }
+    glideslope::sim::Runway runway;
+    runway.name = "07";
+    runway.threshold_lat_deg = -33.9461;
+    runway.threshold_lon_deg = 151.1772;
+    runway.elevation_ft = 0.0;
+    runway.heading_deg = 70.0;
+    runway.length_m = 3000.0;
+    glideslope::sim::Instructor instructor(
+        data, *entry, *found, runway,
+        std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; },
+            [water = entry->seaplane](double, double) { return water; }));
+    std::printf("lesson %s: %s, in the %s\n", found->id.c_str(), found->name.c_str(),
+                entry->id.c_str());
+    constexpr std::int64_t per_second = glideslope::sim::steps_per_second;
+    const auto seconds = [&](std::int64_t tick) {
+        return static_cast<double>(tick) / static_cast<double>(per_second);
+    };
+    std::optional<std::size_t> said;
+    bool demonstrating = false;
+    std::int64_t until = -1;
+    for (std::int64_t tick = 0; tick < 900 * per_second; ++tick) {
+        (void)instructor.step();
+        const auto part = instructor.part();
+        if (!demonstrating && part == glideslope::sim::Instructor::Part::demonstrating) {
+            demonstrating = true;
+            std::printf("%7.1f s  the instructor demonstrates\n", seconds(tick));
+        }
+        if (part == glideslope::sim::Instructor::Part::demonstrating &&
+            (!said || *said != instructor.run().stage()) && instructor.stage() != nullptr) {
+            said = instructor.run().stage();
+            std::printf("%7.1f s  stage %zu of %zu: %s\n", seconds(tick), *said + 1,
+                        found->stages.size(), instructor.stage()->name.c_str());
+            for (const std::string& doing : instructor.stage()->doing) {
+                std::printf("             %s\n", doing.c_str());
+            }
+        }
+        if (part == glideslope::sim::Instructor::Part::handed_over && until < 0) {
+            std::printf("%7.1f s  handed over: you have control\n", seconds(tick));
+            until = tick + 3 * per_second;
+        }
+        if (until >= 0 && tick >= until) {
+            break;
+        }
+    }
+    std::fflush(stdout);
+    const auto debrief = instructor.run().debrief_lines();
+    std::printf("debrief: %zu of %zu stages flown\n", instructor.run().completed(),
+                found->stages.size());
+    if (debrief.empty()) {
+        std::printf("  flown to the book: nothing to do differently\n");
+    }
+    for (const std::string& line : debrief) {
+        std::printf("  %s\n", line.c_str());
+    }
+    return instructor.part() == glideslope::sim::Instructor::Part::handed_over ? 0 : 1;
+}
+
 int glide_speeds(const std::filesystem::path& data, const std::vector<std::string_view>& args) {
     const glideslope::sim::CatalogueEntry entry =
         glideslope::sim::find_aircraft(data, std::string(args[1]));
@@ -7350,6 +7463,12 @@ static int run_program(int argc, char** argv) {
         }
         if ((args.size() == 2 || args.size() == 3) && args[0] == "plan-speeds") {
             return plan_speeds(data, args);
+        }
+        if (args.size() == 1 && args[0] == "lessons") {
+            return lessons_command(data);
+        }
+        if ((args.size() == 2 || args.size() == 3) && args[0] == "lesson") {
+            return lesson_command(data, args);
         }
         if (args.size() == 2 && args[0] == "glide-speeds") {
             return glide_speeds(data, args);

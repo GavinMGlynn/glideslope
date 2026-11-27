@@ -29,6 +29,7 @@
 
 name Take-off in a fighter
 teaches fighter
+instructor take-off
 
 stage The roll
 do Line up, then set take-off thrust smoothly and evenly

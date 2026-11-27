@@ -197,6 +197,7 @@ add_library(glideslope_sim STATIC
     src/sim/crash.cpp
     src/sim/lesson.cpp
     src/sim/lesson_run.cpp
+    src/sim/instructor.cpp
     src/sim/navigator.cpp
     src/sim/orbit_trial.cpp
     src/sim/takeoff_trial.cpp

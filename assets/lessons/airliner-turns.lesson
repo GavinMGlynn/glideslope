@@ -26,6 +26,7 @@
 
 name Turns in an airliner
 teaches airliner
+instructor turns
 
 stage Rolling into the turn
 do Look out, then roll smoothly into the turn to the left
