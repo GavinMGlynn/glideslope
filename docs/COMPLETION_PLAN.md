@@ -2216,13 +2216,13 @@ What the client with the window does that the command-line client does, and what
       root's own. *Verification: with the fetches asked for out of order,
       the old hold hangs and the new one builds the wedge and gives it up;
       nothing is held for ever.* Done 2026-10-29.
-- [ ] **A parent-imagery unit test died at exit on the Windows development
-      machine** (`a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound`,
-      0xc0000409, once, 2026-10-29). It passed in its own checks first. On CI's
-      Windows jobs it passes in 0.02 s; on that machine it took 2 to 4 s,
-      and its Webroot has killed test programs before. *Verification: the
-      cause named, Webroot's log read first, or the crash reproduced and
-      fixed.*
+- [x] **A parent-imagery unit test died at exit on the Windows development
+      machine** (0xc0000409, 2026-10-29). A thread put in from outside took
+      a standard-library lock the program's exit had already deleted. Webroot's
+      log shows it watching the test, not killing it. The program now keeps
+      those locks until its threads are gone. *Verification: Webroot's log
+      read first; the crash reproduced in 65 of 300 debug runs, a test seen
+      red, and then 0 of 300.* Done 2026-11-27.
 - [ ] **A shot with its imagery refused drew coarser than one
       without**, twice on CI's Linux release, so its test runs nightly, not on
       pull requests. Cause not found. *Verification: the cause shown, the test
