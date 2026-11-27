@@ -36,6 +36,23 @@
 // `tests/unit/test_process_end.cpp` allocates from the last code a program
 // runs - the loader's process-detach call, after every other thread is gone -
 // and fails if the runtime cannot.
+//
+// **And the standard library keeps its locks.** _cexit() runs MSVC's standard
+// library's own static destructors too, and one of them, `std::_Init_locks`'s,
+// deletes the library's locks (crt/src/stl/xlock.cpp). A deleted lock reads
+// as held, so a thread that starts in the window before ExitProcess and runs
+// the program's thread_local initialisers waits on it and faults in ntdll,
+// writing 0x24: a debug build's containers take `_LOCK_DEBUG` whenever they
+// are copied or destroyed. A thread put into a debug-built test program from
+// outside it, at `LoadLibraryW`, died so on the Windows development machine
+// in 65 of 300 runs of one test
+// (docs/status/2026-11-27-the-parent-imagery-tests-exit-crash-was-a-thread-from-outside.md).
+// The library counts its users and deletes the locks only when the count
+// goes below zero, so one more user, made here and never destroyed, keeps
+// them until the process is gone. `std::_Init_locks` is the library's own,
+// exported from it but declared in no header it ships, so it is declared
+// here as crt/src/stl/init_locks.hpp declares it. The test beside the one
+// above takes `_LOCK_DEBUG` at the same last call.
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -46,14 +63,39 @@
 #endif
 #include <windows.h>
 #include <process.h>
+
+#include <new>
+
+#if defined(_CPPLIB_VER)
+namespace std {
+// MSVC's standard library's count of the users of its locks (xlock.cpp).
+class _Init_locks {
+public:
+    _Init_locks() noexcept;
+    ~_Init_locks() noexcept;
+};
+} // namespace std
+#endif
 #else
 #include <cstdlib>
 #endif
 
 namespace glideslope::platform {
 
+#if defined(_WIN32)
+// One more user of the standard library's locks, never destroyed, so that
+// _cexit() leaves them whole.
+inline void keep_the_standard_librarys_locks() {
+#if defined(_CPPLIB_VER)
+    alignas(std::_Init_locks) static unsigned char user[sizeof(std::_Init_locks)];
+    ::new (static_cast<void*>(user)) std::_Init_locks;
+#endif
+}
+#endif
+
 [[noreturn]] inline void end_process(int code) {
 #if defined(_WIN32)
+    keep_the_standard_librarys_locks();
     _cexit();
     ExitProcess(static_cast<UINT>(code));
 #else
