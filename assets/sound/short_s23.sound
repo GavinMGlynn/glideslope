@@ -1,0 +1,14 @@
+# The Short S.23's sounds, synthesised (src/audio/sound_set.hpp says each line).
+# Placeholders until Phase 15's recordings: every figure below but her
+# engines' cylinders is a stand-in, chosen to sound like her kind of
+# aeroplane, not taken from a source.
+
+# Four Bristol Pegasus Xc radials: nine cylinders each.
+# Her note follows the flight model's engine RPM.
+engine piston 9 0.26
+wind 0.15 130
+flaps 600 0.05
+touchdown 0.40
+stall-warning 14 900 0.10
+# Another aircraft's engine is heard at about her cruise RPM.
+heard-as-other 2250

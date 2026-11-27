@@ -47,6 +47,7 @@
 #include "net/session.hpp"
 #include "platform/paths.hpp"
 #include "scenes.hpp"
+#include "sound.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
@@ -89,6 +90,9 @@ namespace {
 
 struct Options {
     bool headless = false;
+    // **Heard** (client/sound.hpp): a window's flight is, unless
+    // `--no-sound`; a headless one never.
+    bool sound = true;
     std::string driver;
     std::string shot;
     std::int64_t shot_at = 2;
@@ -300,7 +304,7 @@ struct Options {
 
 void usage(std::FILE* out) {
     std::fputs(
-        "usage: glideslope [--headless] [--gpu-driver vulkan|direct3d12|metal]\n"
+        "usage: glideslope [--headless] [--no-sound] [--gpu-driver vulkan|direct3d12|metal]\n"
         "                  [--size WxH] [--screen flight|terrain|sky|origin|depth]\n"
         "                  [--at LAT,LON,HEIGHT | --at-ecef X,Y,Z]\n"
         "                  [--toward LAT,LON,HEIGHT] [--imagery on|off]\n"
@@ -317,6 +321,7 @@ void usage(std::FILE* out) {
         "                  [--online | --server HOST PORT --server-key HEX [--player-key HEX]]\n"
         "       glideslope --version | --help\n"
         "\n"
+        "  --no-sound    a window's flight is heard, unless this; a headless one never\n"
         "  --screen      what to show: the flight (the default), the terrain alone,\n"
         "                or a test scene\n"
         "  --at          where: a latitude and longitude in degrees and a height\n"
@@ -577,6 +582,8 @@ static int run_program(int argc, char** argv) {
             return 0;
         } else if (a == "--headless") {
             o.headless = true;
+        } else if (a == "--no-sound") {
+            o.sound = false;
         } else if (a == "--online") {
             o.online = true;
         } else if (a == "--server" && i + 2 < args.size()) {
@@ -1133,6 +1140,19 @@ static int run_program(int argc, char** argv) {
         std::unique_ptr<glideslope::client::Flight> flight;
         glideslope::client::FlightStart start;
         glideslope::client::Scene scene;
+        // **Heard, where there is a device to be heard on**; where there is
+        // none, the flight goes on silent and says so.
+        std::unique_ptr<glideslope::client::Sound> sound;
+        if (o.sound && !o.headless) {
+            try {
+                sound = std::make_unique<glideslope::client::Sound>(
+                    glideslope::platform::data_directory());
+                std::fprintf(stderr, "glideslope: heard on SDL's %s audio driver\n",
+                             sound->driver().c_str());
+            } catch (const glideslope::audio::DeviceError& e) {
+                std::fprintf(stderr, "glideslope: not heard: %s\n", e.what());
+            }
+        }
         const auto started = std::chrono::steady_clock::now();
         const auto seconds_since_start = [&] {
             return std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
@@ -2021,6 +2041,7 @@ static int run_program(int argc, char** argv) {
         // When the frame's ticks were last reckoned, for its input's stamp.
         auto reckoned_at = last;
         std::int64_t ticks = 0;
+        std::int64_t ticks_heard = 0;
         long frames = 0;
         // When --slow-frames last held a pass of the loop.
         auto held_at = std::chrono::steady_clock::now();
@@ -2974,6 +2995,16 @@ static int run_program(int argc, char** argv) {
                                 online->watched_heard());
                 }
             }
+            // **Heard by the time flown** (client/sound.hpp): the ticks
+            // flown since the last pass's mix, the aircraft as she is now and
+            // everybody else on a server where they are.
+            if (sound && flight) {
+                sound->play(*flight, others_now,
+                            online && joined ? online->mine() : glideslope::net::no_aircraft,
+                            static_cast<double>(ticks - ticks_heard) /
+                                static_cast<double>(glideslope::sim::steps_per_second));
+            }
+            ticks_heard = ticks;
             // **On a server, a shot draws only its own frame.** The flight
             // keeps real time there, so the frames before it are as many as
             // the machine can draw - thousands - where a shot flown by ticks
