@@ -33,17 +33,24 @@ public:
     // `seconds` more of the mix, of `flight` as it is now and of `others`
     // but the one numbered `own` - its own, among them while the AI flies it
     // on a server. An aircraft whose sound set cannot be read is not heard,
-    // and said once.
+    // and said once. **A flight begun again** - another Flight, or this one's
+    // clock gone back - is heard from a new mix, nothing of the last carried
+    // over.
     void play(const Flight& flight, const std::vector<Other>& others, std::uint8_t own,
               double seconds);
 
 private:
     const audio::SoundSet* set_of(const std::string& id);
+    // Hers, to be flown: with her stall warning's angles from her flight
+    // model (audio::own_sound_set), worked out once.
+    const audio::SoundSet* own_set_of(const sim::CatalogueEntry& entry);
 
     std::filesystem::path data_;
     audio::Device device_;
     std::map<std::string, std::optional<audio::SoundSet>> sets_;
-    std::string flown_;
+    std::map<std::string, std::optional<audio::SoundSet>> own_sets_;
+    const Flight* flown_ = nullptr;
+    double flown_time_s_ = 0.0;
     std::unique_ptr<audio::Mixer> mixer_;
 };
 

@@ -499,10 +499,12 @@ of her 42 are the nightly's
 (2026-11-11-the-f22a-holds-every-plan-speed-again).
 
 Since 2026-11-28 the window client is heard - but every sound is a
-synthesised stand-in, nothing recorded, and her stall warning's angle is
-not her own. Her engines' notes follow the RPM or N1 her flight model
+synthesised stand-in, nothing recorded, and her stall warning sounds at
+the angle her flight model's lift curve gives at the certification rule's
+margin, not her own warning system's. Her engines' notes follow the RPM or N1 her flight model
 reports, and are silent stopped; the wind rises with airspeed; her gear and
-flap motors, touchdown and stall warning sound when they happen; other
+flap motors, touchdown - a landing in JSBSim heard from the step she
+touches - and stall warning sound when they happen; other
 aircraft on a server are panned by where they are and fade with distance,
 at a fixed drive. Each aircraft's sounds are her own file, all sixteen
 asserted; the tests play the mix on SDL's dummy audio driver

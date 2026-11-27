@@ -1416,7 +1416,12 @@ set(GLIDESLOPE_UNIT_TESTS
     every_aircraft_heard_with_her_engines_stopped_on_the_ground_is_silent
     the_wind_heard_grows_louder_with_airspeed_in_every_aircraft
     every_event_is_heard_from_the_step_it_happens_in_every_aircraft
-    another_aircraft_is_heard_louder_nearer_and_on_the_side_she_is_on)
+    another_aircraft_is_heard_louder_nearer_and_on_the_side_she_is_on
+    every_aircrafts_stall_warning_sounds_at_the_angle_her_own_lift_curve_gives
+    a_c172p_at_2700_rpm_is_heard_at_90_hz_and_a_737_300_at_full_n1_at_86_hz
+    a_bounce_off_the_surface_is_heard_again_only_after_a_quarter_second_off_it
+    every_aircrafts_landing_in_her_flight_model_is_heard_from_the_step_she_touches
+    a_mix_made_faster_than_it_is_played_is_trimmed_to_what_fits_not_dropped)
 # **The gust landings' seeds 9 to 40** (tests/unit/test_lesson.cpp),
 # labelled gust_sweep: the eight above run on every pull request, and these
 # in every other run - every night - but no pull request's (ci.yml leaves the

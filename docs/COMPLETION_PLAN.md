@@ -2244,12 +2244,9 @@ What the client with the window does that the command-line client does, and what
       distance; each aircraft's sounds in her own data file. *Verification:
       run on SDL's dummy audio driver, the mix follows the flight (the
       engine's pitch rising with RPM, silence with the engine stopped), and
-      every aircraft has a sound set, asserted.* Done 2026-11-28; the sounds
+      every aircraft has a sound set, asserted.* Done 2026-11-28: her stall
+      warning's angle is read from her own lift curve; the sounds themselves
       are synthesised stand-ins until Phase 15's recordings.
-- [ ] **Each aircraft's stall warning at her own angle**: it sounds at a
-      stand-in angle of attack today (14, 12 or 25 degrees by kind).
-      *Verification: each angle from her manual, or measured from her flight
-      model where none is published, and the warning heard there.*
 - [ ] **On macOS a dozen window-client tests report themselves skipped
       after 300 s**: they asked for Vulkan; now on Metal, all 45 run and pass,
       and a warm-up that times out fails. Missing: the HUD tick test on Metal,

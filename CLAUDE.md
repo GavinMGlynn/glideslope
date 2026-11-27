@@ -188,6 +188,7 @@ run WSL out of memory.
 src/sim/        JSBSim wrapper, aircraft, controllers, autopilot, AI pilot
 src/world/      coordinates, floating origin, terrain streaming and queries, weather
 src/copilot/    the language model that plans: providers, and plans from words, checked
+src/audio/      sound: each aircraft's sound set, the mix, SDL3 audio playback
 src/gfx/        SDL_GPU renderer, shaders (GLSL, in shaders/), Cesium Native glue, HUD
 src/net/        protocol, packet encode/decode, interpolation
 src/platform/   paths, input, sockets

@@ -7,13 +7,16 @@ Phase 12c, "The aircraft heard".
   aircraft's set (`assets/sound/<id>.sound`) is stand-in figures but her
   engines' cylinders (docs/ASSETS.md). Phase 15's "Every aircraft heard as
   herself" brings recordings.
-- **Her stall warning sounds by angle of attack, at a stand-in angle**: 14
-  degrees for the light aircraft and the propeller types, 12 or 13 for the
-  airliners, business jet and bomber, 25 for the fighters. None is from her
-  manual or measured from her flight model.
+- **Her stall warning's angle is her flight model's, at the certification
+  rule's margin, not her own system's.** It is read from her lift curve
+  (below); no aircraft's warning vane or horn setting is modelled. The
+  J-3 Cub, which has no stall warning, is given one like the rest: the
+  rule's 5 knots over her 38-knot stall puts it at 5.9 degrees.
 - **Another aircraft's engine is heard at a fixed drive** - about her
   cruise RPM or 85% N1, her set's `heard-as-other` - because a state update
   carries nothing of her engine. No Doppler.
+- **A flight begun again in the window client starts a new mix** (another
+  Flight, or its clock gone back); no test drives that.
 - **A window client's sound is heard; nothing listens to it in a test.**
   The tests drive the mix and the device on SDL's dummy driver directly;
   the window client's own use of them (client/sound.cpp) is built and
@@ -29,32 +32,48 @@ Phase 12c, "The aircraft heard".
     cylinders, whose firing rate is her note, or a turbine's fan speed at
     100% N1 and its blades - her wind, gear motor (only where her gear
     retracts), flap motor (only where her flap lever works flaps),
-    touchdown, stall warning and the drive she is heard at as another
-    aircraft.
+    touchdown, stall horn and the drive she is heard at as another
+    aircraft. **Her stall warning's angle is not in her file**: loaded to
+    be flown (`own_sound_set`), her set reads it from her flight model
+    (`sim/lift_peak`): her lift coefficient, worked out by JSBSim with no
+    time passing at every quarter degree of alpha her tables hold, clean and
+    flaps fully down, and the first angle where it reaches its peak over
+    her warning margin squared - her warning speed over her stall speed by
+    sim::stall_warning_kts (the rule's 5 knots or 5%, or her figures' own:
+    the Mosquito's 10, the F-22A's 12), 1.05 where she publishes no stall
+    speed. Between the two by her flaps. A start may now be given an
+    angle of attack (`InitialConditions::alpha_deg`), for this alone.
   - `mixer` synthesises the stereo mix, 48 kHz float: each engine's note at
     her set's fundamental for the RPM or N1 her flight model reports, its
     loudness by her throttle and nothing while she is stopped; the wind, a
     low-passed noise louder and brighter with airspeed; the gear and flap
     motors while they move; a thump from the step she meets the surface,
-    louder the faster she sinks; the stall horn while her alpha is at or
-    past her set's, off the ground; and every other aircraft by her set,
+    louder the faster she sinks, once she has been off it a quarter second
+    (a wheel chattering on the rollout is not a landing; a longer bounce
+    is); the stall horn while her alpha is at or past her warning's for her
+    flaps, off the ground; and every other aircraft by her set,
     panned by where she is from the listener (constant power) and fading
     as 50 m over the distance past 50 m, silent past 20 km.
   - `heard` reads a sim::Aircraft into what the mix is told.
   - `device` plays the mix on SDL3's default playback device through an
     audio stream, made by **simulated time flown**, not by the device's
-    asking; at most a quarter second queues. Its `tap` is the test hook:
-    every frame mixed, handed back.
+    asking; at most a quarter second queues, what is past it trimmed off
+    with a 5 ms fade out and the next given faded in. Its `tap` is the
+    test hook: every frame mixed, handed back.
 - **The window client is heard** (`client/sound.cpp`), unless
   `--no-sound`, and never headless: each pass mixes the ticks flown since
   the last. Where there is no audio device it says so and flies on silent.
+- **`audio/` is a layer the simulation may not include**
+  (cmake/Layering.cmake), walked by tests/cmake/layering_includes.cmake;
+  an include of `audio/mixer.hpp` put in src/sim/lift_peak.cpp was seen
+  refused at configure, and taken out.
 - **Every ctest test runs with `SDL_AUDIO_DRIVER=dummy`**
   (tests/CMakeLists.txt), so no test is heard on the machine's speakers.
 - 16 sound sets, one per aircraft.
 
 ## Verification
 
-Seven unit tests, each on SDL's dummy audio driver, asked for by name and
+Twelve unit tests, each on SDL's dummy audio driver where it plays, asked for by name and
 checked to be the one opened, each walking every one of the sixteen
 aircraft and asserting how many it walked:
 
@@ -79,6 +98,23 @@ aircraft and asserting how many it walked:
   motors of aircraft without them are counted and named as not built.
 - `another_aircraft_is_heard_louder_nearer_and_on_the_side_she_is_on`: 16
   aircraft at 7 places and 11 distances.
+- `every_aircrafts_stall_warning_sounds_at_the_angle_her_own_lift_curve_gives`:
+  32 lift curves, each peaking inside her tables (the C172P's CLmax 1.66 at
+  16 degrees clean, warned from 13.0; the F-22A's 2.31 at 45, warned from
+  36.6), her set carrying the angles, and the horn sounding at each and at
+  half flap half way, and not 0.1 degree below.
+- `a_c172p_at_2700_rpm_is_heard_at_90_hz_and_a_737_300_at_full_n1_at_86_hz`:
+  figures worked by hand - 2,700 / 60 x 4 / 2 = 90 Hz, and 5,179 / 60 =
+  86.32 Hz - heard at 89.99 and 86.31.
+- `a_bounce_off_the_surface_is_heard_again_only_after_a_quarter_second_off_it`:
+  6 bounces, 1 to 240 steps off.
+- `every_aircrafts_landing_in_her_flight_model_is_heard_from_the_step_she_touches`:
+  every aircraft set down in JSBSim from 30 ft (the S.23 on water), flown
+  twice, with and without her touchdown's gain: the same to the sample
+  until the step her first wheel or hull meets the surface, the thump 0.23
+  (the S.23's) to 1.35 of the rest after it; the F-22A touches six times,
+  five of them after a quarter second off, and five thumps are heard.
+- `a_mix_made_faster_than_it_is_played_is_trimmed_to_what_fits_not_dropped`.
 
 Locally, linux-release: the engine test heard every aircraft at her drive's
 fundamental to 0.1 Hz - the C172P 23.5 Hz shut and 91.0 Hz full, the
@@ -93,6 +129,10 @@ refused); a piston's pitch ignoring her RPM; a stopped engine still
 sounding; the wind at one loudness whatever the speed; the touchdown never
 thumping; the stall horn a hundredth as loud; another aircraft's pan
 swapped left for right; and another aircraft not fading with distance.
-The sound-set test went red for real first: the F-22A's set gave a flap
+For the second round: the warning ignoring her flaps; a piston firing
+every revolution (the pinned figures); the quarter second off taken away,
+and the touchdown never heard (the bounce and landing tests, each); her
+wheels' weight not read (the landing test); and a chunk over the cap
+dropped whole (the trim test). The sound-set test went red for real first: the F-22A's set gave a flap
 motor her flight model's lever does not work, and the Mosquito's none
 where hers does.
