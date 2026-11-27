@@ -27,11 +27,12 @@
 // whenever they are copied or destroyed (`_LOCK_DEBUG`). MSVC's standard
 // library deletes its locks as one of its own static destructors, which
 // `_cexit()` runs, and a deleted lock reads as held: the next thread to take
-// it waits on a lock nobody will free, and faults in ntdll writing 0x24. A
-// thread put into a debug-built test on the Windows development machine at
-// `LoadLibraryW` - from outside the program, between its static destructors
-// and ExitProcess - ran the program's thread_local initialisers, took that
-// lock, and died so in 65 of 300 runs of
+// it waits on a lock nobody will free, and faults in ntdll writing 0x24. On
+// the Windows development machine a thread started at `LoadLibraryW`, between
+// the static destructors and ExitProcess, took that lock and died so in 65 of
+// 300 runs of a debug-built test. Its start address most likely means another
+// process started it, and it most likely took the lock in the program's
+// thread_local initialisers; neither is proved. The test was
 // a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
 // (docs/status/2026-11-27-the-parent-imagery-tests-exit-crash-was-a-thread-from-outside.md).
 
@@ -69,6 +70,8 @@ void say(const char* line) {
 } // namespace
 
 extern "C" void NTAPI glideslope_process_end_probe(PVOID, DWORD reason, PVOID) {
+#if defined(_CPPLIB_VER)
+    // MSVC's standard library's lock: guarded as platform/end_process.hpp is.
     if (reason == DLL_PROCESS_DETACH && locks_armed.load()) {
         say("the process's end reached the program's last call\n");
         {
@@ -79,6 +82,7 @@ extern "C" void NTAPI glideslope_process_end_probe(PVOID, DWORD reason, PVOID) {
         say("the standard library locks still lock as the process ends\n");
         return;
     }
+#endif
     if (reason != DLL_PROCESS_DETACH || !armed.load()) {
         return;
     }
@@ -110,7 +114,7 @@ GLIDESLOPE_TEST(a_program_that_has_ended_can_still_allocate_until_its_last_threa
 }
 
 GLIDESLOPE_TEST(a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone) {
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(_CPPLIB_VER)
     locks_armed.store(true);
 #else
     glideslope::test::skip("this is MSVC's standard library and Windows' loader; "
