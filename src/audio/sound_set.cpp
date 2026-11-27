@@ -1,5 +1,7 @@
 #include "audio/sound_set.hpp"
 
+#include "sim/lift_peak.hpp"
+
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -89,9 +91,8 @@ SoundSet parse_sound_set(const std::string& id, std::string_view text) {
             s.touchdown_gain = number(1, "gain", 0, 1);
             touchdown = true;
         } else if (w[0] == "stall-warning") {
-            count(4, "stall-warning ALPHA_DEG HORN_HZ GAIN");
-            s.stall_alpha_deg = number(1, "angle of attack", 1, 60);
-            s.stall_horn = Motor{number(2, "horn frequency", 20, 20000), number(3, "gain", 0, 1)};
+            count(3, "stall-warning HORN_HZ GAIN");
+            s.stall_horn = Motor{number(1, "horn frequency", 20, 20000), number(2, "gain", 0, 1)};
             stall = true;
         } else if (w[0] == "heard-as-other") {
             count(2, "heard-as-other DRIVE");
@@ -121,6 +122,17 @@ SoundSet read_sound_set(const std::filesystem::path& data, const std::string& id
         throw SoundSetError("cannot read " + path.string());
     }
     return parse_sound_set(id, std::string(std::istreambuf_iterator<char>(in), {}));
+}
+
+SoundSet own_sound_set(const std::filesystem::path& data, const std::string& id,
+                       const std::string& model, double airspeed_kts) {
+    SoundSet s = read_sound_set(data, id);
+    const double margin = sim::stall_warning_margin(data, model);
+    s.stall_alpha_clean_deg =
+        sim::lift_peak(data / "jsbsim", model, airspeed_kts, 0.0, margin).warning_alpha_deg;
+    s.stall_alpha_flaps_deg =
+        sim::lift_peak(data / "jsbsim", model, airspeed_kts, 1.0, margin).warning_alpha_deg;
+    return s;
 }
 
 } // namespace glideslope::audio

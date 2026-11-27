@@ -10,6 +10,6 @@ engine turbine 10400 32 0.30
 wind 0.15 350
 gear 400 0.06
 touchdown 0.40
-stall-warning 25 800 0.10
+stall-warning 800 0.10
 # Another aircraft's engine is heard at about her cruise N1 percent.
 heard-as-other 85

@@ -14,8 +14,11 @@
 // **The events are heard from what changes between one Heard and the next**:
 // her gear's motor runs while her gear moves, her flaps' while they do, her
 // touchdown is a thump from the step a wheel (or her hull) first meets the
-// surface, louder the faster she sinks, and her stall warning sounds while
-// her angle of attack is at or past her set's, off the ground.
+// surface, louder the faster she sinks - once she has been off it for
+// `touchdown_after_off_s` or more, so that a wheel chattering on the
+// rollout is not a landing, and a bounce that long is - and her stall
+// warning sounds while her angle of attack is at or past her set's for her
+// flaps, off the ground.
 
 #include "audio/sound_set.hpp"
 
@@ -58,6 +61,7 @@ struct Heard {
 double other_gain_at(double distance_m);
 inline constexpr double other_full_within_m = 50.0;
 inline constexpr double other_heard_within_m = 20000.0;
+inline constexpr double touchdown_after_off_s = 0.25;
 
 class Mixer {
 public:
@@ -108,6 +112,9 @@ private:
     bool flaps_moving_ = false;
     bool stall_on_ = false;
     std::size_t touchdowns_ = 0;
+    // Frames mixed since she last was on it, counted whole so that a quarter
+    // second is exactly one.
+    std::size_t off_surface_frames_ = static_cast<std::size_t>(-1) / 2;
     double thump_ = 0.0;     // its envelope, decaying
     double thump_phase_ = 0.0;
     double thump_lp_ = 0.0;

@@ -3,7 +3,7 @@
 #
 # **`src/sim/` is the simulation, and it does not know it is being looked at.**
 # No window, renderer, input device or audio stream, and nothing from gfx/, ui/,
-# platform/ or a frontend. That is what lets glideslope_cli fly an aircraft with
+# platform/, audio/ or a frontend. That is what lets glideslope_cli fly an aircraft with
 # no window, lets a test run a flight with no video driver, and lets the server
 # fly every aircraft in a session without SDL's video subsystem.
 #
@@ -42,7 +42,7 @@ set(GLIDESLOPE_SIM_FORBIDDEN_SDL_INPUT
 set(GLIDESLOPE_SIM_FORBIDDEN_SDL_AUDIO
     SDL_audio.h)
 set(GLIDESLOPE_SIM_FORBIDDEN_LAYERS
-    gfx ui platform frontend)
+    gfx ui platform frontend audio)
 set(GLIDESLOPE_SIM_SOURCE_EXTENSIONS
     h hh hpp hxx inl ipp c cc cpp cxx)
 

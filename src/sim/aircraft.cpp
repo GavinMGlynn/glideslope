@@ -764,6 +764,9 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (ic.flight_path_deg != 0.0) {
         fgic->SetFlightPathAngleDegIC(ic.flight_path_deg);
     }
+    if (ic.alpha_deg) {
+        fgic->SetAlphaDegIC(*ic.alpha_deg);
+    }
     if (retractable_gear(*exec_)) {
         exec_->SetPropertyValue("gear/gear-cmd-norm", ic.gear);
         exec_->SetPropertyValue("gear/gear-pos-norm", ic.gear);

@@ -8,6 +8,6 @@
 engine piston 4 0.25
 wind 0.15 70
 touchdown 0.40
-stall-warning 14 1600 0.10
+stall-warning 1600 0.10
 # Another aircraft's engine is heard at about her cruise RPM.
 heard-as-other 2150

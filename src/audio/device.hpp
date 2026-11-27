@@ -9,7 +9,9 @@
 // **No more than `most_queued_s` waits to be played**: a mix made faster than
 // the device plays it - a test's, or a frame loop catching up - is still
 // made, and tapped, but what would queue past that is not given to SDL, and
-// is counted (`not_queued_frames`).
+// is counted (`not_queued_frames`). What is given is trimmed to fit, its last
+// `fade_s` faded out and the next given faded in, so that the cut does not
+// click.
 
 #include "audio/mixer.hpp"
 
@@ -28,6 +30,7 @@ struct DeviceError : std::runtime_error {
 
 inline constexpr int mix_rate = 48000;
 inline constexpr double most_queued_s = 0.25;
+inline constexpr double fade_s = 0.005;
 
 class Device {
 public:
@@ -59,6 +62,7 @@ private:
     std::vector<float>* tap_ = nullptr;
     std::size_t mixed_frames_ = 0;
     std::size_t not_queued_frames_ = 0;
+    bool fade_in_next_ = false;
 };
 
 } // namespace glideslope::audio
