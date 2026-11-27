@@ -6,6 +6,7 @@
 #include "net/state.hpp"
 #include "platform/socket.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -48,6 +49,9 @@ AircraftState an_aircraft(int n) {
     a.heading_deg = static_cast<float>(37.5 + d);
     a.pitch_deg = static_cast<float>(-4.25 - d);
     a.roll_deg = static_cast<float>(12.75 + d);
+    // Its surfaces, half-degrees, each different and none nought.
+    a.surfaces = {static_cast<std::int8_t>(n + 1), static_cast<std::int8_t>(-n - 2),
+                  static_cast<std::int8_t>(n + 30), static_cast<std::int8_t>(-n - 40)};
     return a;
 }
 
@@ -183,7 +187,10 @@ GLIDESLOPE_TEST(every_single_byte_change_to_a_state_packet_is_read_or_refused) {
 // **A number that is not one is refused, in every field that holds one.** The
 // clock, the nine numbers of an aircraft, and the fifteen of the client's own
 // motion - twenty-five fields - against a NaN and both infinities:
-// seventy-five cases, counted.
+// seventy-five cases, counted. Each is refused by the writer; a reader given
+// one anyway refuses it too, in every field but an aircraft's three
+// velocities, which since version 15 are sixteenths of a metre a second on
+// the wire and cannot hold one: 66 of the 75 read, the 9 named.
 GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double up = std::numeric_limits<double>::infinity();
@@ -215,6 +222,7 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
                                    // rates, the height its STOVL law asks and
                                    // its autopilot's pitch integral
     std::size_t walked = 0;
+    std::size_t not_on_the_wire = 0;
     for (const double bad : wrong) {
         for (std::size_t field = 0; field < fields; ++field) {
             StatePacket s = a_full_packet();
@@ -260,8 +268,14 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
                 at = header + per + 4;
                 if (field <= 3) {
                     at += (field - 1) * 8;
+                } else if (field <= 6) {
+                    // A velocity: sixteenths on the wire, no NaN to write.
+                    ++not_on_the_wire;
+                    ++walked;
+                    continue;
                 } else {
-                    at += 3 * 8 + (field - 4) * 4;
+                    // Past the three velocities' sixteenths.
+                    at += 3 * 8 + 3 * 2 + (field - 7) * 4;
                     is_float = true;
                 }
             } else {
@@ -305,6 +319,9 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     check(walked == wrong.size() * fields,
           "all " + std::to_string(wrong.size() * fields) + " cases were walked");
     check(walked == 75, "seventy-five cases, not " + std::to_string(walked));
+    check(not_on_the_wire == 9,
+          "the reader was given 66 of them: the velocities' 9 cannot be written, not " +
+              std::to_string(not_on_the_wire));
 }
 
 // **A state packet carries this client's own motion, and nothing but a flag
@@ -690,6 +707,10 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
         "its heading, degrees",
         "its pitch, degrees",
         "its roll, degrees",
+        "its left aileron's deflection",
+        "its right aileron's deflection",
+        "its elevator's deflection",
+        "its rudder's deflection",
     };
     std::size_t said = 0;
     for (const std::string& field : fields) {
@@ -901,4 +922,92 @@ GLIDESLOPE_TEST(a_law_states_every_number_is_read_exactly_or_refused) {
     std::printf("  %zu refusals built, over %zu numbers (43 f64, 12 f32)\n", cases, numbers);
     check(numbers == 55, "every number walked: " + std::to_string(numbers));
     check(cases == 6 + 4 + 1 + 55 * 2, "every refusal built: " + std::to_string(cases));
+}
+
+// **A surface's deflection goes on the wire to the nearest half degree, and
+// every byte reads back as itself.** All 256 bytes walked, each read and
+// written again to the same byte; and every deflection from -1.2 to 1.2 rad
+// by a thousandth (2,401 of them) sent within a quarter of a degree of
+// itself inside -64 to 63.5 degrees, held at the end outside it.
+GLIDESLOPE_TEST(a_surfaces_deflection_goes_on_the_wire_to_the_nearest_half_degree) {
+    using glideslope::net::surface_off_the_wire;
+    using glideslope::net::surface_on_the_wire;
+    std::size_t bytes = 0;
+    for (int b = -128; b <= 127; ++b) {
+        const auto v = static_cast<std::int8_t>(b);
+        check(surface_on_the_wire(surface_off_the_wire(v)) == v,
+              "the byte " + std::to_string(b) + " does not read back as itself");
+        ++bytes;
+    }
+    check(bytes == 256, "every byte was walked, not " + std::to_string(bytes));
+    constexpr double rad_per_deg = 3.14159265358979323846 / 180.0;
+    std::size_t deflections = 0;
+    for (int k = -1200; k <= 1200; ++k) {
+        const double rad = k / 1000.0;
+        const double sent = surface_off_the_wire(surface_on_the_wire(rad));
+        const double want = std::clamp(rad, -64.0 * rad_per_deg, 63.5 * rad_per_deg);
+        check(std::abs(sent - want) <= 0.25 * rad_per_deg + 1e-12,
+              std::to_string(rad) + " rad was sent as " + std::to_string(sent));
+        ++deflections;
+    }
+    check(deflections == 2401, "2,401 deflections, not " + std::to_string(deflections));
+    check(surface_on_the_wire(std::numeric_limits<double>::quiet_NaN()) == 0,
+          "a deflection that is not a number is sent as nought");
+}
+
+// **A velocity goes on the wire to the nearest sixteenth of a metre a
+// second**: all 65,536 values read back as themselves, and every velocity
+// from -2,100 to 2,100 m/s by an eighth of a metre a second (33,601 of them)
+// sent within a thirty-second of itself inside the range, held at its end
+// outside it.
+GLIDESLOPE_TEST(a_velocity_goes_on_the_wire_to_the_nearest_sixteenth_of_a_metre_a_second) {
+    using glideslope::net::velocity_on_the_wire;
+    using glideslope::net::velocity_steps_per_mps;
+    std::size_t values = 0;
+    for (int v = -32768; v <= 32767; ++v) {
+        const auto mps = static_cast<float>(v / velocity_steps_per_mps);
+        check(velocity_on_the_wire(mps) == v, "the sixteenths " + std::to_string(v) +
+                                                  " do not read back as themselves");
+        ++values;
+    }
+    check(values == 65536, "every value was walked, not " + std::to_string(values));
+    std::size_t walked = 0;
+    for (int k = -16800; k <= 16800; ++k) {
+        const double mps = k / 8.0 + 0.01;
+        const double sent =
+            velocity_on_the_wire(static_cast<float>(mps)) / velocity_steps_per_mps;
+        const double want = std::clamp(mps, -2048.0, 32767.0 / velocity_steps_per_mps);
+        check(std::abs(sent - want) <= 1.0 / 32.0 + 1e-6,
+              std::to_string(mps) + " m/s was sent as " + std::to_string(sent));
+        ++walked;
+    }
+    check(walked == 33601, "33,601 velocities, not " + std::to_string(walked));
+}
+
+// **The surfaces a state update carries are the four properties named, in
+// their order**, and nothing else is one of them; and what the server
+// writes of a model is each one's deflection, nought for one it has not got.
+GLIDESLOPE_TEST(a_state_update_carries_the_ailerons_elevator_and_rudder_by_their_properties) {
+    std::size_t found = 0;
+    for (std::size_t i = 0; i < glideslope::net::carried_surfaces; ++i) {
+        const auto slot = glideslope::net::carried_surface(
+            std::string(glideslope::net::carried_surface_properties[i]));
+        check(slot && *slot == i,
+              "the carried property " + std::to_string(i) + " is not found where it is");
+        ++found;
+    }
+    check(found == 4, "four carried, not " + std::to_string(found));
+    check(!glideslope::net::carried_surface("fcs/flap-pos-rad"),
+          "a property not carried is not one of them");
+    const auto sent = glideslope::net::surfaces_on_the_wire(
+        [](const std::string& property) -> std::optional<double> {
+            if (property == "fcs/right-aileron-pos-rad") {
+                return std::nullopt;
+            }
+            return property == "fcs/rudder-pos-rad" ? -0.1 : 0.2;
+        });
+    check(sent[0] == 23 && sent[1] == 0 && sent[2] == 23 && sent[3] == -11,
+          "the surfaces were written as " + std::to_string(sent[0]) + " " +
+              std::to_string(sent[1]) + " " + std::to_string(sent[2]) + " " +
+              std::to_string(sent[3]));
 }

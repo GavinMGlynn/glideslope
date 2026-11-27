@@ -30,8 +30,11 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <string>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace glideslope::net {
@@ -43,12 +46,50 @@ inline constexpr std::size_t most_aircraft_in_a_state = 20;
 // What `your_aircraft` holds when this client has none.
 inline constexpr std::uint8_t no_aircraft = 255;
 
+// **The control surfaces a state update carries** (version 15, `0x15`),
+// by the JSBSim property each is the deflection of, in the order they are
+// written: every property a surfaces file names (data/models/<id>.surfaces,
+// gfx/parts.hpp) is one of these four, which a test holds every aircraft's
+// files to. Another aircraft is drawn with its surfaces where these put
+// them; a model without one of them is sent nought for it.
+inline constexpr std::size_t carried_surfaces = 4;
+inline constexpr std::array<std::string_view, carried_surfaces> carried_surface_properties = {
+    "fcs/left-aileron-pos-rad", "fcs/right-aileron-pos-rad", "fcs/elevator-pos-rad",
+    "fcs/rudder-pos-rad"};
+// Which of them `property` is, or none.
+std::optional<std::size_t> carried_surface(std::string_view property);
+
+// **A surface's deflection on the wire: whole half-degrees, a signed byte**,
+// -64 to 63.5 degrees, rounded to the nearest and held at the ends - past
+// any surface's travel, and a quarter of a degree at most from what was
+// flown, which at a metre of chord is 4 mm. A byte each, because twenty
+// aircraft's must fit a datagram beside everything else (below).
+std::int8_t surface_on_the_wire(double rad);
+double surface_off_the_wire(std::int8_t half_degrees);
+
+// **An aircraft's surfaces as a state update carries them**: each carried
+// property's deflection, radians, as `deflection` gives it - none where the
+// model has no such property, which is sent as nought. What the server
+// writes, and what a test writes the same way.
+std::array<std::int8_t, carried_surfaces> surfaces_on_the_wire(
+    const std::function<std::optional<double>(const std::string& property)>& deflection);
+
+// **A velocity on the wire: sixteenths of a metre a second, a signed 16-bit
+// number**, -2,048 to 2,047.94 m/s, rounded to the nearest and held at the
+// ends (version 15; a float before). Six bytes an aircraft are what makes
+// room for its surfaces in a full packet; 3 cm/s is a millimetre over the
+// 40 ms between updates, and no aircraft in the catalogue flies a third of
+// the range.
+inline constexpr double velocity_steps_per_mps = 16.0;
+std::int16_t velocity_on_the_wire(float mps);
+
 // The kind byte, the clock, the input sequence, this client's own aircraft
 // and the count; then an index, a controller, a condition, the engine
-// stopped, three doubles and six floats per aircraft. Named so that nothing
-// has to count bytes twice.
+// stopped, three doubles, three sixteenths, three floats and the surfaces'
+// four bytes per aircraft. Named so that nothing has to count bytes twice.
 inline constexpr std::size_t state_header_bytes = 1 + 8 + 4 + 1 + 1;
-inline constexpr std::size_t state_per_aircraft_bytes = 1 + 1 + 1 + 1 + 3 * 8 + 6 * 4;
+inline constexpr std::size_t state_per_aircraft_bytes =
+    1 + 1 + 1 + 1 + 3 * 8 + 3 * 2 + 3 * 4 + carried_surfaces;
 
 // What `stopped_engine` holds when no engine has stopped.
 inline constexpr std::uint8_t no_engine = 255;
@@ -81,7 +122,7 @@ struct AircraftState {
     double x_m = 0.0;
     double y_m = 0.0;
     double z_m = 0.0;
-    // The same frame, metres a second.
+    // The same frame, metres a second: in sixteenths of one on the wire.
     float vx_mps = 0.0F;
     float vy_mps = 0.0F;
     float vz_mps = 0.0F;
@@ -89,6 +130,11 @@ struct AircraftState {
     float heading_deg = 0.0F;
     float pitch_deg = 0.0F;
     float roll_deg = 0.0F;
+    // **Its control surfaces' deflections, as the wire has them**: half
+    // degrees, in `carried_surface_properties`' order (version 15) - so
+    // that another aircraft is drawn with its surfaces where its flight
+    // model has them, not still.
+    std::array<std::int8_t, carried_surfaces> surfaces{};
 
     bool operator==(const AircraftState&) const = default;
 };

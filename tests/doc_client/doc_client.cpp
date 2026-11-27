@@ -81,10 +81,12 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // 2026-11-17 to 13, when every input frame came to name the step it was
 // sent at, which this client sends as not said, and on 2026-11-27 to 14,
 // when the initiation's payload came to begin with the fingerprint of the
-// controls' layout: the document gives the envelope's version as `14`. A test
+// controls' layout, and on 2026-11-28 to 15, when a state update came to
+// carry every aircraft's control surfaces and its velocity in sixteenths of a
+// metre a second: the document gives the envelope's version as `15`. A test
 // reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x14;
+constexpr std::uint8_t kVersion = 0x15;
 // The controls in an input frame, and the fingerprint of their layout - the
 // document's, for the twenty-one it names - which the initiation's payload
 // says first.
@@ -603,8 +605,14 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         const std::uint8_t engine = r.u8();
         if ((condition == 0x02) != (engine != 0xFF)) r.fail();
         for (int j = 0; j < 3; ++j) static_cast<void>(r.f64());  // position
-        for (int j = 0; j < 5; ++j) static_cast<void>(r.f32());  // velocity, heading, pitch
+        // Version 15 (2026-11-28): the velocity in sixteenths of a metre a
+        // second, three 16-bit numbers, where it was three floats.
+        for (int j = 0; j < 3; ++j) static_cast<void>(r.u16());  // velocity
+        for (int j = 0; j < 2; ++j) static_cast<void>(r.f32());  // heading, pitch
         a.roll = r.f32();
+        // And, last, the four control surfaces, a signed byte of half
+        // degrees each. The client does not draw them.
+        for (int j = 0; j < 4; ++j) static_cast<void>(r.u8());
         u.aircraft.push_back(a);
     }
     // Added when TRANSPORT.md added it (2026-09-24): this client's own motion,

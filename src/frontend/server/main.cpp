@@ -5102,6 +5102,16 @@ glideslope::net::StatePacket state_of(const Fleet& fleet, double clock_s) {
         out.heading_deg = static_cast<float>(s.heading_deg);
         out.pitch_deg = static_cast<float>(s.pitch_deg);
         out.roll_deg = static_cast<float>(s.roll_deg);
+        // **Its control surfaces**, as its flight model has them, so that
+        // every client draws them moving (net::carried_surface_properties);
+        // nought for one its model does not have.
+        out.surfaces = glideslope::net::surfaces_on_the_wire(
+            [&](const std::string& property) -> std::optional<double> {
+                if (!a.aircraft->has_property(property)) {
+                    return std::nullopt;
+                }
+                return a.aircraft->property(property);
+            });
         packet.aircraft.push_back(out);
     }
     return packet;

@@ -640,9 +640,25 @@ std::optional<Visual> visual_of(const std::filesystem::path& data, const std::st
     visual.surfaces = gfx::read_surfaces(data / "models" / (id + ".surfaces"));
     for (const gfx::Surface& surface : visual.surfaces) {
         visual.hinges.push_back(gfx::hinge_of(surface));
+        const std::optional<std::size_t> slot = net::carried_surface(surface.property);
+        if (!slot) {
+            throw std::runtime_error(id + "'s " + surface.name + " is turned by " +
+                                     surface.property +
+                                     ", which a state update does not carry");
+        }
+        visual.carried.push_back(*slot);
     }
     visual.parts = gfx::split_model(visual.model, visual.livery, visual.surfaces);
     return visual;
+}
+
+std::vector<double> carried_angles(const Visual& visual,
+                                   const std::array<double, net::carried_surfaces>& carried_rad) {
+    std::vector<double> out;
+    for (const std::size_t slot : visual.carried) {
+        out.push_back(carried_rad.at(slot));
+    }
+    return out;
 }
 
 std::vector<double> Flight::surface_angles_rad() const {

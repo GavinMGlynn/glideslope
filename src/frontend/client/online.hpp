@@ -83,6 +83,9 @@ struct Other {
     double heading_deg = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // Its control surfaces, radians, as the updates move them, in the order
+    // they carry them (net::carried_surface_properties).
+    std::array<double, net::carried_surfaces> surfaces_rad{};
     // Its velocity over the Earth, north, east and down, metres a second.
     double north_mps = 0.0;
     double east_mps = 0.0;
