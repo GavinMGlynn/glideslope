@@ -108,8 +108,17 @@ struct Visual {
     gfx::Livery livery;
     std::vector<gfx::Surface> surfaces;
     std::vector<gfx::Hinge> hinges;
+    // **Which of a state update's surfaces each of `surfaces` is turned by**
+    // (net::carried_surface_properties), drawn as another aircraft: a
+    // surface whose property a state update does not carry is refused as
+    // the model is read.
+    std::vector<std::size_t> carried;
     gfx::ModelParts parts;
 };
+// Each surface's deflection, radians, for another aircraft whose updates
+// put its carried surfaces at `carried_rad`.
+std::vector<double> carried_angles(const Visual& visual,
+                                   const std::array<double, net::carried_surfaces>& carried_rad);
 std::optional<Visual> visual_of(const std::filesystem::path& data, const std::string& id);
 
 // The sun, in the body frame of an aircraft placed so: what its mesh is lit by.

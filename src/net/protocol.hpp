@@ -80,7 +80,11 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // the client's controls' layout, so that a client of another layout is
 // refused at the handshake by name (`WRONG_LAYOUT`) rather than let in and
 // its every input dropped as the wrong length, or flown as another control.
-inline constexpr std::uint8_t protocol_version = 20;
+// Version 21 (`15`): the same ground, and every aircraft's control surfaces
+// in a state update - its ailerons, elevator and rudder, a byte each - with
+// its velocity in sixteenths of a metre a second to make room for them, so
+// that another aircraft is drawn with its surfaces moving.
+inline constexpr std::uint8_t protocol_version = 21;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

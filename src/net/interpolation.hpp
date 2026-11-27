@@ -52,6 +52,11 @@ struct RemoteState {
     double heading_deg = 0.0;
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
+    // **Its control surfaces' deflections**, radians, in the order a state
+    // update carries them (net::carried_surface_properties): moved between
+    // two snapshots as its attitude is, and held where the last one put
+    // them while it is carried on.
+    std::array<double, 4> surfaces_rad{};
     // A wreck, as the server said. One that flies again is somewhere else,
     // and what it was is no guide to where it is.
     bool wrecked = false;
