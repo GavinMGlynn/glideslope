@@ -1395,7 +1395,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_download_cannot_be_killed_by_a_server_hanging_up
     tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_asked_again_a_minute_on
     a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
-    a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone)
+    a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone
+    a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone)
 # **The gust landings' seeds 9 to 40** (tests/unit/test_lesson.cpp),
 # labelled gust_sweep: the eight above run on every pull request, and these
 # in every other run - every night - but no pull request's (ci.yml leaves the
@@ -1464,7 +1465,7 @@ endforeach()
 list(APPEND GLIDESLOPE_UNIT_TESTS ${GLIDESLOPE_GUST_SWEEP_SEEDS})
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     # Registered below: its result is what the program says after main.
-    if(WIN32 AND _t STREQUAL "a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone")
+    if(WIN32 AND _t MATCHES "^a_program_that_has_ended_can_still_")
         continue()
     endif()
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
@@ -1482,6 +1483,7 @@ set_tests_properties(
     the_window_client_joining_while_the_servers_stations_change_flies_the_servers_air
     more_than_a_reliable_sender_puts_on_the_wire_at_once_arrives_whole_and_in_order
     a_client_joining_32_stations_each_mid_blend_over_several_reports_flies_the_servers_air
+    a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone
     PROPERTIES COST 1)
 # Flies a circuit after its go-around, in simulated time: 762 s on Linux
 # debug's runners (tests/ci_costs), and past the presets' 900 there in run
@@ -1645,6 +1647,15 @@ if(WIN32)
             -DEXIT=0 "-DSTDERR_MATCHES=the runtime still allocates as the process ends"
             -P ${GLIDESLOPE_EXPECT_RUN})
     set_tests_properties(a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone
+        PROPERTIES TIMEOUT 120)
+    # The same for the standard library's locks: a deleted lock reads as held,
+    # so the taking faults or waits for ever.
+    add_test(NAME a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone
+        COMMAND ${CMAKE_COMMAND} -DPROGRAM=$<TARGET_FILE:glideslope_tests>
+            -DARGS=a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone
+            -DEXIT=0 "-DSTDERR_MATCHES=the standard library locks still lock as the process ends"
+            -P ${GLIDESLOPE_EXPECT_RUN})
+    set_tests_properties(a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone
         PROPERTIES TIMEOUT 120)
 endif()
 
