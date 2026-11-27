@@ -2130,7 +2130,11 @@ What the client with the window does that the command-line client does, and what
       which stepped under long, uneven frames and is now slewed (2026-10-09).
 - [ ] **A livery on the aeroplane, and its control surfaces moving.**
       *Verification: a shot shows a livery, and the ailerons move with the
-      stick.*
+      stick.* Built 2026-11-27 and the shot test green on CI; still missing:
+      that test seen red (livery painted white, ailerons on another property).
+- [ ] **Another aircraft on a server is drawn with its control surfaces
+      still**: a state update carries no surface positions. *Verification: a
+      window client watching another aircraft roll sees its ailerons over.*
 - [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
       its lighting follows a roll with no mesh remade.*
 - [x] **The window client crashes on exit (signal 11) after giving up on an
