@@ -2217,8 +2217,9 @@ What the client with the window does that the command-line client does, and what
       the old hold hangs and the new one builds the wedge and gives it up;
       nothing is held for ever.* Done 2026-10-29.
 - [x] **A parent-imagery unit test died at exit on the Windows development
-      machine** (0xc0000409, 2026-10-29). A thread put in from outside took
-      a standard-library lock the program's exit had already deleted. Webroot's
+      machine** (0xc0000409, 2026-10-29). A thread started at LoadLibraryW,
+      likely by another program, took a standard-library lock the program's
+      exit had already deleted. Webroot's
       log shows it watching the test, not killing it. The program now keeps
       those locks until its threads are gone. *Verification: Webroot's log
       read first; the crash reproduced in 65 of 300 debug runs, a test seen

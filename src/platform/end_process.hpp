@@ -29,8 +29,9 @@
 // destructors, the main thread's thread_locals, flushing every stream - with
 // _cexit(), which returns rather than going on to tear the runtime down, and
 // then ExitProcess(), which stops every other thread before anything is
-// unloaded. There is no window left in which a thread can start into a
-// runtime that is gone. Microsoft documents _cexit for exactly this: cleanup
+// unloaded. A thread that starts in that short window still finds the
+// runtime's heap and per-thread data whole. Its standard library's locks are
+// kept whole too, by the step below. Microsoft documents _cexit for exactly this: cleanup
 // without ending the process, for a caller that ends it itself.
 //
 // `tests/unit/test_process_end.cpp` allocates from the last code a program
@@ -40,12 +41,12 @@
 // **And the standard library keeps its locks.** _cexit() runs MSVC's standard
 // library's own static destructors too, and one of them, `std::_Init_locks`'s,
 // deletes the library's locks (crt/src/stl/xlock.cpp). A deleted lock reads
-// as held, so a thread that starts in the window before ExitProcess and runs
-// the program's thread_local initialisers waits on it and faults in ntdll,
-// writing 0x24: a debug build's containers take `_LOCK_DEBUG` whenever they
-// are copied or destroyed. A thread put into a debug-built test program from
-// outside it, at `LoadLibraryW`, died so on the Windows development machine
-// in 65 of 300 runs of one test
+// as held. A thread that starts in the window before ExitProcess and takes
+// one waits on it, and faults in ntdll writing 0x24. A debug build's
+// containers take `_LOCK_DEBUG` whenever they are copied or destroyed, most
+// likely here in the program's thread_local initialisers. A thread started
+// at `LoadLibraryW`, most likely by another process (not proved), died so on
+// the Windows development machine in 65 of 300 debug runs of one test
 // (docs/status/2026-11-27-the-parent-imagery-tests-exit-crash-was-a-thread-from-outside.md).
 // The library counts its users and deletes the locks only when the count
 // goes below zero, so one more user, made here and never destroyed, keeps
@@ -69,6 +70,8 @@
 #if defined(_CPPLIB_VER)
 namespace std {
 // MSVC's standard library's count of the users of its locks (xlock.cpp).
+// Older standard libraries declared this class in yvals.h. With one of those,
+// this declaration is a redefinition and the build fails here. Delete it then.
 class _Init_locks {
 public:
     _Init_locks() noexcept;
