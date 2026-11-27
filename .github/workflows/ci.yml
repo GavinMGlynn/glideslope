@@ -802,7 +802,13 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" --output-junit "$PWD/junit.xml" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
+      # **What every skipped test said**, which ctest does not print: the HUD
+      # tick test on Metal skipped after 334 s in PR #413's run, and why
+      # could be read nowhere (tools/ci_skipped.cmake).
+      - name: What the skipped tests said
+        if: ${{ !cancelled() }}
+        run: cmake -DJUNIT="$PWD/junit.xml" -P tools/ci_skipped.cmake
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
       # afresh by a test that runs ctest itself), so that a bound is set from
@@ -871,7 +877,13 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" --output-junit "$PWD/junit.xml" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
+      # **What every skipped test said**, which ctest does not print: the HUD
+      # tick test on Metal skipped after 334 s in PR #413's run, and why
+      # could be read nowhere (tools/ci_skipped.cmake).
+      - name: What the skipped tests said
+        if: ${{ !cancelled() }}
+        run: cmake -DJUNIT="$PWD/junit.xml" -P tools/ci_skipped.cmake
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
       # afresh by a test that runs ctest itself), so that a bound is set from
