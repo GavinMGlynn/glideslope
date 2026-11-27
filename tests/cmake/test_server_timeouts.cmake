@@ -47,9 +47,10 @@ endforeach()
 # since 2026-11-21: server_ground_lift.cmake's and window_joins_mid_change.cmake's
 # servers, a long one each; 75 and 63 since 2026-11-21 too:
 # server_tiles_arrive.cmake's server, a long one; 76 and 64 since
-# 2026-11-27: server_layout_refused.cmake's server, a long one).
-set(_expect_uses 76)
-set(_expect_long 64)
+# 2026-11-27: server_layout_refused.cmake's server, a long one; 77 and 65
+# since 2026-11-28: client_sees_others_surfaces.cmake's server, a long one).
+set(_expect_uses 77)
+set(_expect_long 65)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 
