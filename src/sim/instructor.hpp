@@ -84,8 +84,8 @@ public:
     // **The lesson begun**: `entry`'s aeroplane built from `data`, over
     // `terrain`, put where `lesson` begins at `runway`, and given to the AI.
     // Throws LessonError for a lesson that does not say how it is
-    // demonstrated, or for an aeroplane it cannot be taught to
-    // (`cannot_be_taught`).
+    // demonstrated, for an aeroplane not of the class it teaches, or for one
+    // it cannot be taught to (`cannot_be_taught`).
     Instructor(const std::filesystem::path& data, const CatalogueEntry& entry, Lesson lesson,
                const Runway& runway, std::shared_ptr<Terrain> terrain);
     ~Instructor();
