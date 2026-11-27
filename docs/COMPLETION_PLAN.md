@@ -2128,10 +2128,10 @@ What the client with the window does that the command-line client does, and what
       fail, and whether the older steps CI saw (6.2 and 24.5 m in the
       hand-over test, 2.77 m at a take-over) were the session's clock,
       which stepped under long, uneven frames and is now slewed (2026-10-09).
-- [ ] **A livery on the aeroplane, and its control surfaces moving.**
+- [x] **A livery on the aeroplane, and its control surfaces moving.**
       *Verification: a shot shows a livery, and the ailerons move with the
-      stick.* Built 2026-11-27 and the shot test green on CI; still missing:
-      that test seen red (livery painted white, ailerons on another property).
+      stick.* Done 2026-11-27: every aircraft's livery and hinged surfaces are
+      data, the stick checked on all sixteen, the B-2's rudder named left out.
 - [ ] **Another aircraft on a server is drawn with its control surfaces
       still**: a state update carries no surface positions. *Verification: a
       window client watching another aircraft roll sees its ailerons over.*

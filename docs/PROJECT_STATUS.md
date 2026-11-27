@@ -654,14 +654,14 @@ are the risks the phase order is built around:
   another aircraft on a server is drawn with its surfaces still, because no
   update carries them. Propellers and undercarriage do not move: they are
   welded where the model has them, gear down. Its light is baked into the
-  mesh, which is made again when it has banked five degrees. The Learjet
-  35A has no model at all and is drawn as nothing. All of that is tails in
-  `COMPLETION_PLAN.md`. Where a model and its
+  mesh, which is made again when it has banked five degrees. All of that
+  is tails in `COMPLETION_PLAN.md`. Where a model and its
   flight model disagree about the aeroplane, the disagreement is measured
   and each aircraft held to its own figure rather than made to vanish: the
   747-400's is the worst at 2.48 m, because JSBSim's has one main leg a side
-  where the aeroplane has two. The Learjet 35A has no model, because
-  FlightGear has no Learjet of any mark (a tail). See the log.
+  where the aeroplane has two. FlightGear has no Learjet of any mark, so
+  the Learjet 35A's model is a glTF model from Sketchfab under CC-BY-4.0,
+  which the owner provides by hand (docs/ASSETS.md). See the log.
 - **Only runways OurAirports places are flat.** The collision ground under a
   runway is its own straight line between its ends' elevations, for the
   14,814 runways whose ends the pinned file places; the rest, mostly small

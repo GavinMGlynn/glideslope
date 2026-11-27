@@ -142,6 +142,26 @@ GLIDESLOPE_TEST(every_aircraft_wears_a_livery_and_has_its_ailerons_elevators_and
         }
         ++covered;
     }
+    // Each exclusion names an aircraft in the catalogue, and what it names is
+    // really not there.
+    for (const auto& [id, out] : left_out()) {
+        const bool listed = std::any_of(catalogue.begin(), catalogue.end(),
+                                        [&](const CatalogueEntry& e) { return e.id == id; });
+        if (!listed) {
+            failed += "\n  " + id + " is left out of something, and is not in the catalogue";
+            continue;
+        }
+        const std::vector<Surface> surfaces =
+            glideslope::gfx::read_surfaces(models_dir() / (id + ".surfaces"));
+        for (const auto& [name, why] : out) {
+            for (const Surface& s : surfaces) {
+                if (s.name.find(name) != std::string::npos) {
+                    failed += "\n  " + id + "'s " + name + " is named left out, and its " +
+                              s.name + " is there";
+                }
+            }
+        }
+    }
     std::printf("%zu of the catalogue's %zu aircraft covered\n", covered, catalogue.size());
     check(covered == catalogue.size() && catalogue.size() == 16,
           "the catalogue has " + std::to_string(catalogue.size()) + " aircraft, " +
@@ -149,46 +169,96 @@ GLIDESLOPE_TEST(every_aircraft_wears_a_livery_and_has_its_ailerons_elevators_and
     check(failed.empty(), "wrong:" + failed);
 }
 
+namespace {
+
+// **How many fins each aircraft has**, counted off the aircraft and not off
+// its .surfaces file: the twin-finned fighters two, the B-2 none, every
+// other one. With two ailerons and two elevators each, this is how many
+// surfaces the stick test must see, so a line taken out of a file fails it.
+std::size_t fins_of(const std::string& id) {
+    static const std::map<std::string, std::size_t> twins_and_none = {
+        {"f15c", 2}, {"f22", 2}, {"f35b", 2}, {"b2", 0}};
+    const auto found = twins_and_none.find(id);
+    return found == twins_and_none.end() ? 1 : found->second;
+}
+
+// **The one surface held to less than a degree**, and why: the F-22's
+// rudders, whose command passes through her rudder limiter
+// (fcs/rudder-cmd-limiter) and her yaw law, swing 0.9 degrees in the quarter
+// of a second the test holds the pedals. Held to half a degree instead.
+bool under_a_degree_allowed(const std::string& id, const std::string& surface) {
+    return id == "f22" && surface.find("rudder") != std::string::npos;
+}
+
+// A trimmed aircraft in the air, flown a quarter of a second with the stick
+// and pedals at `way` (nothing: held where her trim had them), and what each
+// surface's property reports then.
+std::vector<double> angles_after(const CatalogueEntry& e, const std::vector<Surface>& surfaces,
+                                 double way) {
+    glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 3000.0;
+    ic.airspeed_kts = e.start_airspeed_kts;
+    ic.engine_running = true;
+    ic.gear = 0.0;
+    ic.trim = true;
+    aircraft.initialize(ic);
+    glideslope::sim::Controls c = glideslope::sim::held_until_moved(aircraft);
+    if (way != 0.0) {
+        c.aileron = way;
+        c.elevator = way;
+        c.rudder = way;
+    }
+    for (int i = 0; i < 30; ++i) {
+        aircraft.set_controls(c);
+        aircraft.step();
+    }
+    std::vector<double> out;
+    for (const Surface& s : surfaces) {
+        out.push_back(aircraft.property(s.property));
+    }
+    return out;
+}
+
+} // namespace
+
 // **The stick moves every aircraft's surfaces the way it should.** Each
-// aircraft flies, trimmed, and its stick and pedals are put over one way and
-// then the other, a quarter of a second each; the deflection each surface's
-// property then reports turns the surface about its hinge, and its trailing
-// edge must go the way the control asks: stick right, the left aileron's
-// down and the right's up; stick back, the elevators' up; right pedal, the
-// rudder's to the right. Every surface of every aircraft, counted.
+// aircraft flies, trimmed, three times for a quarter of a second: its stick
+// and pedals left where its trim had them, then over one way, then the
+// other. Each surface's swing is what its property reports less what it
+// reported with the controls left alone - a trimmed elevator already sits a
+// degree or two over - and that swing turns it about its hinge: its trailing
+// edge must go the way the control asks, by a degree at least, but for the
+// one exception named above. Stick right, the left aileron's down and the
+// right's up; stick back, the elevators' up; right pedal, the rudder's to the
+// right. The movements are counted against the catalogue, not the files: two
+// ailerons, two elevators and each fin's rudder, both ways, less what
+// left_out() names.
 GLIDESLOPE_TEST(the_stick_and_pedals_move_every_aircrafts_surfaces_the_way_they_should) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data_dir());
+    std::size_t expected = 0;
     std::size_t surfaces_seen = 0;
     std::size_t surfaces_right = 0;
     std::string failed;
     for (const CatalogueEntry& e : catalogue) {
+        const auto& out = left_out().count(e.id) ? left_out().at(e.id)
+                                                 : std::map<std::string, std::string>{};
+        expected += 2 * (2 + (out.count("elevator") ? 0 : 2) +
+                         (out.count("rudder") ? 0 : fins_of(e.id)));
         const std::vector<Surface> surfaces =
             glideslope::gfx::read_surfaces(models_dir() / (e.id + ".surfaces"));
+        const std::vector<double> neutral = angles_after(e, surfaces, 0.0);
         for (const double way : {1.0, -1.0}) {
-            glideslope::sim::Aircraft aircraft(data_dir() / "jsbsim", e.model);
-            glideslope::sim::InitialConditions ic;
-            ic.latitude_deg = -33.9;
-            ic.longitude_deg = 151.2;
-            ic.altitude_ft = 3000.0;
-            ic.airspeed_kts = e.start_airspeed_kts;
-            ic.engine_running = true;
-            ic.gear = 0.0;
-            ic.trim = true;
-            aircraft.initialize(ic);
-            glideslope::sim::Controls c = glideslope::sim::held_until_moved(aircraft);
-            c.aileron = way;
-            c.elevator = way;
-            c.rudder = way;
-            for (int i = 0; i < 30; ++i) {
-                aircraft.set_controls(c);
-                aircraft.step();
-            }
-            for (const Surface& s : surfaces) {
+            const std::vector<double> angles = angles_after(e, surfaces, way);
+            for (std::size_t i = 0; i < surfaces.size(); ++i) {
+                const Surface& s = surfaces[i];
                 const Hinge hinge = glideslope::gfx::hinge_of(s);
-                const double angle = aircraft.property(s.property);
+                const double swing = angles[i] - neutral[i];
                 const std::array<double, 3> edge = trailing_edge(s);
                 const std::array<double, 3> moved =
-                    sub(glideslope::gfx::turned(hinge, angle, edge), edge);
+                    sub(glideslope::gfx::turned(hinge, swing, edge), edge);
                 // Where the control asks the trailing edge to go, per unit of
                 // `way`: +z down, +y right.
                 double asked = 0.0;
@@ -205,26 +275,29 @@ GLIDESLOPE_TEST(the_stick_and_pedals_move_every_aircrafts_surfaces_the_way_they_
                 }
                 const double went = moved[axis] * way * asked;
                 const double reach = s.chord_m * 0.8;
-                std::printf("  %-13s %-15s stick %+.0f: %+6.2f deg, edge %+.3f m the way asked\n",
-                            e.id.c_str(), s.name.c_str(), way, angle * 57.29578, went);
+                const double least_deg = under_a_degree_allowed(e.id, s.name) ? 0.5 : 1.0;
+                std::printf("  %-13s %-15s stick %+.0f: swung %+6.2f deg from %+6.2f, edge "
+                            "%+.3f m the way asked\n",
+                            e.id.c_str(), s.name.c_str(), way, swing * 57.29578,
+                            neutral[i] * 57.29578, went);
                 ++surfaces_seen;
-                // At least half a degree's worth of the way asked: the F-22's
-                // laws move her elevators and rudders under a degree in that
-                // quarter of a second.
-                if (asked != 0.0 && went > reach * 0.00873) {
+                if (asked != 0.0 && went > reach * std::sin(least_deg / 57.29578)) {
                     ++surfaces_right;
                 } else {
                     failed += "\n  " + e.id + "'s " + s.name + " with the controls " +
                               (way > 0 ? "right, back and right" : "left, forward and left") +
                               ": its trailing edge went " + std::to_string(went) +
-                              " m the way asked, " + std::to_string(angle) + " rad";
+                              " m the way asked, a swing of " + std::to_string(swing) + " rad";
                 }
             }
         }
     }
-    std::printf("%zu of %zu surface movements the way asked\n", surfaces_right, surfaces_seen);
+    std::printf("%zu of %zu surface movements the way asked; %zu expected from the catalogue\n",
+                surfaces_right, surfaces_seen, expected);
     check(failed.empty(), "wrong:" + failed);
-    check(surfaces_seen > 0 && surfaces_right == surfaces_seen, "not every surface was seen");
+    check(surfaces_seen == expected && surfaces_right == expected,
+          std::to_string(surfaces_seen) + " surface movements seen, where the catalogue's " +
+              "aircraft have " + std::to_string(expected));
 }
 
 // **A part turns about its hinge.** At no deflection it is where the
