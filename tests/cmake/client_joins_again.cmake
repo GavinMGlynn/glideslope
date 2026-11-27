@@ -43,6 +43,7 @@
 # it reports itself skipped (exit 77), never passed.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake): another
 # build's run of this test on the same port waits for it.
@@ -69,10 +70,7 @@ set(_key "${CMAKE_MATCH_1}")
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
-if(NOT _rc EQUAL 0)
-    message(STATUS "the server could not get its terrain: ${_err}")
-    cmake_language(EXIT 77)
-endif()
+glideslope_warmed_up("${_rc}" "${_err}")
 
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 # The client reaches the server through a relay (glideslope_impair, at
@@ -122,8 +120,7 @@ list(GET _rcs ${_last} _rc)
 # client's own words only: the server's and the relay's are on standard
 # error too, and must not turn a failure into a skip.
 if(_err MATCHES "glideslope: no GPU device")
-    message(STATUS "the client cannot draw here: ${_err}")
-    cmake_language(EXIT 77)
+    glideslope_cannot_draw("${_err}")
 endif()
 if(NOT _out MATCHES "the server gave this client aircraft [0-9]+")
     message(FATAL_ERROR "the client was given no aircraft:\n${_out}\n${_err}")

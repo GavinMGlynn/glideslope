@@ -16,6 +16,7 @@
 # than waiting for somebody to close a window.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake): another
 # build's run of this test on the same port waits for it.
@@ -49,8 +50,7 @@ port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")
-        message(STATUS "the client cannot draw here: ${_err}")
-        cmake_language(EXIT 77)
+        glideslope_cannot_draw("${_err}")
     endif()
     message(FATAL_ERROR "the client drew nothing:\n${_err}\n${_out}")
 endif()

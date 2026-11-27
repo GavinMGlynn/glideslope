@@ -22,6 +22,7 @@
 # Without the DEM's tiles or the runways it reports itself skipped (exit 77).
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
@@ -30,10 +31,7 @@ endif()
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}" --ai-on-final YSSY/16R
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
-if(NOT _rc EQUAL 0)
-    message(STATUS "the server could not get its terrain: ${_err}")
-    cmake_language(EXIT 77)
-endif()
+glideslope_warmed_up("${_rc}" "${_err}")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --ai 2 --headless --data "${DATA}"
