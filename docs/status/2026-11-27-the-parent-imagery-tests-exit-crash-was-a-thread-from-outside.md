@@ -8,16 +8,17 @@ proved. Webroot is the likely one, but its log does not name it. The fix
 is in the program, not in Webroot, so it holds whoever starts the thread.
 windows-release did not crash in 300 runs before the fix.
 
-**Open: windows-release with this branch sometimes misses the last call.**
-Both exit tests sometimes failed this way on the development machine. The
-program printed its pass and exited 0, but nothing came from the loader's
-process-detach call. The allocation test passed 98 of 100 times and the
-locks test 97 of 100; the allocation test also failed once in ctest. A
-windows-release build of main from 2026-11-05 passed the allocation test
-100 of 100 and 60 of 60. Whether this branch's change caused it, or
-something that reached main after 2026-11-05, is not known. Building
-today's main for release on its own would settle it. windows-debug passed
-both tests.
+**Pre-existing, and not this branch's: windows-release sometimes misses the
+last call.** On the development machine, a run sometimes printed its pass
+and exited 0 with nothing from the loader's process-detach call. With this
+branch, the allocation test passed 98 of 100 and the locks test 97 of 100.
+The allocation test also failed once in ctest. **Today's main**
+(27a7e614, built for windows-release without this branch) passed the
+allocation test 98 of 100. One failure was the same missed call. The other
+was a 0xc0000409 at exit. This is the same rate, so the change here did not
+cause it. A build of main from 2026-11-05 passed 160 of 160. That points
+to something that reached main between then and now, but it was not
+looked for. It has its own Phase 12c item. windows-debug passed both tests.
 
 ## Reproduced: 65 of 300
 
