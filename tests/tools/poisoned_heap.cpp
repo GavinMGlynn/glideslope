@@ -66,6 +66,13 @@ void* operator new(std::size_t size, const std::nothrow_t&) noexcept {
 void* operator new[](std::size_t size, const std::nothrow_t&) noexcept {
     return poisoned(size);
 }
+// GCC's release builds warn that free() is handed memory from operator new
+// (-Wmismatched-new-delete) once it inlines these: true of any operator new
+// replaced over malloc, so the warning is wrong here and is off for these alone.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+#endif
 void operator delete(void* p) noexcept {
     std::free(p);
 }
@@ -84,6 +91,9 @@ void operator delete(void* p, const std::nothrow_t&) noexcept {
 void operator delete[](void* p, const std::nothrow_t&) noexcept {
     std::free(p);
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 int main(int argc, char** argv) {
     if (argc != 2) {
