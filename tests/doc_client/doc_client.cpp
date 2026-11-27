@@ -79,10 +79,14 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // (`TRAFFIC_INSTRUCTION`), and the same day to 12, when the weather became
 // several stations', each in a slot - kinds this client ignores - and on
 // 2026-11-17 to 13, when every input frame came to name the step it was
-// sent at, which this client sends as not said: the document gives the
-// envelope's version as `13`. A test reads this line to keep the two together
+// sent at, which this client sends as not said, and on 2026-11-27 to 14,
+// when the initiation's payload came to begin with the count of controls in
+// an input frame: the document gives the envelope's version as `14`. A test
+// reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x13;
+constexpr std::uint8_t kVersion = 0x14;
+// The controls in an input frame, which the initiation's payload says first.
+constexpr std::uint8_t kControls = 21;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
@@ -105,6 +109,7 @@ const char* refusal_name(std::uint8_t reason) {
     case 0x05: return "SERVER_FULL";
     case 0x06: return "BAD_HANDSHAKE";
     case 0x07: return "DROPPED";
+    case 0x08: return "WRONG_LAYOUT";
     default: return "UNKNOWN";  // a reason this version does not know
     }
 }
@@ -362,7 +367,10 @@ struct Initiator {
         const auto s_s = dh(s, rs);
         if (!s_s) return false;
         ss.mix_key(*s_s);
-        const Bytes payload = ss.encrypt_and_hash({});  // the payload is empty
+        // The payload, since 14 (2026-11-27): how many controls ride in each
+        // of this client's input frames, and no aeroplane asked for after it.
+        const std::array<std::uint8_t, 1> count{kControls};
+        const Bytes payload = ss.encrypt_and_hash(count);
         out.insert(out.end(), payload.begin(), payload.end());
         return true;
     }
@@ -631,10 +639,10 @@ std::int16_t fraction(double v) {
     return static_cast<std::int16_t>(std::lround(c * 32767.0));
 }
 
-using Frame = std::array<std::int16_t, 21>;
+using Frame = std::array<std::int16_t, kControls>;
 
 Frame full_left_aileron() {
-    std::array<double, 21> c{};
+    std::array<double, kControls> c{};
     c[0] = 0.0;   // elevator
     c[1] = -1.0;  // aileron: +1 rolls right, so -1 is full left
     c[2] = 0.0;   // rudder

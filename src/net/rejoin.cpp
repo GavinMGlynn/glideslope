@@ -68,6 +68,9 @@ Rejoin::Heard Rejoin::hear(const platform::Address& server, const platform::Addr
     if (refused == Refusal::server_full) {
         return Heard::server_full;
     }
+    if (refused == Refusal::wrong_layout) {
+        return Heard::wrong_layout;
+    }
     Reader r(datagram);
     Envelope envelope;
     Refusal why{};

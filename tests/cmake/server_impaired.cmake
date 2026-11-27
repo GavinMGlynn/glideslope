@@ -386,7 +386,7 @@ if(NOT EXISTS "${_extra}")
     message(FATAL_ERROR "the client one too many wrote nothing - it was never answered:\n${_err}")
 endif()
 file(READ "${_extra}" _refused)
-if(NOT _refused MATCHES "refused, reason 5\n")
+if(NOT _refused MATCHES "refused, reason 5, SERVER_FULL\n")
     message(FATAL_ERROR "the client one too many was not refused as full:\n${_refused}")
 endif()
 message(STATUS "through ${DELAY} ms, ${JITTER} ms of jitter and ${LOSS}% loss: "

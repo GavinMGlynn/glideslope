@@ -1128,13 +1128,22 @@ static int run_program(int argc, char** argv) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(20));
                 }
             }
+            std::optional<glideslope::net::Refusal> refused_by;
             if (auto made = glideslope::net::ClientSession::connect(
                     where, key, 5.0, 0.25, o.aircraft_given ? o.aircraft : std::string(),
-                    o.aircraft_given ? o.loading : std::string(), o.player_key)) {
+                    o.aircraft_given ? o.loading : std::string(), o.player_key, &refused_by)) {
                 session.emplace(std::move(*made));
             }
             if (!session) {
-                std::fprintf(stderr, "glideslope: cannot reach %s\n", where.c_str());
+                // **Refused, by name**: `WRONG_LAYOUT` - a build of another
+                // day's controls - says what to do, where "cannot reach" would
+                // send a person looking for a network fault.
+                if (refused_by) {
+                    std::fprintf(stderr, "glideslope: %s refused this client, %s\n",
+                                 where.c_str(), glideslope::net::refusal_name(*refused_by));
+                } else {
+                    std::fprintf(stderr, "glideslope: cannot reach %s\n", where.c_str());
+                }
                 return 1;
             }
             std::printf("session with %s\n", session->theirs().text().c_str());

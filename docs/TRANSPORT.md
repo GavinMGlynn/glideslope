@@ -37,7 +37,13 @@ Said first, because a transport's limits matter more than its features.
 - **It does not keep the version with the layout, yet.** Until a first
   release, a message's layout changes without the version changing, so a build
   of another day may not read today's updates - it refuses them as the wrong
-  length, and says nothing more useful.
+  length, and says nothing more useful. **The one layout said by name is the
+  controls'** (since `14`): the initiation's payload begins with how many
+  controls the client sends in an input frame, and a server reading another
+  number refuses it `WRONG_LAYOUT` (below, "Starting a session"), rather than
+  let it in to have every input dropped as the wrong length. Only the count
+  is said: a build that kept the count and moved or changed a control is not
+  told apart, and nothing says the layout of any other message.
 - **It does keep the version with the ground.** The collision ground is the
   DEM with every runway made its own surface, from the runway strips the
   build carries (`assets/runways/strips.csv`) by rules that are numbered
@@ -102,6 +108,10 @@ Said first, because a transport's limits matter more than its features.
   names the step of the client's it was sent at (below, "Inputs"), so that a
   server held up flies the inputs that came in meanwhile as far apart as
   they were sent.
+  Version `14` is on the same ground, and is the first whose initiation's
+  payload begins with how many controls the client sends in an input frame,
+  and whose server refuses another count by name (`WRONG_LAYOUT`, below,
+  "Starting a session").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -112,7 +122,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `13` |
+| 4 | 1 | version | `14` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -147,6 +157,7 @@ with. Its body is one byte:
 | `05` | `SERVER_FULL` | every slot is taken |
 | `06` | `BAD_HANDSHAKE` | the handshake did not complete |
 | `07` | `DROPPED` | the operator dropped this key; it is refused for the rest of the server's run |
+| `08` | `WRONG_LAYOUT` | the initiation's payload says another number of controls in an input frame than the server reads, or none (since `14`) |
 
 **The magic is checked before the version.** A datagram from another protocol
 is told that it is another protocol, rather than being told its version is
@@ -155,10 +166,10 @@ either**: fewer than 6 bytes is `TOO_SHORT`, whatever they are, and an empty
 datagram is not answered at all.
 
 A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
-after the other six, is refused as an unknown reason by a client older than
-it: it still stops that client's attempt.
+after the other six, and `WRONG_LAYOUT`, after it, are refused as an unknown
+reason by a client older than each: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `13`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `14`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -167,8 +178,10 @@ was. The server sends one:
   and the initiation is not answered - a stranger's key, a claim of a
   player's key that does not complete, or anything past a full server's
   budget of reads (see "Starting a session") - `BAD_HANDSHAKE` when the
-  initiation does not complete on a server with a slot free, and `DROPPED` when it completes from a static key the
-  operator has dropped (see "Leaving");
+  initiation does not complete on a server with a slot free, `DROPPED` when it completes from a static key the
+  operator has dropped (see "Leaving"), and `WRONG_LAYOUT` when it completes
+  from any other key and its payload says another number of controls than
+  the server's, or none;
 - to a `SEALED` datagram from an address that has no session: `BAD_HANDSHAKE`.
 
 It sends nothing back to a `HANDSHAKE_RESPONSE` or a `REFUSAL`, which a server
@@ -195,25 +208,39 @@ handshake again once its old session has been let go.
 **The handshake is two datagrams**, with no framing of their own: the body of
 each is exactly one Noise message (see "Sealing" for the suite).
 
-| datagram | body | size with an empty payload |
+| datagram | body | size with the shortest payload |
 | --- | --- | --- |
-| `HANDSHAKE_INITIATION`, client to server | Noise message one: the client's ephemeral key (32), its static key sealed (32 + 16), the payload sealed (n + 16) | 96, so a 102-byte datagram |
-| `HANDSHAKE_RESPONSE`, server to client | Noise message two: the server's ephemeral key (32), the payload sealed (n + 16) | 48, so a 54-byte datagram |
+| `HANDSHAKE_INITIATION`, client to server | Noise message one: the client's ephemeral key (32), its static key sealed (32 + 16), the payload sealed (n + 16) | 97, the count alone, so a 103-byte datagram |
+| `HANDSHAKE_RESPONSE`, server to client | Noise message two: the server's ephemeral key (32), the payload sealed (n + 16) | 48, empty, so a 54-byte datagram |
 
-**The initiation's payload is the aeroplane asked for** (version `04`,
-2026-10-06), sealed with the initiation - no message of its own, because a
-server gives a player an aircraft as it admits them:
+**The initiation's payload is the client's layout and the aeroplane asked
+for** (the aeroplane since version `04`, 2026-10-06; the layout since `14`),
+sealed with the initiation - no message of its own, because a server gives a
+player an aircraft as it admits them:
 
 | field | bytes | |
 |---|---|---|
-| length | 1 | 1 to 32 |
+| controls | 1 | how many controls the client sends in each input frame: `15`, twenty-one (since `14`) |
+| length | 1, or none | 1 to 32 |
 | id | length | a catalogue id: `a`-`z`, `0`-`9`, `-` and `_` |
 | loading's length | 1, or none | 1 to 32 (since `0E`) |
 | loading | loading's length | the name of a loading in her figures file, `vertical_landing`: `a`-`z`, `0`-`9`, `-` and `_` (since `0E`) |
 
 and nothing after: the loading's two fields are both there or both not.
-**An empty payload asks for nothing**: the player flies the
-server's plan's aeroplane. A payload that does not read so - a length of 0 or
+**A client of another layout is refused, saying so.** A payload whose first
+byte is not the number of controls the server reads in an input frame - or an
+empty payload, which says none - is refused `WRONG_LAYOUT` instead of a
+handshake answer, and the client is not admitted: let in, its every input
+would be dropped as the wrong length (below, "Inputs") and nothing would say
+why. The server says so on its standard output - `refused 11fc7622 from
+127.0.0.1:50123: it sends 20 controls in an input frame, and this server
+reads 21` - and this project's clients say the refusal by its name. The
+count is the whole of the input frame's layout in this version, a frame being
+its step and that many `i16`s; **it is not a check of what each control
+means**: two builds with twenty-one controls in another order are not told
+apart.
+**A payload of the count alone asks for nothing**: the player flies the
+server's plan's aeroplane. An aeroplane that does not read so - a length of 0 or
 over 32, a byte outside those, anything trailing, in the id or the loading -
 is read as none, and so is
 an id the server's catalogue does not hold, which it says on its standard
@@ -1184,7 +1211,7 @@ have not been sent yet.
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
 | `u32` | the step of the client's it was sent at, or `FFFFFFFF`, not said (since `13`) |
-| `i16` x21 | the twenty-one controls |
+| `i16` x21 | the twenty-one controls: as many as the initiation's payload said (since `14`) |
 
 The frames are consecutive, so only the newest sequence is sent: the oldest
 is the newest less one fewer than the count.

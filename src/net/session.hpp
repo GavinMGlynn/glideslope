@@ -60,14 +60,17 @@ public:
     // initiation (net::write_asked_aircraft) and every one joining again;
     // empty, the server's plan's. And `loading`, the loading asked for with
     // it, by its name in her figures file (net::AskedAircraft); empty, her
-    // model's own.
+    // model's own. `refused`, given, is told the server's reason when it
+    // refuses - `WRONG_LAYOUT` for a client of another control layout
+    // (net::write_joining) - so that a client can say it by name.
     static std::optional<ClientSession> connect(const std::string& where,
                                                 const std::string& key_hex,
                                                 double give_up_after_s = 5.0,
                                                 double resend_every_s = 0.25,
                                                 const std::string& aircraft = "",
                                                 const std::string& loading = "",
-                                                const std::string& secret_hex = "");
+                                                const std::string& secret_hex = "",
+                                                std::optional<Refusal>* refused = nullptr);
 
     // Read whatever has arrived: answer the server's knocking, and take in
     // any state update. `now_s` is the client's own clock, in seconds.
@@ -78,7 +81,7 @@ public:
     // joined again); `joining_again` has been let go and is asking for a new
     // one; the rest are ends, and nothing is sent after them: `dropped` - the
     // server's `LEAVING`, which is its operator's drop or a newer session for
-    // this key taking over, or `DROPPED` when joining again, `refused` (`SERVER_FULL`), `gave_up` (a minute unanswered).
+    // this key taking over, or `DROPPED` when joining again, `refused` (`SERVER_FULL`, or `WRONG_LAYOUT` from a server started again on another build), `gave_up` (a minute unanswered).
     enum class Standing { joined, joining_again, dropped, refused, gave_up };
     Standing standing() const { return standing_; }
     // How many times the server has let it go, and it has joined again; how

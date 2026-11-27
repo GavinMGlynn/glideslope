@@ -5461,8 +5461,9 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 return slots.slot_of(key_of(theirs)).has_value();
             });
         }
-        // **The payload is the aeroplane asked for** (net::read_asked_aircraft),
-        // or nothing.
+        // **The payload is the client's layout and the aeroplane asked for**
+        // (net::read_joining, net::read_asked_aircraft), or nothing after the
+        // layout.
         std::vector<std::uint8_t> payload;
         const auto answer = responder.answer(body, {}, &payload);
         if (!answer) {
@@ -5488,6 +5489,23 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             std::fflush(stdout);
             return;
         }
+        // **A client of another control layout is refused, saying so**: let
+        // in, every input it sent would be dropped as the wrong length, and
+        // nothing would say why (docs/TRANSPORT.md, "Starting a session").
+        const auto joining = glideslope::net::read_joining(
+            std::span<const std::uint8_t>(payload.data(), payload.size()));
+        if (!joining || joining->controls != glideslope::net::controls_on_the_wire) {
+            refuse(socket, from, glideslope::net::Refusal::wrong_layout);
+            std::printf("refused %s from %s: it sends %s in an input frame, and this "
+                        "server reads %zu\n",
+                        answer->session.theirs.text().substr(0, 8).c_str(), who.c_str(),
+                        joining ? (std::to_string(joining->controls) + " controls").c_str()
+                                : "no count of controls",
+                        glideslope::net::controls_on_the_wire);
+            std::fflush(stdout);
+            return;
+        }
+        payload = joining->asked;
         glideslope::net::Identity identity;
         identity.key = key_of(answer->session.theirs);
         identity.name = answer->session.theirs.text().substr(0, 8);
