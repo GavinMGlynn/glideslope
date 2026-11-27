@@ -1008,6 +1008,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_view_stands_where_its_name_says_and_looks_at_the_aeroplane
     a_model_file_that_is_damaged_or_of_another_version_is_refused
     every_aircraft_wears_a_livery_and_has_its_ailerons_elevators_and_rudder_hinged
+    every_aircrafts_drawn_meshes_carry_a_unit_normal_at_every_vertex_and_unlit_colours
     the_stick_and_pedals_move_every_aircrafts_surfaces_the_way_they_should
     every_aircrafts_every_surface_reaches_another_client_where_its_flight_model_has_it
     a_surface_turns_about_its_hinge_its_trailing_edge_the_way_its_line_says
@@ -2161,6 +2162,9 @@ glideslope_configure(glideslope_surfaces_check)
 add_executable(glideslope_ridden_surfaces_check tools/ridden_surfaces_check.cpp)
 target_link_libraries(glideslope_ridden_surfaces_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_ridden_surfaces_check)
+add_executable(glideslope_light_check tools/light_check.cpp)
+target_link_libraries(glideslope_light_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_light_check)
 add_executable(glideslope_view_check tools/view_check.cpp)
 target_link_libraries(glideslope_view_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_view_check)
@@ -2408,6 +2412,18 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DMODELS=${GLIDESLOPE_DATA_DIR}/models
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_livery.cmake)
     set_tests_properties(the_cessna_drawn_wears_her_livery_and_her_ailerons_follow_the_stick_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    # **The light follows a bank, with no mesh made again**: the Cessna shot
+    # from above level and banked, with her and without, her tops' brightness
+    # held to what the sun says, and her meshes made once
+    # (tests/cmake/client_light.cmake, tests/tools/light_check.cpp).
+    add_test(NAME the_cessnas_light_follows_her_bank_with_no_mesh_made_again_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_light_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_light.cmake)
+    set_tests_properties(the_cessnas_light_follows_her_bank_with_no_mesh_made_again_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     # **The HUD's horizon on the horizon drawn**, a test a bank, each walking
     # its pitches (cmake/frame_horizon.cmake says what is walked and what is

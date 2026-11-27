@@ -100,6 +100,17 @@ if(NOT _out MATCHES "aircraft ${_number} drawn with its surfaces at ([^\n]+)\n")
 endif()
 set(_surfaces "${CMAKE_MATCH_1}")
 message(STATUS "aircraft ${_number} drawn with its surfaces at ${_surfaces}")
+# **Lit by the shader**, as the client's own aeroplane is: every one of
+# her parts, body and surfaces, given the sun (tests/cmake/client_light.cmake
+# holds what that light does).
+if(NOT _out MATCHES "aircraft ${_number} drawn in ([0-9]+) parts, ([0-9]+) of them lit by the shader")
+    message(FATAL_ERROR "the client did not say how her parts were lit:\n${_out}")
+endif()
+if(CMAKE_MATCH_1 LESS 2 OR NOT CMAKE_MATCH_2 EQUAL CMAKE_MATCH_1)
+    message(FATAL_ERROR "her parts are not all lit by the shader: ${CMAKE_MATCH_2} of "
+                        "${CMAKE_MATCH_1}")
+endif()
+message(STATUS "her ${CMAKE_MATCH_1} parts all lit by the shader")
 if(NOT _surfaces MATCHES "left-aileron ([-+][0-9.]+) deg")
     message(FATAL_ERROR "no left aileron drawn: ${_surfaces}")
 endif()

@@ -8,14 +8,12 @@
 // of the nose, +y out of the starboard wing, +z down. gfx/model.hpp says how
 // a model comes to be in that frame, and docs/ASSETS.md what it is made from.
 //
-// **The light is baked in.** The mesh shader has no normals - a vertex is a
-// position, a colour and a texture coordinate - so an aeroplane is shaded on
-// the way in, each vertex's colour multiplied by how much light its normal
-// catches. The sun is the terrain's, north-west and 45 degrees up, so an
-// aeroplane is lit as the ground beneath it is; it is given in the body
-// frame, where the normals are, which is one vector rather than a rotation
-// per vertex. Being baked, the light does not follow the aeroplane as it
-// banks until the mesh is made again.
+// **The light is the shader's.** A vertex carries its normal in the body
+// frame, and a draw of the aeroplane carries the sun (gfx/renderer.hpp's
+// Draw::sun) - the terrain's, north-west and 45 degrees up, so an aeroplane is
+// lit as the ground beneath it is. The shader turns the sun into the mesh's
+// frame, so the light follows the aeroplane as it banks, and each control
+// surface as it turns about its hinge, with the mesh made once.
 
 #include "gfx/model.hpp"
 #include "gfx/scene.hpp"
@@ -52,9 +50,9 @@ std::optional<View> view_named(std::string_view name);
 // Every name, "cockpit, ahead, ...", for saying what the views are.
 std::string view_names();
 
-// A model as a mesh the renderer can draw, lit by `sun_in_body` - the unit
-// vector towards the sun, in the body frame. See the note above.
-Mesh mesh_from_model(const Model& model, const world::Ecef& sun_in_body);
+// A model as a mesh the renderer can draw: its colours as they are, and its
+// normals, to be lit by the sun its draws are given. See the note above.
+Mesh mesh_from_model(const Model& model);
 
 // How far from its origin the model reaches, in metres: the radius the
 // outside views stand off by.
