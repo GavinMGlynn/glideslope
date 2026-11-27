@@ -254,6 +254,14 @@ struct Options {
     // slow to catch up does (net::CatchingUp); zero is never.
     double test_slip_every_s = 0.0;
     std::int64_t test_slip_steps = 0;
+    // For a test: **a large correction built** (`--test-move-taken-back S
+    // M`) - S simulated seconds after a player takes her aircraft back from
+    // the AI, the server moves it M metres up, once each take-back, so that
+    // her client's prediction is put right by about that much, away from any
+    // switch. Never in play: the server moves no person's aircraft. Below
+    // nought, never.
+    double test_move_taken_back_s = -1.0;
+    double test_move_taken_back_m = 0.0;
     // For a test: how fast the simulation's clock runs against real time,
     // set - a server behind real time by a fixed factor, the same on every
     // machine fast enough to keep up with it, where one put behind by
@@ -449,6 +457,9 @@ void print_usage(std::FILE* out) {
         "                     quarters, then all of STEPS steps' time in turn,\n"
         "                     and let them slip, for tests\n"
         "  --test-say-slipped  say each time steps owed are let slip, for tests\n"
+        "  --test-move-taken-back S M  S simulated seconds after a player takes\n"
+        "                     her aircraft back, move it M metres up, once: a\n"
+        "                     correction built for her prediction, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -661,6 +672,19 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.test_first_update_lost = true;
         } else if (a == "--test-say-slipped") {
             o.test_say_slipped = true;
+        } else if (a == "--test-move-taken-back") {
+            if (!next(value)) return std::nullopt;
+            const auto after = number(value);
+            if (!next(value)) return std::nullopt;
+            const auto metres = number(value);
+            if (!after || !(*after >= 0.0) || !std::isfinite(*after) || !metres ||
+                !(*metres > 0.0) || !(*metres <= 100.0)) {
+                why = "--test-move-taken-back wants simulated seconds after a take-back, and "
+                      "metres up, more than 0 and at most 100";
+                return std::nullopt;
+            }
+            o.test_move_taken_back_s = *after;
+            o.test_move_taken_back_m = *metres;
         } else if (a == "--test-slip") {
             if (!next(value)) return std::nullopt;
             const auto every = number(value);
@@ -1088,6 +1112,11 @@ void print_settings(const Options& o, std::FILE* out) {
     if (o.fail_engine_at_s >= 0.0) {
         std::fprintf(out, "engines   every player's first engine stops %.0f s in\n",
                      o.fail_engine_at_s);
+    }
+    if (o.test_move_taken_back_s >= 0.0) {
+        std::fprintf(out, "test      a player's aircraft taken back is moved %.1f m up %.1f s "
+                          "later\n",
+                     o.test_move_taken_back_m, o.test_move_taken_back_s);
     }
     if (o.steps > 0) {
         std::fprintf(out, "steps     %lld, as fast as they go\n", o.steps);
@@ -2099,6 +2128,12 @@ public:
             } else {
                 a.controller->set_pilot(a.held);
                 a.controller->to_pilot();
+                if (move_taken_back_s_ >= 0.0) {
+                    a.move_at_steps =
+                        steps_ + static_cast<std::int64_t>(std::llround(
+                                     move_taken_back_s_ *
+                                     static_cast<double>(glideslope::sim::steps_per_second)));
+                }
             }
             announced_.push_back(
                 {index, to_ai ? glideslope::net::Controller::ai : glideslope::net::Controller::person,
@@ -3497,6 +3532,31 @@ public:
                 }
             }
         }
+        // **A large correction built, for a test** (`--test-move-taken-back`):
+        // a player's aircraft, taken back, moved up once - along the line
+        // from the Earth's centre, within a fifth of a degree of the local
+        // vertical - and nothing else about it touched.
+        for (Aircraft& a : flown_) {
+            if (a.move_at_steps < 0 || steps_ < a.move_at_steps) {
+                continue;
+            }
+            a.move_at_steps = -1;
+            if (a.slot < 0 || a.wrecked_at_s >= 0.0 || ai_flying(a)) {
+                continue;
+            }
+            glideslope::sim::Motion m = a.aircraft->motion();
+            const double r = std::sqrt(m.location_ecef_m[0] * m.location_ecef_m[0] +
+                                       m.location_ecef_m[1] * m.location_ecef_m[1] +
+                                       m.location_ecef_m[2] * m.location_ecef_m[2]);
+            for (double& x : m.location_ecef_m) {
+                x += x / r * move_taken_back_m_;
+            }
+            a.aircraft->set_motion(m);
+            char said[128];
+            std::snprintf(said, sizeof said, "aircraft %u moved %.1f m up, for a test",
+                          static_cast<unsigned>(a.index), move_taken_back_m_);
+            happened.emplace_back(said);
+        }
         // **A planned aircraft whose turn to depart has come** is put on its
         // runway, under the lowest number free - into clear sky. Two due in
         // one step are not kept from each other: told to depart together
@@ -3737,10 +3797,18 @@ public:
         // Going around, and off the runway after landing, as last said.
         bool circling = false;
         bool vacated = false;
+        // `--test-move-taken-back`: the step it is moved up at, once; below
+        // nought, none due.
+        std::int64_t move_at_steps = -1;
     };
 
     void fail_engines_at(double s) {
         fail_engines_at_s_ = s;
+    }
+    // `--test-move-taken-back`.
+    void move_taken_back(double after_s, double metres) {
+        move_taken_back_s_ = after_s;
+        move_taken_back_m_ = metres;
     }
     // `--test-wreck-waits-for-joins`.
     void wrecks_wait_for_joins(int n) {
@@ -4992,6 +5060,8 @@ private:
     std::string other_ends_refused_said_;
     std::optional<double> on_final_out_nm_; // the first player's miles out, if said
     double fail_engines_at_s_ = -1.0;
+    double move_taken_back_s_ = -1.0;
+    double move_taken_back_m_ = 0.0;
     // Players given aircraft so far, and how many a wreck waits for
     // (`--test-wreck-waits-for-joins`; nought, none).
     int joins_ = 0;
@@ -6130,6 +6200,7 @@ int run(const Options& o) {
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
                       planners_wet, o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);
+        fleet->move_taken_back(o.test_move_taken_back_s, o.test_move_taken_back_m);
         fleet->wrecks_wait_for_joins(o.test_wreck_waits_for_joins);
         if (!o.ai_on_final.empty()) {
             const std::string refused = fleet->ai_on_final(o.ai_on_final);

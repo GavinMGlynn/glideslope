@@ -265,6 +265,12 @@ struct Options {
     // For a test: hold the shot, up to five minutes of the flight past its
     // tick, until the learnt landing has its own aircraft at rest.
     bool shot_once_landed = false;
+    // For a test: hold the shot, up to a minute of the flight past its tick,
+    // until its prediction has been put right by at least this many metres
+    // and a second has been flown since (`--shot-once-corrected M`): a
+    // correction the server built (its `--test-move-taken-back`), measured
+    // on the frames that take it up. Nought: not held.
+    double shot_once_corrected_m = 0.0;
     // For a test: the window's frame while it waits its turn on final,
     // written once the server has said why (`--shot-waiting FILE`).
     std::string shot_waiting;
@@ -417,6 +423,10 @@ void usage(std::FILE* out) {
         "  --shot-once-landed  on a server, hold the shot, up to five minutes of\n"
         "                the flight past its tick, until the learnt landing has this\n"
         "                client's aircraft at rest (for tests)\n"
+        "  --shot-once-corrected M  on a server, hold the shot, up to a minute of\n"
+        "                the flight past its tick, until a correction of at least\n"
+        "                M metres has been taken up and a second flown since\n"
+        "                (for tests)\n"
         "  --shot-once-back  on a server, hold the shot, up to a minute of the\n"
         "                flight past its tick, until this client has gone back to\n"
         "                its old session after a refusal it believed, and the\n"
@@ -806,6 +816,13 @@ static int run_program(int argc, char** argv) {
             o.shot_waiting = std::string(args[++i]);
         } else if (a == "--shot-once-landed") {
             o.shot_once_landed = true;
+        } else if (a == "--shot-once-corrected" && has_value) {
+            o.shot_once_corrected_m = std::strtod(std::string(args[++i]).c_str(), nullptr);
+            if (!(o.shot_once_corrected_m > 0.0)) {
+                std::fputs("glideslope: --shot-once-corrected wants metres, more than 0\n",
+                           stderr);
+                return 2;
+            }
         } else if (a == "--take-back-after" && has_value) {
             o.take_back_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--next-model-after" && has_value) {
@@ -911,6 +928,12 @@ static int run_program(int argc, char** argv) {
     } const done_when_gone{o.done};
     if (o.shot_frame > 0 && (o.shot.empty() || o.online || !o.server.empty())) {
         std::fputs("glideslope: --shot-frame is a frame of a --shot flown alone\n", stderr);
+        return 2;
+    }
+    if (o.shot_once_corrected_m > 0.0 &&
+        (o.shot.empty() || (o.server.empty() && !o.online))) {
+        std::fputs("glideslope: --shot-once-corrected holds a --shot flown on a server\n",
+                   stderr);
         return 2;
     }
     if (o.shot_once_landed && (o.shot.empty() || (o.server.empty() && !o.online))) {
@@ -1709,6 +1732,9 @@ static int run_program(int argc, char** argv) {
         bool learnt_landed = false;
         double at_rest_from_s = -1.0;
         bool asked_to_take_back = false;
+        // The tick a correction of `--shot-once-corrected` metres was first
+        // seen at; below nought, not yet.
+        std::int64_t corrected_large_at = -1;
         bool asked_to_stall = false;
         int let_go_said = 0;
         int went_back_said = 0;
@@ -2795,6 +2821,30 @@ static int run_program(int argc, char** argv) {
                     (online->own_ai_flying() || !online->flown_since_taken_over());
                 if (shot_now && back_unheard && !waited_long) {
                     shot_now = false;
+                }
+                // **Asked to, the shot waits for a large correction to have
+                // been taken up** (`--shot-once-corrected`): the server's
+                // move heard, and a second flown since - four times the
+                // correction's blend - so that the frames taking it up are
+                // measured. The same minute.
+                if (o.shot_once_corrected_m > 0.0 && corrected_large_at < 0 &&
+                    online->worst_correction_m() >= o.shot_once_corrected_m) {
+                    corrected_large_at = ticks;
+                }
+                const bool correction_unheard =
+                    o.shot_once_corrected_m > 0.0 &&
+                    (corrected_large_at < 0 ||
+                     ticks < corrected_large_at + glideslope::sim::steps_per_second);
+                if (shot_now && correction_unheard && !waited_long) {
+                    shot_now = false;
+                }
+                if (shot_now && o.shot_once_corrected_m > 0.0) {
+                    std::printf("glideslope: the shot drawn %.1f s past its tick; %s\n",
+                                static_cast<double>(ticks - o.shot_at) /
+                                    static_cast<double>(glideslope::sim::steps_per_second),
+                                correction_unheard
+                                    ? "no correction that large yet taken up"
+                                    : "a correction that large heard, and a second flown since");
                 }
                 // **Stalled, the shot waits for it to have joined again** and
                 // for the server to have flown its new aircraft by an input
