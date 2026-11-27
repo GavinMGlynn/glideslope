@@ -114,3 +114,7 @@ writes it afresh. Its test is below.
   GitHub Actions runners; NSURLSession -1001 "The request timed out" on
   macos-15 runners; URLSession HTTP/3 and QUIC timeouts where UDP is
   blocked. Nothing names these services stalling from macOS runners.
+
+## Done
+
+Ticked on train #431, whose full run is the item's verification: every window-client test run on macOS release, none skipped. Checked from that run's macOS release shard logs before it merged.
