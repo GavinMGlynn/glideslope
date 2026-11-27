@@ -2132,9 +2132,11 @@ What the client with the window does that the command-line client does, and what
       *Verification: a shot shows a livery, and the ailerons move with the
       stick.* Done 2026-11-27: every aircraft's livery and hinged surfaces are
       data, the stick checked on all sixteen, the B-2's rudder named left out.
-- [ ] **Another aircraft on a server is drawn with its control surfaces
+- [x] **Another aircraft on a server is drawn with its control surfaces
       still**: a state update carries no surface positions. *Verification: a
       window client watching another aircraft roll sees its ailerons over.*
+      Done 2026-11-28: every update carries each aircraft's ailerons,
+      elevator and rudder; a player rolling is drawn with her ailerons over.
 - [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
       its lighting follows a roll with no mesh remade.*
 - [x] **The window client crashes on exit (signal 11) after giving up on an
