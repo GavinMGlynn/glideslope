@@ -2126,7 +2126,7 @@ What the client with the window does that the command-line client does, and what
       2026-11-28: the hand-over test has the server move the aircraft 15 m
       after the take-back and holds the step under 5 m; without the blend it
       fails. Two of CI's old steps fit causes fixed 2026-09-30, not the
-      clock; the third's lines are gone.
+      clock; the 24.5 m cannot be explained, its logs gone.
 - [x] **A livery on the aeroplane, and its control surfaces moving.**
       *Verification: a shot shows a livery, and the ailerons move with the
       stick.* Done 2026-11-27: every aircraft's livery and hinged surfaces are
