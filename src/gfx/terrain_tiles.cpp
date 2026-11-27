@@ -316,6 +316,20 @@ struct HeldImagery {
     // first to be the root's held the root's own behind, and so never let
     // anything go - and then the gathered, deepest first.
     bool out_of_order = false;
+    // **For a test: refusals that come late** (TerrainOptions::test_imagery_late).
+    // Held as above, but not let go when the root's imagery has failed:
+    // only once the shot's wait for its tiles is at 100% without them
+    // (TerrainTiles::let_late_imagery_go), or at the backstop. Every fetch
+    // refused, a tile whose own imagery is still in flight is unrenderable
+    // - no ancestor's loaded to stand in - and its parent is drawn; Cesium
+    // Native's progress counts neither it, in no load queue with its content
+    // loaded, nor its imagery, which is no drawn tile's. The shot was taken
+    // so, and drew coarser than without imagery, on CI's loaded Linux
+    // release runners (runs 40733120388, 40811196271). Here it is so every
+    // run: the first fetches are gathered until everything else stands
+    // still, those at the shallowest level - the topmost tiles' - go, and
+    // every other tile's imagery is held in flight.
+    bool late = false;
     // The level-0 fetch, made when the first is gathered.
     std::function<void()> stranger;
 
@@ -452,6 +466,46 @@ struct HeldImagery {
         }
     }
 
+    // With late, once everything else has stood still: the gathered at the
+    // shallowest level - the topmost tiles' imagery - are let through, and
+    // their fall-backs with them, so that those tiles' imagery fails and is
+    // settled on; the rest are held, to go at the shot's wait.
+    void ask_shallowest_gathered() {
+        std::vector<Held> go;
+        long level = -1;
+        std::size_t kept = 0;
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            if (!gathering || gathered.empty()) {
+                return;
+            }
+            gathering = false;
+            still = 0;
+            level = gathered.front().fetch.level;
+            for (const auto& g : gathered) {
+                level = std::min(level, g.fetch.level);
+            }
+            shallowest = level;
+            for (auto& g : gathered) {
+                if (g.fetch.level == level) {
+                    go.push_back(std::move(g));
+                } else {
+                    held.push_back(std::move(g));
+                }
+            }
+            gathered.clear();
+            kept = held.size();
+        }
+        std::fprintf(stderr,
+                     "glideslope: the imagery's first fetches, gathered for a test: %zu at "
+                     "level %ld go, %zu deeper are held\n",
+                     go.size(), level, kept);
+        // Each asks again, and is let through: no deeper than the shallowest.
+        for (auto& fetch : go) {
+            fetch.go();
+        }
+    }
+
     // Whether the first imagery fetch was asked for `longest` ago.
     bool held_too_long() {
         const std::lock_guard<std::mutex> lock(mutex);
@@ -560,12 +614,14 @@ private:
             if (!open && !held->first_asked) {
                 held->first_asked = HeldImagery::Clock::now();
             }
-            const bool gather = !open && held->out_of_order && held->gathering;
+            const bool gather =
+                !open && (held->out_of_order || held->late) && held->gathering;
             if (gather || (!open && held->hold_locked(fetch))) {
                 auto promise = async.createPromise<Request>();
                 std::function<void()> go;
                 if (gather) {
-                    if (held->gathered.empty() && fetch.row >= 0 && fetch.column >= 0) {
+                    if (held->out_of_order && held->gathered.empty() && fetch.row >= 0 &&
+                        fetch.column >= 0) {
                         // The level-0 tile above the first, its answer
                         // waited on by nothing.
                         const std::string suffix =
@@ -1388,6 +1444,34 @@ void wedged_tiles(const Tile& tile, std::unordered_set<const Tile*>& out) {
     }
 }
 
+// **How many of the imagery's tiles, beneath `tile` and itself, are in
+// flight**: asked for and not yet answered. Cesium Native's load progress
+// does not count them: a tile whose imagery is in flight with no ancestor's
+// loaded to stand in is not renderable, so its parent is drawn - and the
+// tile is in no load queue, its content loaded, while the imagery, a tile
+// not drawn's, is not among the drawn tiles' that progress counts. Its
+// progress is 100% with that tile's parent in its place. Every fetch
+// refused, that is a frame coarser than without imagery, until the refusal
+// lands (CI's Linux release, runs 40733120388 and 40811196271). The state
+// changes only on the main thread, so a count of 0 after an update is what
+// that update saw. The shot waits for it a bounded time (TerrainTiles::update,
+// `longest_in_flight`).
+std::size_t imagery_in_flight(const Tile& tile) {
+    std::size_t n = 0;
+    for (const auto& mapped : tile.getMappedRasterTiles()) {
+        const auto* loading = mapped.getLoadingTile();
+        if (loading != nullptr &&
+            loading->getState() ==
+                CesiumRasterOverlays::RasterOverlayTile::LoadState::Loading) {
+            ++n;
+        }
+    }
+    for (const Tile& child : tile.getChildren()) {
+        n += imagery_in_flight(child);
+    }
+    return n;
+}
+
 class RendererResources final
     : public Cesium3DTilesSelection::IPrepareRendererResources {
 public:
@@ -1570,7 +1654,8 @@ struct TerrainTiles::Impl {
     // only when it is found again after an update has been through it.
     std::unordered_set<const Tile*> wedged;
     // For a test, the imagery's finer fetches held until the root's has
-    // failed (CoarsestFirstAccessor); null otherwise.
+    // failed, or with HeldImagery::late until the wait for the tiles would
+    // have ended without them (CoarsestFirstAccessor); null otherwise.
     std::shared_ptr<HeldImagery> held_imagery;
     std::shared_ptr<CesiumUtility::CreditSystem> credit_system;
     // What the provider itself said must be shown, before a tile has loaded.
@@ -1782,11 +1867,14 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         accessor = cached_fetches(accessor, open_cesium_cache(options.cache_file));
     }
     accessor = std::make_shared<CountingAccessor>(accessor, impl_->requests);
-    if (options.test_imagery_coarsest_first && options.imagery) {
+    if ((options.test_imagery_coarsest_first || options.test_imagery_late) &&
+        options.imagery) {
         impl_->held_imagery = std::make_shared<HeldImagery>();
         const std::string& url = options.imagery->url;
         impl_->held_imagery->prefix = url.substr(0, url.find("{TileMatrix}"));
         impl_->held_imagery->out_of_order = options.test_imagery_out_of_order;
+        impl_->held_imagery->late =
+            options.test_imagery_late && !options.test_imagery_coarsest_first;
         accessor = std::make_shared<CoarsestFirstAccessor>(accessor, impl_->held_imagery);
     }
     // Cesium ion authorises every tile, not just the tileset that names them,
@@ -1832,6 +1920,14 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     tileset_options.ellipsoid = Ellipsoid::WGS84;
     // Fog culls what is hazy far away; the renderer draws no haze.
     tileset_options.enableFogCulling = false;
+    // **Late-held imagery is not to stop the terrain loading**: past 20
+    // tiles not yet renderable beneath one, Cesium Native draws that one and
+    // takes its descendants out of the load queue, counted as loading for
+    // as long as it does. Every tile's imagery held, that is every run, and
+    // the wait would never be at 100% for the test to build its moment.
+    if (impl_->held_imagery && impl_->held_imagery->late) {
+        tileset_options.loadingDescendantLimit = 100000;
+    }
     // Only the status is kept: Cesium Native's message names the URL, and a
     // URL to Google carries a key. Its statusCode is left at 200 when the
     // root tileset is refused (cesium-native v0.64.0,
@@ -1938,10 +2034,17 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         wmts.maximumLevel = imagery.maximum_level;
         wmts.credit = imagery.credit;
         wmts.projection = CesiumGeospatial::GeographicProjection(Ellipsoid::WGS84);
+        CesiumRasterOverlays::RasterOverlayOptions overlay_options;
+        // **Late-held imagery is not to fill Cesium Native's loading slots**
+        // (20): a tile's imagery waiting for one is queued, and counted, and
+        // the wait would never be at 100% for the test to build its moment.
+        if (impl_->held_imagery && impl_->held_imagery->late) {
+            overlay_options.maximumSimultaneousTileLoads = 1000;
+        }
         impl_->imagery_overlay =
             CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay>(
                 new CesiumRasterOverlays::WebMapTileServiceRasterOverlay(
-                    "imagery", imagery.url, {}, wmts));
+                    "imagery", imagery.url, {}, wmts, overlay_options));
         impl_->tileset->getOverlays().add(impl_->imagery_overlay);
     }
 }
@@ -1956,7 +2059,11 @@ void TerrainTiles::let_held_imagery_go() {
     // before.
     const bool still = held.stood_still(impl_->workers->idle() && *impl_->requests == 0);
     if (still) {
-        held.ask_gathered();
+        if (held.late) {
+            held.ask_shallowest_gathered();
+        } else {
+            held.ask_gathered();
+        }
     }
     // The root's imagery settled: no loading tile left, and a ready one.
     // Settled on its failure, every tile beneath it whose imagery fails from
@@ -1968,6 +2075,11 @@ void TerrainTiles::let_held_imagery_go() {
         for (const auto& mapped : root->getMappedRasterTiles()) {
             const auto* ready = mapped.getReadyTile();
             if (mapped.getLoadingTile() == nullptr && ready != nullptr) {
+                // Late, the held wait for the shot's wait instead
+                // (let_late_imagery_go), or the backstop.
+                if (held.late) {
+                    break;
+                }
                 const bool failed =
                     ready->getState() ==
                     CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed;
@@ -1999,7 +2111,7 @@ void TerrainTiles::let_held_imagery_go() {
                      static_cast<long long>(HeldImagery::longest.count()), went);
         return;
     }
-    const long level = still ? held.let_coarsest_go() : -1;
+    const long level = still && !held.late ? held.let_coarsest_go() : -1;
     if (level >= 0) {
         std::fprintf(stderr,
                      "glideslope: the imagery's fetches at level %ld, held for a test, go "
@@ -2007,6 +2119,20 @@ void TerrainTiles::let_held_imagery_go() {
                      "settled\n",
                      level);
     }
+}
+
+
+void TerrainTiles::let_late_imagery_go(bool loaded, std::size_t in_flight) {
+    if (!loaded || !impl_->held_imagery || !impl_->held_imagery->late ||
+        !impl_->held_imagery->holding()) {
+        return;
+    }
+    const std::size_t went = impl_->held_imagery->let_go();
+    std::fprintf(stderr,
+                 "glideslope: the imagery's finer fetches, held for a test, go now: the "
+                 "wait for the tiles was at 100%% with %zu of the imagery's tiles in "
+                 "flight (%zu held)\n",
+                 in_flight, went);
 }
 
 bool TerrainTiles::give_up_wedged_imagery() {
@@ -2363,17 +2489,46 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
     if (complete && finite) {
         impl_->async.dispatchMainThreadTasks();
         result = &tileset.updateViewGroup(group, {view}, 0.0f);
+        // When the wait was first at 100% but for imagery in flight: an
+        // answer that never finishes - a body a byte at a time - is waited
+        // for `longest_in_flight` and no longer, said so, and the shot drawn
+        // as it is. A bound on a hang, not on a slow machine.
+        constexpr std::chrono::seconds longest_in_flight{120};
+        std::optional<std::chrono::steady_clock::time_point> waiting_since;
         for (;;) {
             let_held_imagery_go();
             // Nor on one with a tile seen wedged and not yet seen again, nor
             // while a test's imagery is held.
             const bool gave_up = give_up_wedged_imagery();
-            const bool holding = impl_->held_imagery && impl_->held_imagery->holding();
-            if ((!gave_up && !holding && impl_->wedged.empty() &&
-                 group.getPreviousLoadProgressPercentage() >= 100.0f) ||
-                platform::stop_requested()) {
+            // Late-held imagery (HeldImagery::late) is in flight to the wait, as
+            // a slow refusal is: it does not hold the wait up itself.
+            const bool holding = impl_->held_imagery && !impl_->held_imagery->late &&
+                                 impl_->held_imagery->holding();
+            // **Nor while any of the imagery is in flight**
+            // (imagery_in_flight): Cesium Native's 100% does not count it,
+            // and its tiles' parents are drawn in their place until it is
+            // answered.
+            const bool loaded = !gave_up && !holding && impl_->wedged.empty() &&
+                                group.getPreviousLoadProgressPercentage() >= 100.0f;
+            const Tile* root = tileset.getRootTile();
+            const std::size_t in_flight = root != nullptr ? imagery_in_flight(*root) : 0;
+            if ((loaded && in_flight == 0) || platform::stop_requested()) {
                 break;
             }
+            if (!loaded) {
+                waiting_since.reset();
+            } else if (!waiting_since) {
+                waiting_since = std::chrono::steady_clock::now();
+            } else if (std::chrono::steady_clock::now() - *waiting_since >=
+                       longest_in_flight) {
+                std::fprintf(stderr,
+                             "glideslope: %zu of the imagery's tiles were still in flight "
+                             "%lld s after every other tile had loaded; the shot is drawn "
+                             "without waiting for them\n",
+                             in_flight, static_cast<long long>(longest_in_flight.count()));
+                break;
+            }
+            let_late_imagery_go(loaded, in_flight);
             tileset.getExternals().pAssetAccessor->tick();
             impl_->async.dispatchMainThreadTasks();
             tileset.loadTiles();

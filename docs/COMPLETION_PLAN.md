@@ -2225,11 +2225,11 @@ What the client with the window does that the command-line client does, and what
       and its Webroot has killed test programs before. *Verification: the
       cause named, Webroot's log read first, or the crash reproduced and
       fixed.*
-- [ ] **A shot with its imagery refused drew coarser than one
-      without**, twice on CI's Linux release, so its test runs nightly, not on
-      pull requests. Cause not found. *Verification: the cause shown, the test
-      back on pull requests, and a shot with its imagery refused drawing as
-      deep as one without in 20 of 20 runs here and every CI run for a week.*
+- [ ] **A shot with its imagery refused drew coarser than one without**: it
+      shot before refusals in flight landed; it now waits, and is back on pull
+      requests, 20 of 20 here. Missing: a week of CI, closing 2026-12-04 at the
+      earliest. *Verification: cause shown, on pull requests, 20 of 20 here
+      and every CI run for a week.*
 - [ ] **The aircraft heard** — her engine following its RPM and power,
       wind rising with airspeed, gear, flaps, touchdown and the stall
       warning, and other aircraft placed by where they are and fading with

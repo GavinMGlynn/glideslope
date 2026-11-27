@@ -2596,7 +2596,21 @@ add_test(NAME a_window_client_whose_imagery_is_refused_in_whatever_order_still_d
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DPORT=24950
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
 set_tests_properties(a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours
-    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1900 LABELS nightly)
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1900)
+# And with its deepest refusals late: held until the shot's wait for its
+# tiles is at 100% without them, where Cesium Native's progress counted
+# neither the tiles whose imagery was in flight nor that imagery, and the
+# shot drew coarser than without imagery (CI's Linux release, runs
+# 40733120388 and 40811196271). The wait now waits for the imagery in flight.
+add_test(NAME a_window_client_whose_imagery_refusals_come_late_waits_for_them_and_draws_as_deep_as_without_imagery
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
+        -DDRIVER=${_first_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames_late
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DPORT=24959
+        -DLATE=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
+set_tests_properties(a_window_client_whose_imagery_refusals_come_late_waits_for_them_and_draws_as_deep_as_without_imagery
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1900)
 # **And with that imagery cached and gone stale**, so that each tile is asked
 # for again and refused: where the client segfaulted, Cesium Native's cache
 # reading the status of an answer that had none (gfx/fetches.hpp). See
