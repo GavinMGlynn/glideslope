@@ -118,6 +118,11 @@ struct TerrainOptions {
     // first. Taking the first to be the root's, the hold once let nothing go
     // (CI's macOS, run 40743161009).
     bool test_imagery_out_of_order = false;
+    // **For a test: the imagery's refusals answered late** - the topmost
+    // tiles' let fail, every other tile's held until the shot's wait for its
+    // tiles is at 100% without them - as a loaded machine's refusals came,
+    // and a shot drew coarser than without imagery (CI's Linux release).
+    bool test_imagery_late = false;
 };
 
 inline constexpr int terrain_tile_cells = 32;
@@ -185,6 +190,11 @@ private:
     // With TerrainOptions::test_imagery_coarsest_first, lets the held
     // imagery fetches go once the root tile's imagery has failed.
     void let_held_imagery_go();
+
+    // With TerrainOptions::test_imagery_late, lets the held imagery fetches
+    // go once the wait for the tiles is `loaded` but for the `in_flight`
+    // imagery, or everything else has stood still, and says which.
+    void let_late_imagery_go(bool loaded, std::size_t in_flight);
 
     // Takes the open imagery off the terrain, for good, if Cesium Native has
     // wedged it - a tile's imagery failed beneath an ancestor's that failed
