@@ -2238,13 +2238,16 @@ What the client with the window does that the command-line client does, and what
       run on SDL's dummy audio driver, the mix follows the flight (the
       engine's pitch rising with RPM, silence with the engine stopped), and
       every aircraft has a sound set, asserted.*
-- [ ] **On macOS a dozen window-client tests report themselves skipped
-      after 300 s**: their warm-up server never gets its terrain inside its
-      300 s limit, and a test that times out there skips instead of failing,
-      so those tests have not run on macOS (train #379's run 43845148929).
-      *Verification: the cause found, a warm-up that times out failing,
-      and every window-client test run on macOS release, none skipped for
-      its terrain.*
+- [x] **On macOS a dozen window-client tests report themselves skipped
+      after 300 s**: they asked for Vulkan, which macOS has not got; now on
+      Metal there, a warm-up that times out fails, and a client that cannot
+      draw fails where a window is required. *Verification: all 45 tests
+      on the client's driver ran and passed on macOS release, none skipped,
+      and the timeout made a skip again turns its test red.*
+- [ ] **On macOS the HUD's tick test skips after 155 to 334 s**
+      (the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_metal).
+      *Verification: the cause found, and it run and passing on macOS
+      release, or failing where it cannot.*
 
 ---
 
