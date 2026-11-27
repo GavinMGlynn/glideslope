@@ -349,3 +349,83 @@ GLIDESLOPE_TEST(a_session_joined_again_hands_up_nothing_of_the_one_let_go) {
     check(fresh.size() == 1 && fresh[0].simulation_time_s == 0.5,
           "and it is the only one handed up");
 }
+
+// **A handshake that comes to nothing says how** (net::ClientSession::join),
+// which the command-line client says by name: held back by its caller before
+// anything is sent, refused (and why), answered with something that does not
+// open, or not answered at all. Each built against a stand-in server.
+GLIDESLOPE_TEST(a_join_that_comes_to_nothing_says_how) {
+    using glideslope::net::ClientSession;
+    auto server_socket = UdpSocket::bound(0);
+    check(server_socket.has_value(), "the stand-in server has a socket");
+    const KeyPair server_key = glideslope::net::mint_key_pair();
+    const KeyPair client_key = glideslope::net::mint_key_pair();
+    const Address server_at = glideslope::platform::loopback_v4(server_socket->port());
+
+    // Held back: nothing goes, and the caller was shown the initiation.
+    {
+        ClientSession::Asking asking;
+        std::size_t shown = 0;
+        asking.before_sending = [&](std::span<const std::uint8_t> first) {
+            shown = first.size();
+            return false;
+        };
+        ClientSession::NotJoined why{};
+        const auto made =
+            ClientSession::join(server_at, server_key.publik, client_key, asking, &why);
+        check(!made && why == ClientSession::NotJoined::held_back,
+              "a join its caller holds back is held_back");
+        check(shown > glideslope::net::envelope_size, "and its caller saw the initiation");
+        Address from;
+        check(wait_for(*server_socket, from).empty(), "and nothing was sent");
+    }
+
+    // Each other way: the stand-in answers the initiation with `reply`, or
+    // with nothing.
+    const auto answered_with = [&](const std::function<std::vector<std::uint8_t>()>& reply,
+                                   std::optional<glideslope::net::Refusal>* refused,
+                                   double give_up_s) {
+        ClientSession::NotJoined why{};
+        std::thread joining([&] {
+            ClientSession::Asking asking;
+            asking.give_up_after_s = give_up_s;
+            (void)ClientSession::join(server_at, server_key.publik, client_key, asking, &why,
+                                      refused);
+        });
+        Address from;
+        const std::vector<std::uint8_t> arrived = wait_for(*server_socket, from);
+        check(!arrived.empty(), "the stand-in server heard the initiation");
+        if (reply) {
+            const std::vector<std::uint8_t> out = reply();
+            (void)server_socket->send(from, all_of(out));
+        }
+        joining.join();
+        // What the client resent meanwhile is not the next case's.
+        std::vector<std::uint8_t> drain(glideslope::platform::largest_datagram);
+        while (server_socket->receive(drain, from) > 0) {
+        }
+        return why;
+    };
+    std::optional<glideslope::net::Refusal> refused;
+    check(answered_with(
+              [] {
+                  glideslope::net::Writer w =
+                      glideslope::net::begin(glideslope::net::Type::refusal);
+                  w.u8(static_cast<std::uint8_t>(glideslope::net::Refusal::wrong_layout));
+                  return w.take();
+              },
+              &refused, 5.0) == ClientSession::NotJoined::refused &&
+              refused == glideslope::net::Refusal::wrong_layout,
+          "a refused join is refused, and says why: WRONG_LAYOUT");
+    check(answered_with(
+              [] {
+                  glideslope::net::Writer w =
+                      glideslope::net::begin(glideslope::net::Type::handshake_response);
+                  w.bytes(std::vector<std::uint8_t>(48, 0));
+                  return w.take();
+              },
+              nullptr, 5.0) == ClientSession::NotJoined::did_not_open,
+          "an answer that does not open is did_not_open");
+    check(answered_with(nullptr, nullptr, 0.3) == ClientSession::NotJoined::no_answer,
+          "a join nobody answers is no_answer");
+}
