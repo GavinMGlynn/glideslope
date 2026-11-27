@@ -228,6 +228,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_input_packet_that_arrives_twice_hands_up_nothing_the_second_time
     an_input_receiver_refuses_anything_that_is_not_an_input_packet
     every_control_the_flight_model_has_is_one_the_wire_carries
+    a_clients_count_of_controls_goes_first_in_its_payload_and_is_read_back
     the_transport_document_and_the_code_agree_about_the_inputs
     the_seed_corpus_goes_through_every_network_parser_under_sanitizers
     the_seed_corpus_is_written_where_a_fuzzer_can_take_it
