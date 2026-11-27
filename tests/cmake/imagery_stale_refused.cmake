@@ -32,6 +32,7 @@
 # release build, the undefined-behaviour sanitizer's report in a debug one.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake): another
 # build's run of this test on the same port waits for it.
@@ -66,8 +67,7 @@ function(shoot run out_var)
     endif()
     glideslope_skip_when_not_downloaded("${_rc}" "${_err}")
     if(NOT EXISTS "${_shot}" AND _err MATCHES "no GPU|could not|device")
-        message(STATUS "the client cannot draw here: ${_err}")
-        cmake_language(EXIT 77)
+        glideslope_cannot_draw("${_err}")
     endif()
     if(NOT _rc EQUAL 0)
         message(FATAL_ERROR "the ${run} shot exited ${_rc}:\n${_out}\n${_err}")

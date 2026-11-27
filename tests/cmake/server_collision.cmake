@@ -22,6 +22,7 @@
 # (exit 77), never passed.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake): another
 # build's run of this test on the same port waits for it.
@@ -45,10 +46,7 @@ execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 0 --data "${DATA}"
             --fly 737-300@-33.90,151.40,0
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
-if(NOT _rc EQUAL 0)
-    message(STATUS "the server could not get its terrain: ${_err}")
-    cmake_language(EXIT 77)
-endif()
+glideslope_warmed_up("${_rc}" "${_err}")
 
 # The clients' names are the first eight digits of their public keys.
 set(_one e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26)

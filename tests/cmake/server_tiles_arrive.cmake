@@ -53,6 +53,7 @@
 # said to RESULT_FILE, and stops the stub.
 
 cmake_minimum_required(VERSION 3.28)
+include("${CMAKE_CURRENT_LIST_DIR}/skip_or_fail.cmake")
 
 # **Its port held machine-wide** while it runs (port_lock.cmake); the inner
 # half, run by this, holds it already.
@@ -133,10 +134,11 @@ set(_key "${CMAKE_MATCH_1}")
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}" --plan "${_plan}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
+glideslope_warmed_up("${_rc}" "${_err}")
 set(_tile_file "${CACHE}/copernicus-dem-30m/${_tile}.tif")
-if(NOT _rc EQUAL 0 OR NOT EXISTS "${_tile_file}" OR NOT EXISTS "${CACHE}/egm2008-5.zip")
-    message(STATUS "the server could not get its terrain: ${_err}")
-    cmake_language(EXIT 77)
+if(NOT EXISTS "${_tile_file}" OR NOT EXISTS "${CACHE}/egm2008-5.zip")
+    message(FATAL_ERROR "the warm-up server ran well, but ${_tile_file} or "
+                        "${CACHE}/egm2008-5.zip is not in the cache:\n${_err}")
 endif()
 
 # **The client's cache, empty of tiles**: made new, the geoid alone in it.
