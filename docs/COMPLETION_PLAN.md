@@ -2558,6 +2558,13 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
       (server_ai.cmake and server_flies.cmake, line 39 of each). *Verification:
       a server that stops for anything but a missing download fails them,
       seen red.*
+- [x] **A gear unit that had never touched the ground could report a NaN
+      side friction** (the A320's nose tip, windows-clang, CI run
+      45972866440): JSBSim leaves it unset until the first touch, so it
+      read whatever memory held; it now starts at zero. Only the reported
+      number was wrong, never the flight. *Verification: every aircraft,
+      with fresh memory filled with NaN, reports only finite numbers a step
+      into the air, failing with the fix out.* Done 2026-11-27.
 
 ---
 
