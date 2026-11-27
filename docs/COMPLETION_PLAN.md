@@ -2251,9 +2251,10 @@ What the client with the window does that the command-line client does, and what
       are synthesised stand-ins until Phase 15's recordings.
 - [ ] **On macOS a dozen window-client tests report themselves skipped
       after 300 s**: they asked for Vulkan; now on Metal, all 45 run and pass,
-      and a warm-up that times out fails. Missing: the HUD tick test on Metal,
-      which skips after 334 s, cause not yet found. *Verification: every
-      window-client test run on macOS release, none skipped for terrain.*
+      and a warm-up that times out fails. The HUD tick test on Metal's 334 s
+      skip was the live weather not answering (five 60 s stalls), not terrain;
+      a skip on macOS CI now prints why. *Verification: every window-client
+      test run on macOS release, none skipped for terrain.*
 
 ---
 
