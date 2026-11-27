@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <sstream>
 
 namespace glideslope::gfx {
 
@@ -360,6 +361,51 @@ std::vector<std::string> checklist_lines(const ChecklistOnScreen& showing, int w
     return lines;
 }
 
+std::vector<std::string> lesson_lines(const std::vector<std::string>& words, int width) {
+    const std::size_t columns = checklist_columns(width);
+    std::vector<std::string> lines;
+    for (const std::string& said : words) {
+        std::string spelt;
+        for (const char c : said) {
+            const char up = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            if (glyph(up) != nullptr) {
+                spelt.push_back(up);
+            }
+        }
+        // Word by word, a line at a time; a line's own leading spaces kept.
+        std::size_t at = 0;
+        std::string line;
+        while (at < spelt.size() && spelt[at] == ' ') {
+            line.push_back(' ');
+            ++at;
+        }
+        const std::size_t indent = line.size();
+        bool empty = true; // nothing on this line yet but its indent
+        std::istringstream in(spelt.substr(at));
+        for (std::string word; in >> word;) {
+            if (!empty && line.size() + 1 + word.size() > columns) {
+                lines.push_back(line);
+                line = std::string(indent + 2, ' ');
+                empty = true;
+            }
+            const std::size_t gap = empty ? 0 : 1;
+            if (line.size() + gap + word.size() > columns) {
+                word.resize(columns > line.size() + gap ? columns - line.size() - gap : 0);
+            }
+            if (!empty) {
+                line.push_back(' ');
+            }
+            line += word;
+            empty = false;
+        }
+        while (!line.empty() && line.back() == ' ') {
+            line.pop_back();
+        }
+        lines.push_back(line);
+    }
+    return lines;
+}
+
 TextLayout checklist_layout(int width, int height, std::size_t lines) {
     (void)height;
     (void)lines;
@@ -585,8 +631,10 @@ Mesh hud_mesh(const HudReadings& readings, int width, int height) {
     // The horizon, whole: hud_layout keeps the HUD's text clear of it.
     const HorizonLine h = hud_horizon(readings, width, height);
     add_line(mesh, h.x0, h.y0, h.x1, h.y1, h.thickness, width, height, hud_colour);
-    const std::vector<std::string> checklist =
-        checklist_lines(readings.checklist, width);
+    // **The lessons screen, in the checklist's place**, when it is showing.
+    const std::vector<std::string> checklist = readings.lesson.empty()
+                                                   ? checklist_lines(readings.checklist, width)
+                                                   : lesson_lines(readings.lesson, width);
     if (!checklist.empty()) {
         // The checklist's panel, over the horizon, which shows through it
         // dimmed rather than crossing the rows; and under everything else,

@@ -83,10 +83,13 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // when the initiation's payload came to begin with the fingerprint of the
 // controls' layout, and on 2026-11-28 to 15, when a state update came to
 // carry every aircraft's control surfaces and its velocity in sixteenths of a
-// metre a second: the document gives the envelope's version as `15`. A test
+// metre a second, and on 2026-11-28 to 16, when a client could ask for a
+// lesson (`ASK_LESSON`) and be told how it goes (`LESSON`) - kinds this
+// client neither sends nor reads: the document gives the envelope's version
+// as `16`. A test
 // reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x15;
+constexpr std::uint8_t kVersion = 0x16;
 // The controls in an input frame, and the fingerprint of their layout - the
 // document's, for the twenty-one it names - which the initiation's payload
 // says first.

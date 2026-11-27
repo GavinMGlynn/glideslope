@@ -438,6 +438,8 @@ that is handed one has been handed something with no meaning.
 | `RUNWAY_CONDITIONS` | server | no |
 | `LAW_STATE` | server | no |
 | `TRAFFIC_INSTRUCTION` | server | no |
+| `ASK_LESSON` | a client | **yes** |
+| `LESSON` | server | no |
 
 **`LAW_STATE` (protocol `10`) is the server's alone**, and the server drops
 one a client sends, as it drops the other server-only kinds. Its threat is
@@ -456,8 +458,18 @@ not there; it is words she reads and may ignore, it moves nothing, and its
 reader refuses any byte outside printable ASCII, as a learnt landing's
 refusal's does, since it is printed on her terminal.
 
-**So `CONTROLLER_SWAP`, `WATCH` and `COPILOT_ROUTE` are the three with a
-client-to-server threat surface**, and the readers for the other eleven matter in the opposite
+**`ASK_LESSON` (protocol `16`) is a client's**, and asks for its own
+aircraft only: the server refuses one naming another's, and looks the
+lesson's id up among the lessons it read at start - never joined to a
+path. The worst a client can do with it is move its own aircraft to where
+a lesson begins, near where she is, and have the AI fly her; it can make
+the server step no more than one instructor an aircraft. **`LESSON` is the
+server's alone**: a hostile server could tell a client a stage or a
+debrief that is not so, which is words she reads; its reader refuses any
+byte outside printable ASCII and any count past the limits.
+
+**So `CONTROLLER_SWAP`, `WATCH`, `COPILOT_ROUTE` and `ASK_LESSON` are the
+four with a client-to-server threat surface**, and the readers for the other twelve matter in the opposite
 direction: they are what defends a client against a server that is hostile,
 broken or a different version. That direction is not hypothetical - a client
 is told a server's host, port and key by whoever ran the server: on a command
@@ -467,8 +479,8 @@ The two a client acts on are `AIRCRAFT`, which names the model it loads -
 a catalogue id it looks up, never a path it opens - and `CONTROLLER_SWAP`.
 
 **The server drops the other six** (2026-09-25). It reads every reliable
-message a client sends, acts on a `CONTROLLER_SWAP`, a `WATCH` or a
-`COPILOT_ROUTE` and on nothing else: anything else is acknowledged, so that the client stops repeating it,
+message a client sends, acts on a `CONTROLLER_SWAP`, a `WATCH`, a
+`COPILOT_ROUTE` or an `ASK_LESSON` and on nothing else: anything else is acknowledged, so that the client stops repeating it,
 and let go. The server's dashboard also builds a `LOBBY` from `Slots` to draw
 its own table, and that one is never written to the wire.
 

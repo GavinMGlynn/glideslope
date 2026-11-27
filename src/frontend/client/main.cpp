@@ -25,6 +25,7 @@
 
 #include "flight.hpp"
 #include "frontend/briefs.hpp"
+#include "frontend/lessons_screen.hpp"
 #include "frontend/held_levers.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/same_air.hpp"
@@ -77,6 +78,7 @@
 #include <filesystem>
 #include <functional>
 #include <fstream>
+#include <set>
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -287,6 +289,22 @@ struct Options {
     // For a test: the window's frame while it waits its turn on final,
     // written once the server has said why (`--shot-waiting FILE`).
     std::string shot_waiting;
+    // **A lesson chosen by flag** (`--lesson ID`): on a server, the lessons
+    // screen shown with it chosen once joined, and asked for, as F2 and
+    // Return would.
+    std::string lesson;
+    // For a test: each state of the lessons screen shot the first time it is
+    // drawn, to PREFIX-STATE.bmp, with what it says to PREFIX-STATE.txt
+    // (`--shot-lesson PREFIX`).
+    std::string shot_lesson;
+    // For a test: quit once the lessons screen has shown the lesson over -
+    // handed over, refused or ended (`--quit-once-lesson-over`).
+    bool quit_once_lesson_over = false;
+    // For a test: once the lesson is handed over, ask for this one, which
+    // the server refuses, and then the first again, taken back from the
+    // instructor as it demonstrates; quit once that has ended it
+    // (`--test-lesson-states BAD`) - every state the screen has, in a run.
+    std::string test_lesson_states;
     // On a server, hold the shot until it has joined again - let go, or its
     // server restarted under it - and been flown by an input sent since.
     bool shot_once_joined_again = false;
@@ -436,6 +454,17 @@ void usage(std::FILE* out) {
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
+        "  --lesson ID   on a server, show the lessons screen with lesson ID chosen\n"
+        "                once joined, and ask for it, as F2 and Return do\n"
+        "  --shot-lesson PREFIX  on a server, write each state of the lessons\n"
+        "                screen the first time it is drawn to PREFIX-STATE.bmp,\n"
+        "                and what it says to PREFIX-STATE.txt (for tests)\n"
+        "  --quit-once-lesson-over  on a server, quit once the lessons screen\n"
+        "                shows the lesson handed over, refused or ended (for tests)\n"
+        "  --test-lesson-states BAD  with --lesson, once it is handed over, ask\n"
+        "                for lesson BAD, which the server refuses, and then the\n"
+        "                first again, taken back as it is demonstrated; quit\n"
+        "                once that has ended it (for tests)\n"
         "  --shot-waiting FILE  on a server, write the frame the window shows while\n"
         "                it waits for an aircraft, once the server has said why\n"
         "                (for tests)\n"
@@ -840,6 +869,14 @@ static int run_program(int argc, char** argv) {
             o.shot_once_back = true;
         } else if (a == "--shot-waiting" && has_value) {
             o.shot_waiting = std::string(args[++i]);
+        } else if (a == "--lesson" && has_value) {
+            o.lesson = std::string(args[++i]);
+        } else if (a == "--shot-lesson" && has_value) {
+            o.shot_lesson = std::string(args[++i]);
+        } else if (a == "--quit-once-lesson-over") {
+            o.quit_once_lesson_over = true;
+        } else if (a == "--test-lesson-states" && has_value) {
+            o.test_lesson_states = std::string(args[++i]);
         } else if (a == "--shot-once-landed") {
             o.shot_once_landed = true;
         } else if (a == "--shot-once-corrected" && has_value) {
@@ -937,7 +974,9 @@ static int run_program(int argc, char** argv) {
         o.copilot_provider = o.hand_over_model.provider;
         o.copilot_model = o.hand_over_model.model;
     }
-    if (o.headless && o.shot.empty()) {
+    // A lessons screen shot ends the run by its own event, the lesson over.
+    if (o.headless && o.shot.empty() &&
+        !(!o.shot_lesson.empty() && (o.quit_once_lesson_over || !o.test_lesson_states.empty()))) {
         std::fputs("glideslope: --headless needs --shot, or it has nothing to show\n",
                    stderr);
         return 2;
@@ -1742,6 +1781,13 @@ static int run_program(int argc, char** argv) {
         std::size_t take_overs_asked = 0;
         bool asked_to_hand_over = false;
         bool asked_for_learnt = false;
+        // **The lessons screen**, made once joined, for her aeroplane's
+        // class (frontend::LessonsScreen); each state it has been shot in
+        // (`--shot-lesson`); and how far `--test-lesson-states` has got.
+        std::optional<glideslope::frontend::LessonsScreen> lessons;
+        std::set<glideslope::frontend::LessonsScreen::State> lesson_shot;
+        int lesson_states_step = 0;
+        bool lesson_over_quit = false;
         // Whether the learnt landing had its own aircraft at the last look:
         // said when it changes.
         bool learnt_had_it = false;
@@ -2238,6 +2284,20 @@ static int run_program(int argc, char** argv) {
                            event.key.scancode == key(Command::ride_next) && online && joined) {
                     ride_next();
                 } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == key(Command::lessons) && lessons) {
+                    lessons->toggle();
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == key(Command::next_lesson) && lessons) {
+                    lessons->next();
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                           event.key.scancode == key(Command::fly_lesson) && lessons) {
+                    if (const auto id = lessons->ask()) {
+                        online->ask_lesson(*id);
+                        std::printf("glideslope: asked the server for the lesson %s\n",
+                                    id->c_str());
+                        std::fflush(stdout);
+                    }
+                } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                            event.key.scancode == key(Command::view) && flight) {
                     // Round the views, and round again. Nothing about the
                     // flight moves: the camera is worked out afresh each
@@ -2638,6 +2698,93 @@ static int run_program(int argc, char** argv) {
                     notice = "refused: " + why;
                     notice_until = ticks + 10 * glideslope::sim::steps_per_second;
                     say_the_hud = true;
+                }
+                // **The lessons screen**, made for her aeroplane's class once
+                // joined, and shown with a lesson chosen by `--lesson`, and
+                // asked for.
+                if (!lessons) {
+                    const auto all = glideslope::sim::read_lessons(
+                        glideslope::platform::data_directory());
+                    const glideslope::sim::CatalogueEntry hers = glideslope::sim::find_aircraft(
+                        glideslope::platform::data_directory(), joined->aircraft_id);
+                    lessons.emplace(all, hers.aircraft_class, hers.id);
+                    std::printf("glideslope: %zu lessons for the %s\n", lessons->count(),
+                                hers.id.c_str());
+                    if (!o.lesson.empty() && !o.shot_lesson.empty()) {
+                        // Closed first, for its shot; chosen once it is.
+                    } else if (!o.lesson.empty()) {
+                        if (!lessons->choose(o.lesson)) {
+                            std::printf("glideslope: no lesson %s for the %s\n",
+                                        o.lesson.c_str(), hers.id.c_str());
+                        }
+                    }
+                    std::fflush(stdout);
+                }
+                if (!o.lesson.empty() && !o.shot_lesson.empty() && lesson_states_step == 0 &&
+                    lesson_shot.count(glideslope::frontend::LessonsScreen::State::closed) > 0) {
+                    lesson_states_step = 1;
+                    if (!lessons->choose(o.lesson)) {
+                        std::printf("glideslope: no lesson %s for the %s\n", o.lesson.c_str(),
+                                    joined->aircraft_id.c_str());
+                        std::fflush(stdout);
+                    }
+                }
+                // Asked once the list showing it has been drawn - shot,
+                // where it is shot - as Return asks.
+                if (!o.lesson.empty() && lessons->state() ==
+                        glideslope::frontend::LessonsScreen::State::choosing &&
+                    (o.shot_lesson.empty() ||
+                     lesson_shot.count(glideslope::frontend::LessonsScreen::State::choosing) > 0) &&
+                    (lesson_states_step <= 1 || lesson_states_step == 3)) {
+                    if (const auto id = lessons->ask()) {
+                        online->ask_lesson(*id);
+                        std::printf("glideslope: asked the server for the lesson %s\n",
+                                    id->c_str());
+                        std::fflush(stdout);
+                        lesson_states_step = lesson_states_step == 3 ? 4 : 2;
+                    }
+                }
+                for (const glideslope::net::LessonTold& told : online->lessons()) {
+                    lessons->told(told);
+                    std::printf("glideslope: the server says of the lesson %s: %s",
+                                told.lesson.c_str(),
+                                glideslope::frontend::LessonsScreen::name_of(lessons->state()));
+                    if (told.part == glideslope::net::LessonPart::demonstrating) {
+                        std::printf(", stage %u of %u", static_cast<unsigned>(told.stage) + 1U,
+                                    static_cast<unsigned>(told.stages));
+                    }
+                    if (told.part == glideslope::net::LessonPart::handed_over) {
+                        std::printf(", %u of %u stages flown", static_cast<unsigned>(told.stage),
+                                    static_cast<unsigned>(told.stages));
+                    }
+                    for (const std::string& line : told.lines) {
+                        std::printf("; %s", line.c_str());
+                    }
+                    std::printf("\n");
+                    std::fflush(stdout);
+                }
+                // **Every state, in a run** (`--test-lesson-states`): once
+                // handed over and shot, a lesson the server refuses; once
+                // that is shot, the first again, taken back from the
+                // instructor once its demonstration is shot.
+                if (!o.test_lesson_states.empty()) {
+                    using State = glideslope::frontend::LessonsScreen::State;
+                    if (lesson_states_step == 2 && lesson_shot.count(State::handed_over) > 0) {
+                        lesson_states_step = 3;
+                        online->ask_lesson(o.test_lesson_states);
+                        std::printf("glideslope: asked the server for the lesson %s\n",
+                                    o.test_lesson_states.c_str());
+                        std::fflush(stdout);
+                    } else if (lesson_states_step == 3 && lesson_shot.count(State::refused) > 0 &&
+                               lessons->state() == State::refused) {
+                        (void)lessons->choose(o.lesson);
+                    } else if (lesson_states_step == 4 &&
+                               lessons->state() == State::demonstrating) {
+                        lesson_states_step = 5;
+                        hand_over(false);
+                        std::printf("glideslope: took her back from the instructor\n");
+                        std::fflush(stdout);
+                    }
                 }
                 // **An instruction for other traffic**, as a tower gives
                 // one: on the HUD for thirty seconds of flight, and here.
@@ -3391,6 +3538,9 @@ static int run_program(int argc, char** argv) {
                                 "joining: %s\n",
                                 flight->begun_on_held() ? "yes" : "no");
                 }
+                if (lessons) {
+                    readings.lesson = lessons->lines();
+                }
                 readings.credits.insert(readings.credits.begin(), credits.begin(),
                                         credits.end());
                 help_ends_at = glideslope::gfx::help_bottom(readings.credits, o.width, o.height);
@@ -3459,6 +3609,44 @@ static int run_program(int argc, char** argv) {
                 renderer.render(camera, drawn, nullptr, haze, background);
             }
             ++frames;
+            // **Each state of the lessons screen, shot the first time it is
+            // drawn** (`--shot-lesson`), with what it says, for a test to
+            // read back off the frame.
+            if (lessons && flight && !o.shot_lesson.empty() &&
+                lesson_shot.insert(lessons->state()).second) {
+                const std::string state =
+                    glideslope::frontend::LessonsScreen::name_of(lessons->state());
+                const std::string path = o.shot_lesson + "-" + state;
+                glideslope::gfx::save_bmp(renderer.capture(), path + ".bmp");
+                std::ofstream said(path + ".txt", std::ios::binary);
+                for (const std::string& line :
+                     glideslope::gfx::lesson_lines(lessons->lines(), o.width)) {
+                    said << line << "\n";
+                    std::printf("lesson screen %s: %s\n", state.c_str(), line.c_str());
+                }
+                std::printf("glideslope: the lessons screen, %s, shot to %s.bmp\n",
+                            state.c_str(), path.c_str());
+                std::fflush(stdout);
+            }
+            // **The lesson over, and shown**: quit (`--quit-once-lesson-over`,
+            // `--test-lesson-states`).
+            if (lessons && (o.quit_once_lesson_over || !o.test_lesson_states.empty()) &&
+                !lesson_over_quit) {
+                using State = glideslope::frontend::LessonsScreen::State;
+                const State now = lessons->state();
+                const bool over = !o.test_lesson_states.empty()
+                                      ? now == State::ended && lesson_states_step == 5
+                                      : now == State::handed_over || now == State::refused ||
+                                            now == State::ended;
+                if (over) {
+                    lesson_over_quit = true;
+                    std::printf("glideslope: the lessons screen shows the lesson over, %s; "
+                                "quitting\n",
+                                glideslope::frontend::LessonsScreen::name_of(now));
+                    std::fflush(stdout);
+                    running = false;
+                }
+            }
             pass_part(pass_times.render);
             pass_done();
             said_the_view = false;

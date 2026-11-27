@@ -117,6 +117,10 @@ Said first, because a transport's limits matter more than its features.
   carries every aircraft's control surfaces - its ailerons, elevator and
   rudder, a byte each - and its velocity in sixteenths of a metre a second
   to make room for them (below, "State updates").
+  Version `16` is on the same ground, and is the first whose client may ask
+  for a lesson for its own aircraft (`ASK_LESSON`, below), and whose server
+  tells it how the lesson goes - refused, settling, each stage the
+  instructor flies, the hand-over with the debrief, or ended (`LESSON`).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -127,7 +131,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `15` |
+| 4 | 1 | version | `16` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -174,7 +178,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, and `WRONG_LAYOUT`, after it, are refused as an unknown
 reason by a client older than each: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `15`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `16`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -484,8 +488,9 @@ These things must each arrive, exactly once, in the order they were sent: the
 lobby, the session, the weather, an aircraft's definition, the terrain
 dataset, a controller swap, which aircraft a client is watching, a
 copilot's route, a take-over or a learnt landing refused, the runways'
-conditions, a STOVL law's state and an instruction to a person for other
-traffic. They go as **fourteen kinds of message**,
+conditions, a STOVL law's state, an instruction to a person for other
+traffic, and a lesson asked for and how it goes. They go as **sixteen kinds
+of message**,
 because the weather is two of them. They ride the reliable layer below,
 which numbers them and repeats them until they are acknowledged.
 
@@ -543,6 +548,8 @@ is that kind's fields in the order given here.
 | `0C` | `RUNWAY_CONDITIONS` |
 | `0D` | `LAW_STATE` |
 | `0E` | `TRAFFIC_INSTRUCTION` |
+| `0F` | `ASK_LESSON` |
+| `10` | `LESSON` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -1191,6 +1198,72 @@ harmless with it: the window client keeps an instruction to its own
 aircraft, and its own is `FF` until it is joined, so it keeps this one and
 says it once joined; the command-line client prints it as it prints any,
 `aircraft 255 told: ...`. The version is unchanged.
+
+### `ASK_LESSON`
+
+**A lesson asked for, for the client's own aircraft** (since `16`), sent
+by a client to the server: the aircraft's number, the client's own, and
+the lesson's id - the name of its file in the data's `lessons/`, less
+`.lesson`, which both ends carry: `light-aircraft-turns`. The server
+answers every one with a `LESSON` to that client: begun - **the server's
+instructor takes her**, puts her where the lesson begins (on the threshold
+of the longest runway within 50 km of her, from the end nearer her; two
+miles out on its approach; or in the air over it), flies the lesson first
+as the AI, and then hands her over - or refused, saying why: another
+client's aircraft, a lesson the server has not got, one for another class
+of aeroplane than hers (`c172p is light-aircraft, and fighter-turns teaches
+fighter`), one she cannot be taught, or no runway within 50 km. **She is
+moved only because her own client asked**, and while the instructor has
+her a state update says the AI flies her (`CONTROLLER`, above); the
+hand-over is announced as any `CONTROLLER_SWAP` is. A lesson asked while
+another is flown ends that one first (`LESSON`, `ENDED`).
+
+| written as | field |
+| --- | --- |
+| `u8` | `0F`, the kind |
+| `u8` | the aircraft's number, the client's own |
+| text | the lesson's id, 1 to 64 bytes of `a`-`z`, `0`-`9` and `-` |
+
+A reader refuses an id that is empty, longer than 64 bytes, or has any
+other byte. The writer cuts one longer at 64.
+
+### `LESSON`
+
+**How a lesson goes** (since `16`), sent by the server to the client
+flying that aircraft and to no other: when it is refused, when the
+instructor begins settling her (a lesson in the air begins with her
+autopilot settling her for some seconds), when each stage of the lesson
+begins as the instructor flies it, when she is handed over, and when it
+ends before the hand-over. A client draws a stage's words from its own
+copy of the lesson; **the debrief is the server's alone**, because only
+the server flew it: what to do differently, a line a fault, in the order
+it happened, and none for a lesson flown to the book. There is no score.
+
+| written as | field |
+| --- | --- |
+| `u8` | `10`, the kind |
+| `u8` | the aircraft's number |
+| text | the lesson's id, as asked: 1 to 64 bytes of `a`-`z`, `0`-`9` and `-` |
+| `u8` | the part: `00` `REFUSED`, `01` `SETTLING`, `02` `DEMONSTRATING`, `03` `HANDED_OVER`, `04` `ENDED` |
+| `u8` | `DEMONSTRATING`: the stage being flown, from 0, below the count; `HANDED_OVER`: how many stages were flown, at most the count; otherwise `00` |
+| `u8` | the count of the lesson's stages: 1 or more, or for `REFUSED` 0 or more (0 where the server has no such lesson) |
+| `u8` | how many lines follow: `REFUSED` and `ENDED` 1, why; `HANDED_OVER` 0 to 6, the debrief; `SETTLING` and `DEMONSTRATING` 0 |
+| text, each | a line, 0 to 160 bytes of printable ASCII (`20` to `7E`) |
+
+**`ENDED`** is a lesson the instructor was flying that ended before it
+handed her over, and why: her client took her back or handed her to the
+AI (`taken back from the instructor`), asked for the learnt landing or
+sent a copilot's route, took over another aircraft, asked for another
+lesson, or left; or she was wrecked. **`HANDED_OVER` is a controller
+swap**: the server announces `CONTROLLER_SWAP` to `PERSON` for her at the
+same step, and her client predicts her from the next state update, as at
+any taking back.
+A server cuts a debrief longer than six lines at six, and a line longer
+than 160 bytes at 160, and writes any byte outside printable ASCII as `?`.
+A reader refuses a part past `04`; a stage or a count of lines not as the
+part says; a stage at or past the count while demonstrating, or a count
+flown past it; a count of nought but for `REFUSED`; more than six lines;
+and a line longer than 160 bytes or with a byte outside printable ASCII.
 
 ### What a reader must refuse
 

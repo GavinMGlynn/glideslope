@@ -72,6 +72,10 @@ struct HudReadings {
     std::vector<std::string> credits;
     // The checklist being worked through, if one is showing.
     ChecklistOnScreen checklist;
+    // **The lessons screen**, if it is showing: its lines, in words
+    // (frontend::LessonsScreen), drawn where the checklist is and in its
+    // place (lesson_lines).
+    std::vector<std::string> lesson;
     // **The controls' help**, if it is showing: its lines (platform's
     // `controls_help`), drawn over everything but the credits.
     std::vector<std::string> help;
@@ -186,6 +190,16 @@ std::size_t checklist_columns(int width);
 // The checklist as the lines drawn, for a frame `width` wide. Empty when
 // nothing is showing.
 std::vector<std::string> checklist_lines(const ChecklistOnScreen& showing, int width);
+
+// **The lessons screen as the lines drawn**, for a frame `width` wide:
+// each of `words`, in the font's capitals with what it lacks dropped, as a
+// checklist's are, and wrapped at the checklist's columns at a space -
+// every line after a line's first indented two - so that a stage's words or
+// a debrief are read whole, not cut. A word longer than a line is cut. Drawn
+// where the checklist is, over its panel (checklist_layout, checklist_panel),
+// and in its place: a lesson and a checklist are not shown at once. Empty
+// when nothing is showing.
+std::vector<std::string> lesson_lines(const std::vector<std::string>& words, int width);
 
 // Where `lines` lines of checklist go on a frame: the right-hand side, two
 // cells down from the top, as the HUD's own text starts.
