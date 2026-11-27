@@ -1,0 +1,16 @@
+# The Boeing 747-400's livery: white, with red wingtips, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/747-400.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with red trim
+coat tip-left    180  20  40   -28.00   29.90   -32.81  -28.78  -14.45   5.72
+coat tip-right   180  20  40   -28.00   29.90    28.78   32.81  -14.45   5.72
+coat fin         180  20  40   -41.24  -28.00    -0.60    0.60  -14.45  -4.40
+coat cheatline   180  20  40   -41.24   29.90    -3.80    3.80   -1.20  -0.90

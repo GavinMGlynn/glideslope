@@ -1,0 +1,14 @@
+# The Mosquito FB Mk VI's livery: dark green all over, with a sky-grey fin.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/mosquito-fb6.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name Dark green
+coat all-over     60  80  50   -12.37    0.32    -8.23    8.23   -2.93   2.56
+coat fin         150 160 150   -12.37   -9.50    -0.60    0.60   -2.93  -0.80

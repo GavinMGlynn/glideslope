@@ -1,0 +1,26 @@
+# The Piper PA-28-180 Cherokee's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/pa28.mesh), by
+# slicing it where each surface ends: the ailerons between 50% and 93% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the all-moving tailplane from 0.2 m out to 1.8 m, pivoted a quarter of
+# its chord aft of its leading edge;
+# the rudder from 0.3 m above the origin to 1.4 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -0.08..1.43 at 2.67 m, 0.13..1.22 at 4.97 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  0.299 -2.671 0.171  0.405 -4.969 -0.093  0.000 0.454 0.198
+surface right-aileron   fcs/right-aileron-pos-rad  down  0.299 2.671 0.171  0.405 4.969 -0.093  0.000 0.454 0.198
+# tail -3.56..-2.82 at 0.25 m, -3.55..-2.83 at 1.80 m
+surface left-elevator   fcs/elevator-pos-rad       down  -3.008 -0.250 -0.088  -3.012 -1.800 -0.088  0.232 0.655 0.086
+surface right-elevator  fcs/elevator-pos-rad       down  -3.008 0.250 -0.088  -3.012 1.800 -0.088  0.232 0.655 0.086
+# fin -3.30..-2.42 at -0.30 m, -3.58..-2.98 at -1.35 m
+surface rudder          fcs/rudder-pos-rad         left  -3.039 -0.071 -0.300  -3.399 -0.036 -1.350  0.000 0.325 0.185

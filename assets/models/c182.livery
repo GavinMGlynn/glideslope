@@ -1,0 +1,16 @@
+# The Cessna 182S's livery: white, with blue wingtips, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/c182.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with blue trim
+coat tip-left     20  60 150    -4.50    1.80    -5.68   -4.91   -2.18   1.32
+coat tip-right    20  60 150    -4.50    1.80     4.91    5.68   -2.18   1.32
+coat fin          20  60 150    -6.90   -4.50    -0.60    0.60   -2.18  -0.60
+coat cheatline    20  60 150    -6.90    1.80    -0.75    0.75    0.00   0.12

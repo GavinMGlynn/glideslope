@@ -145,6 +145,10 @@ struct Options {
     // aeroplane and without it differ in exactly its pixels, which is how a
     // test finds the outline it draws.
     bool draw_aircraft = true;
+    // Test flag: the stick and pedals held here, -1 to 1 each - aileron
+    // (right positive), elevator (back positive) and rudder (right positive)
+    // - for the whole flight (`--hold-stick A,E,R`).
+    std::optional<std::array<double, 3>> hold_stick;
     // On a server, ride along in the first AI aircraft from the start.
     bool ride_along = false;
     // For tests: stand still this long after joining a server, as a slow
@@ -444,6 +448,9 @@ void usage(std::FILE* out) {
         "  --ticks-behind N  with --slow-frames, a held pass stops N ticks short of\n"
         "                the newest word it heard, flying the rest on the next (for\n"
         "                tests)\n"
+        "  --hold-stick A,E,R  hold the aileron, elevator and rudder there for the\n"
+        "                whole flight, each -1 to 1 - right, back and right\n"
+        "                positive - as a joystick held there would (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
         "                or leave it out: a test shoots both to find the outline it\n"
         "                draws\n"
@@ -637,6 +644,18 @@ static int run_program(int argc, char** argv) {
             o.show_help = true;
         } else if (a == "--checklist" && has_value) {
             o.checklist = std::string(args[++i]);
+        } else if (a == "--hold-stick" && has_value) {
+            const std::string text(args[++i]);
+            std::array<double, 3> held{};
+            const char* at = text.c_str();
+            for (std::size_t k = 0; k < 3 && ok; ++k) {
+                char* end = nullptr;
+                held[k] = std::strtod(at, &end);
+                ok = end != at && held[k] >= -1.0 && held[k] <= 1.0 &&
+                     (k < 2 ? *end == ',' : *end == '\0');
+                at = end + 1;
+            }
+            o.hold_stick = held;
         } else if (a == "--draw-aircraft" && has_value) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
@@ -1552,7 +1571,46 @@ static int run_program(int argc, char** argv) {
         // drawn over the windscreen.
         glideslope::gfx::View view =
             glideslope::gfx::view_named(o.view).value_or(glideslope::gfx::View::cockpit);
-        glideslope::gfx::MeshId aircraft_mesh = 0;
+        // **An aeroplane is drawn in its parts** (gfx/parts.hpp): its body,
+        // painted in its livery, and each control surface, turned about its
+        // hinge by its deflection. The meshes are made together, lit for how
+        // it is pointing, and a mesh's id here is its part's: [0] the body,
+        // [1 + i] surface i.
+        const auto add_parts = [&](const glideslope::client::Visual& visual,
+                                   const glideslope::world::Ecef& sun) {
+            std::vector<glideslope::gfx::MeshId> ids;
+            ids.push_back(renderer.add_mesh(glideslope::gfx::mesh_from_model(visual.parts.body, sun)));
+            for (const glideslope::gfx::Model& part : visual.parts.surfaces) {
+                ids.push_back(renderer.add_mesh(glideslope::gfx::mesh_from_model(part, sun)));
+            }
+            return ids;
+        };
+        const auto remove_parts = [&](std::vector<glideslope::gfx::MeshId>& ids) {
+            for (const glideslope::gfx::MeshId id : ids) {
+                renderer.remove_mesh(id);
+            }
+            ids.clear();
+        };
+        // The draws of an aeroplane at `placement`, its surfaces at `angles`
+        // (radians, in its surfaces' order; none given is each at nothing).
+        const auto draw_parts = [](const glideslope::client::Visual& visual,
+                                   const std::vector<glideslope::gfx::MeshId>& ids,
+                                   const glideslope::gfx::Placement& placement,
+                                   const std::vector<double>& angles,
+                                   std::vector<glideslope::gfx::Draw>& into) {
+            glideslope::gfx::Draw body;
+            body.mesh = ids.at(0);
+            body.placement = placement;
+            into.push_back(body);
+            for (std::size_t i = 0; i < visual.hinges.size(); ++i) {
+                glideslope::gfx::Draw part;
+                part.mesh = ids.at(1 + i);
+                part.placement = glideslope::gfx::hinged(
+                    placement, visual.hinges[i], i < angles.size() ? angles[i] : 0.0);
+                into.push_back(part);
+            }
+        };
+        std::vector<glideslope::gfx::MeshId> aircraft_mesh;
         bool has_aircraft_mesh = false;
         glideslope::world::Ecef lit_by{};
         const auto light_moved = [&](const glideslope::world::Ecef& sun) {
@@ -1793,7 +1851,7 @@ static int run_program(int argc, char** argv) {
             hand_over(!online->own_ai_flying());
         };
         struct OtherMesh {
-            glideslope::gfx::MeshId id = 0;
+            std::vector<glideslope::gfx::MeshId> ids;
             bool made = false;
             glideslope::world::Ecef lit_by{};
             std::string aircraft_id;
@@ -2189,6 +2247,13 @@ static int run_program(int argc, char** argv) {
                 ++key_passes;
             }
             mapper.apply(joysticks.read(), controls);
+            // **A stick held where a test says** (`--hold-stick`), as a
+            // joystick held there would be, over whatever the keys did.
+            if (o.hold_stick) {
+                controls.aileron = (*o.hold_stick)[0];
+                controls.elevator = (*o.hold_stick)[1];
+                controls.rudder = (*o.hold_stick)[2];
+            }
             // Whether its own was predicted up to this pass - flown here on
             // every tick, so that the prediction's clocks' difference holds -
             // before what this pass hears changes it.
@@ -2566,6 +2631,7 @@ static int run_program(int argc, char** argv) {
                         if (o.nan_words_at >= 0) {
                             flight->give_nan_words_at(o.nan_words_at);
                         }
+                        remove_parts(aircraft_mesh);
                         has_aircraft_mesh = false;
                         // What the flight it replaces had: the input it is on,
                         // and the checklist on screen, where this one has it.
@@ -2966,23 +3032,20 @@ static int run_program(int argc, char** argv) {
                 (view != glideslope::gfx::View::cockpit || ridden != nullptr)) {
                 const glideslope::world::Ecef sun = flight->sun_in_body();
                 if (!has_aircraft_mesh || light_moved(sun)) {
-                    if (has_aircraft_mesh) {
-                        renderer.remove_mesh(aircraft_mesh);
-                    }
-                    aircraft_mesh = renderer.add_mesh(
-                        glideslope::gfx::mesh_from_model(*flight->model(), sun));
+                    remove_parts(aircraft_mesh);
+                    aircraft_mesh = add_parts(*flight->visual(), sun);
                     has_aircraft_mesh = true;
                     lit_by = sun;
                 }
-                glideslope::gfx::Draw draw;
-                draw.mesh = aircraft_mesh;
-                draw.placement = flight->model_placement();
+                glideslope::gfx::Placement placement = flight->model_placement();
                 if (own_moved && own_predicted) {
-                    draw.placement.origin.x += own_moved->x;
-                    draw.placement.origin.y += own_moved->y;
-                    draw.placement.origin.z += own_moved->z;
+                    placement.origin.x += own_moved->x;
+                    placement.origin.y += own_moved->y;
+                    placement.origin.z += own_moved->z;
                 }
-                drawn.push_back(draw);
+                // Its surfaces where its flight model has them.
+                draw_parts(*flight->visual(), aircraft_mesh, placement,
+                           flight->surface_angles_rad(), drawn);
             }
             // **Everybody else, on a server**: each with its own model, lit
             // for how it is pointing, and drawn where the updates put it
@@ -2994,7 +3057,7 @@ static int run_program(int argc, char** argv) {
                         others_now.begin(), others_now.end(),
                         [&](const glideslope::client::Other& o2) { return o2.number == it->first; });
                     if (!still && it->second.made) {
-                        renderer.remove_mesh(it->second.id);
+                        remove_parts(it->second.ids);
                     }
                     it = still ? std::next(it) : other_meshes.erase(it);
                 }
@@ -3021,20 +3084,16 @@ static int run_program(int argc, char** argv) {
                                                             sun.z * mesh.lit_by.z <
                                                         0.9962;
                     if (!mesh.made || moved || mesh.aircraft_id != model.id) {
-                        if (mesh.made) {
-                            renderer.remove_mesh(mesh.id);
-                        }
-                        mesh.id = renderer.add_mesh(
-                            glideslope::gfx::mesh_from_model(model.visual->model, sun));
+                        remove_parts(mesh.ids);
+                        mesh.ids = add_parts(*model.visual, sun);
                         mesh.made = true;
                         mesh.lit_by = sun;
                         // What it was made from, which the shot says.
                         mesh.aircraft_id = model.id;
                     }
-                    glideslope::gfx::Draw draw;
-                    draw.mesh = mesh.id;
-                    draw.placement = placement;
-                    drawn.push_back(draw);
+                    // Its surfaces at nothing: what a state update says of
+                    // another aircraft does not hold them.
+                    draw_parts(*model.visual, mesh.ids, placement, {}, drawn);
                 }
             }
             // Whichever provider is drawing, its attribution is on screen.

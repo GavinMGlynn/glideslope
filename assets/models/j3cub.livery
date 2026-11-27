@@ -1,0 +1,14 @@
+# The Piper J-3 Cub's livery: Cub Yellow all over, with a black cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/j3cub.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name Cub Yellow
+coat all-over    250 200  20    -5.52    1.54    -5.43    5.42   -0.98   1.96
+coat cheatline    25  25  25    -5.52    1.54    -0.70    0.70    0.35   0.45

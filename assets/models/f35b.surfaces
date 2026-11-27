@@ -1,0 +1,28 @@
+# The F-35B's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/f35b.mesh), by
+# slicing it where each surface ends: the ailerons between 74% and 92% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the all-moving tailplane from 2.0 m out to 3.0 m, pivoted a quarter of
+# its chord aft of its leading edge;
+# each rudder, on its own fin, from 1.0 m above the origin to 2.5 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -4.14..-1.43 at 4.09 m, -3.93..-2.10 at 5.08 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -3.461 -4.089 -0.501  -3.472 -5.084 -0.501  0.000 0.800 0.174
+surface right-aileron   fcs/right-aileron-pos-rad  down  -3.461 4.089 -0.501  -3.472 5.084 -0.501  0.000 0.800 0.174
+# tail -7.68..-5.35 at 2.00 m, -7.47..-6.03 at 3.00 m
+surface left-elevator   fcs/elevator-pos-rad       down  -5.933 -2.000 -0.443  -6.388 -3.000 -0.419  0.689 2.028 0.111
+surface right-elevator  fcs/elevator-pos-rad       down  -5.933 2.000 -0.443  -6.388 3.000 -0.419  0.689 2.028 0.111
+# fin -5.96..-5.03 at -1.00 m, -6.48..-5.06 at -2.50 m
+surface left-rudder     fcs/rudder-pos-rad         left  -5.681 -1.452 -1.000  -6.052 -1.984 -2.500  0.000 0.509 0.162
+# fin -5.96..-5.03 at -1.00 m, -6.48..-5.06 at -2.50 m
+surface right-rudder    fcs/rudder-pos-rad         left  -5.681 1.452 -1.000  -6.052 1.983 -2.500  0.000 0.509 0.162
