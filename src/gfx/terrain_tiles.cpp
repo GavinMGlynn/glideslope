@@ -1867,14 +1867,19 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         accessor = cached_fetches(accessor, open_cesium_cache(options.cache_file));
     }
     accessor = std::make_shared<CountingAccessor>(accessor, impl_->requests);
+    // The two holds release on different events; one hold cannot be both.
+    if (options.test_imagery_coarsest_first && options.test_imagery_late) {
+        throw std::runtime_error(
+            "--test-imagery-late cannot be given with --test-imagery-wedge: each "
+            "holds the imagery's fetches until a different moment");
+    }
     if ((options.test_imagery_coarsest_first || options.test_imagery_late) &&
         options.imagery) {
         impl_->held_imagery = std::make_shared<HeldImagery>();
         const std::string& url = options.imagery->url;
         impl_->held_imagery->prefix = url.substr(0, url.find("{TileMatrix}"));
         impl_->held_imagery->out_of_order = options.test_imagery_out_of_order;
-        impl_->held_imagery->late =
-            options.test_imagery_late && !options.test_imagery_coarsest_first;
+        impl_->held_imagery->late = options.test_imagery_late;
         accessor = std::make_shared<CoarsestFirstAccessor>(accessor, impl_->held_imagery);
     }
     // Cesium ion authorises every tile, not just the tileset that names them,
@@ -2120,7 +2125,6 @@ void TerrainTiles::let_held_imagery_go() {
                      level);
     }
 }
-
 
 void TerrainTiles::let_late_imagery_go(bool loaded, std::size_t in_flight) {
     if (!loaded || !impl_->held_imagery || !impl_->held_imagery->late ||
