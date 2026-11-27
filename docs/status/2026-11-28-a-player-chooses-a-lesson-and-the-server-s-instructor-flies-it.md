@@ -101,6 +101,31 @@ and debriefed on her flying.
   instructor flies stage 2 of 3`. (A reader taking a part of 5 was not
   caught: the part's switch refuses it anyway, so that break was no break.)
 
+**From the review of #434**
+
+- The step that finishes the last stage told her client "stage N of N" -
+  a stage at the count, which the reader refuses, so the client dropped it.
+  Nothing is said on that step now; the server says each `LESSON` it sends,
+  and the every-lesson test holds every stage told below the count and
+  their number to the lesson's. Seen red first: `airliner-approach-and-landing:
+  the server told 4 stages flown of the 3 there are`.
+- Handed to the AI while the instructor flew, she kept the instructor's
+  last asking (a stall's entry flown on): the lesson ended and `hand`
+  returned, the AI already flying. Now the AI is given her (`to_ai`, holding
+  what she is doing). The screen test hands her to the AI in a third
+  demonstration and holds the server to `aircraft N handed to the AI`; seen
+  red with the fix taken out.
+- The instructor reads every figure she is flown by before she is loaded,
+  moved or given a controller, so the wrapping constructor's "throws before
+  either is touched" is so (but for JSBSim refusing the start).
+- A learnt landing or a copilot's route refused no longer ends a lesson;
+  only one accepted does.
+- A refusal for another client's aircraft carries no count of stages, and
+  TRANSPORT.md now says a count of 0 is a lesson not looked up.
+- THREATS.md says what repeated `ASK_LESSON`s cost the step thread, and the
+  only bound on them: the request rate.
+- The two tails are items in the plan's Phase 12c.
+
 **Decisions**
 
 - **She is moved because her person asked.** The owner's rule that the
