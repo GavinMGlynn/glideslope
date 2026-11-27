@@ -1789,6 +1789,13 @@ GLIDESLOPE_TEST(tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_a
             std::ofstream out(tile, std::ios::binary);
             out << "not a tiff";
         }
+        // The bucket holds its answer until the tile is seen gone: let go at
+        // once, the fetch again could land before the asking (CI's Windows
+        // debug, run 45937912374).
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            answer = false;
+        }
         auto ahead = std::make_shared<glideslope::world::TilesAhead>(coverage, cache, held);
         glideslope::world::Dem dem(coverage, *ahead, nullptr);
         check(ahead->had(-33.5, 151.5), "a tile in the cache is had");
@@ -1799,7 +1806,15 @@ GLIDESLOPE_TEST(tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_a
             refused = true;
         }
         check(refused, "found damaged, the query fails rather than fetching it");
-        check(!ahead->had(-33.5, 151.5), "and it is had no more");
+        while (asked.load() == 0) {
+            std::this_thread::yield();
+        }
+        check(!ahead->had(-33.5, 151.5), "and it is had no more, its fetch again under way");
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            answer = true;
+        }
+        let.notify_all();
         while (ahead->fetched() == 0) {
             std::this_thread::yield();
         }
