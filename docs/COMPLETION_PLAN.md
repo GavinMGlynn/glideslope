@@ -2224,6 +2224,12 @@ What the client with the window does that the command-line client does, and what
       those locks until its threads are gone. *Verification: Webroot's log
       read first; the crash reproduced in 65 of 300 debug runs, a test seen
       red, and then 0 of 300.* Done 2026-11-27.
+- [ ] **On the Windows development machine, a release-built test program
+      sometimes skips its last call at exit.** main's windows-release passed
+      the end-of-process allocation test 98 of 100 times: once it exited 0
+      without the call, and once it died with 0xc0000409. #422's branch did
+      the same, 98 and 97 of 100. Cause not found. *Verification: the cause
+      named, and both exit tests passing 100 of 100 there.*
 - [ ] **A shot with its imagery refused drew coarser than one
       without**, twice on CI's Linux release, so its test runs nightly, not on
       pull requests. Cause not found. *Verification: the cause shown, the test
