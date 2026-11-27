@@ -52,6 +52,15 @@
 # fetch to be the root's held the root's own behind it, let nothing go, and
 # the shot never ended (CI's macOS, run 40743161009).
 #
+# **With LATE, refusals that come late**: `--test-imagery-late` holds the
+# imagery's deepest fetches until the shot's wait for its tiles is at 100%
+# without them. Cesium Native's progress counts neither a tile whose imagery
+# is in flight, unrenderable with its parent drawn in its place, nor that
+# imagery; the shot was taken then and drew coarser than without imagery, on
+# CI's loaded Linux release runners (runs 40733120388, 40811196271). The
+# client must say the held fetches went with the wait at 100%, and must still
+# draw as deep as without imagery.
+#
 # The terrain
 # comes from the DEM's tiles and the geoid, fetched into CACHE: without the
 # network the test is skipped (exit 77) unless GLIDESLOPE_REQUIRE_NETWORK is
@@ -77,6 +86,9 @@ if(REFUSE_IMAGERY)
     endif()
     if(OUT_OF_ORDER)
         list(APPEND _refuse --test-imagery-out-of-order)
+    endif()
+    if(LATE)
+        list(APPEND _refuse --test-imagery-late)
     endif()
     # A tile drawn without its imagery for any reason but its fetch failing
     # is still refused, and is not a download to skip for.
@@ -138,6 +150,12 @@ if(REFUSE_IMAGERY)
         message(FATAL_ERROR "the client did not say how many tiles it drew:\n${_out}")
     endif()
     set(_drawn "${CMAKE_MATCH_1}")
+    # Refusals answer at once: a shot that stopped waiting for imagery in
+    # flight was not waiting for a refusal.
+    if(_err MATCHES "of the imagery's tiles were still in flight")
+        message(FATAL_ERROR "the client stopped waiting for refused imagery still in "
+                            "flight:\n${_err}")
+    endif()
     set(_why "([0-9]+) terrain tiles were drawn on the DEM's colours: ")
     string(APPEND _why "their imagery could not be fetched")
     if(NOT _err MATCHES "${_why}")
@@ -195,6 +213,14 @@ if(REFUSE_IMAGERY)
         message(FATAL_ERROR "its imagery refused, the client drew ${_drawn} tiles to level "
                             "${_deepest}; without imagery, ${CMAKE_MATCH_1} to level "
                             "${CMAKE_MATCH_2}")
+    endif()
+    # After the depth, so that a client that shot with them still held fails
+    # on what it drew. Released any other way, the late refusals were not
+    # the situation built.
+    if(LATE AND NOT _err MATCHES "held for a test, go now: the wait for the tiles was at 100% with [1-9][0-9]* of the imagery's tiles in")
+        message(FATAL_ERROR "the client did not hold its deepest imagery fetches until "
+                            "its wait was at 100% without them - the late refusals "
+                            "were not built:\n${_err}")
     endif()
     glideslope_judge_leaks("${_bare_err}")
     if(_err MATCHES "the imagery is given up")
