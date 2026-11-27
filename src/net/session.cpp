@@ -18,6 +18,7 @@ std::span<const std::uint8_t> all_of(const std::vector<std::uint8_t>& v) {
 
 std::optional<ClientSession> ClientSession::connect(const std::string& where,
                                                     const std::string& key_hex,
+                                                    std::uint32_t layout,
                                                     double give_up_after_s,
                                                     double resend_every_s,
                                                     const std::string& aircraft,
@@ -55,7 +56,7 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
     }
     // **The layout first** (net::write_joining): a server of another refuses
     // it `WRONG_LAYOUT`, by name, rather than drop every input it sends.
-    const std::vector<std::uint8_t> payload = write_joining(all_of(asked));
+    const std::vector<std::uint8_t> payload = write_joining(layout, all_of(asked));
     w.bytes(initiator.begin(all_of(payload)));
     const std::vector<std::uint8_t> first = w.take();
     if (!socket->send(*address, all_of(first))) {
@@ -288,6 +289,8 @@ void ClientSession::keep_joining_again(double now_s) {
         }
         if (heard == Rejoin::Heard::server_full || heard == Rejoin::Heard::wrong_layout) {
             standing_ = Standing::refused;
+            refused_by_ = heard == Rejoin::Heard::server_full ? Refusal::server_full
+                                                               : Refusal::wrong_layout;
             return;
         }
         if (heard == Rejoin::Heard::old_session_answers) {

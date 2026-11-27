@@ -224,11 +224,11 @@ of the machine (2026-11-22). After a slip a client no longer puts itself
 right from a word older than one it already has, and in a run whose server
 slips 5 to 20 steps every 8 s the words within 4 s after each slip it says it
 made are held to 28 m, the rest to 5.6 m: twenty of twenty, idle and loaded;
-the plain run keeps 5.6 m on every word (2026-11-25). A client saying
-another count of controls than its server reads is refused at the
-handshake, `WRONG_LAYOUT`, and says so by name, rather than let in to have
-every input dropped; only the count is said, not what each control means
-(2026-11-27). A prediction
+the plain run keeps 5.6 m on every word (2026-11-25). A client whose
+controls' layout - their names and order - is not its server's is refused
+at the handshake, `WRONG_LAYOUT`, and says so by name, rather than let in to
+have every input dropped or flown as another control; a control's range or
+sense changed under the same name is not told apart (2026-11-27). A prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only

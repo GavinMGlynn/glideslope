@@ -103,6 +103,8 @@ struct Standing {
     int let_go = 0;
     double quiet_when_let_go_s = 0.0;
     int went_back = 0;
+    // Why it was refused, standing `refused` (net::ClientSession::refused_by).
+    std::optional<net::Refusal> refused_by;
 };
 
 // **The session is kept whatever this thread is doing.** The frame loop

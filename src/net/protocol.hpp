@@ -76,10 +76,10 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // `WEATHER_ALOFT` and `RUNWAY_CONDITIONS` say which, and `WEATHER` when the
 // stations last changed. Version 19 (`13`): the same ground, and every
 // input frame names the client's step it was sent at. Version 20 (`14`): the
-// same ground, and the initiation's payload begins with how many controls the
-// client sends in an input frame, so that a client of another layout is
+// same ground, and the initiation's payload begins with the fingerprint of
+// the client's controls' layout, so that a client of another layout is
 // refused at the handshake by name (`WRONG_LAYOUT`) rather than let in and
-// its every input dropped as the wrong length.
+// its every input dropped as the wrong length, or flown as another control.
 inline constexpr std::uint8_t protocol_version = 20;
 
 // The six bytes every datagram begins with: four of magic, one of version,
@@ -112,8 +112,8 @@ enum class Refusal : std::uint8_t {
     server_full = 5,
     bad_handshake = 6,
     dropped = 7, // the operator dropped this key, for the rest of the server's run
-    // The client sends another number of controls in an input frame than the
-    // server reads (net::read_joining), since version 20.
+    // The client's controls' layout is not the server's, or it said none
+    // (net::read_joining), since version 20.
     wrong_layout = 8,
 };
 

@@ -38,12 +38,13 @@ Said first, because a transport's limits matter more than its features.
   release, a message's layout changes without the version changing, so a build
   of another day may not read today's updates - it refuses them as the wrong
   length, and says nothing more useful. **The one layout said by name is the
-  controls'** (since `14`): the initiation's payload begins with how many
-  controls the client sends in an input frame, and a server reading another
-  number refuses it `WRONG_LAYOUT` (below, "Starting a session"), rather than
-  let it in to have every input dropped as the wrong length. Only the count
-  is said: a build that kept the count and moved or changed a control is not
-  told apart, and nothing says the layout of any other message.
+  controls'** (since `14`): the initiation's payload begins with a
+  fingerprint of the controls the client sends - their names and wire types,
+  in order - and a server whose own is another refuses it `WRONG_LAYOUT`
+  (below, "Starting a session"), rather than let it in to have every input
+  dropped as the wrong length, or flown as another control. A control's
+  range or meaning changed under the same name is not told apart, and
+  nothing says the layout of any other message.
 - **It does keep the version with the ground.** The collision ground is the
   DEM with every runway made its own surface, from the runway strips the
   build carries (`assets/runways/strips.csv`) by rules that are numbered
@@ -109,9 +110,9 @@ Said first, because a transport's limits matter more than its features.
   server held up flies the inputs that came in meanwhile as far apart as
   they were sent.
   Version `14` is on the same ground, and is the first whose initiation's
-  payload begins with how many controls the client sends in an input frame,
-  and whose server refuses another count by name (`WRONG_LAYOUT`, below,
-  "Starting a session").
+  payload begins with the fingerprint of the client's controls' layout, and
+  whose server refuses another by name (`WRONG_LAYOUT`, below, "Starting a
+  session").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -157,7 +158,7 @@ with. Its body is one byte:
 | `05` | `SERVER_FULL` | every slot is taken |
 | `06` | `BAD_HANDSHAKE` | the handshake did not complete |
 | `07` | `DROPPED` | the operator dropped this key; it is refused for the rest of the server's run |
-| `08` | `WRONG_LAYOUT` | the initiation's payload says another number of controls in an input frame than the server reads, or none (since `14`) |
+| `08` | `WRONG_LAYOUT` | the initiation's payload says another controls' layout than the server's, or none (since `14`) |
 
 **The magic is checked before the version.** A datagram from another protocol
 is told that it is another protocol, rather than being told its version is
@@ -180,8 +181,8 @@ was. The server sends one:
   budget of reads (see "Starting a session") - `BAD_HANDSHAKE` when the
   initiation does not complete on a server with a slot free, `DROPPED` when it completes from a static key the
   operator has dropped (see "Leaving"), and `WRONG_LAYOUT` when it completes
-  from any other key and its payload says another number of controls than
-  the server's, or none;
+  from any other key and its payload says another controls' layout than the
+  server's, or none;
 - to a `SEALED` datagram from an address that has no session: `BAD_HANDSHAKE`.
 
 It sends nothing back to a `HANDSHAKE_RESPONSE` or a `REFUSAL`, which a server
@@ -210,7 +211,7 @@ each is exactly one Noise message (see "Sealing" for the suite).
 
 | datagram | body | size with the shortest payload |
 | --- | --- | --- |
-| `HANDSHAKE_INITIATION`, client to server | Noise message one: the client's ephemeral key (32), its static key sealed (32 + 16), the payload sealed (n + 16) | 97, the count alone, so a 103-byte datagram |
+| `HANDSHAKE_INITIATION`, client to server | Noise message one: the client's ephemeral key (32), its static key sealed (32 + 16), the payload sealed (n + 16) | 100, the layout alone, so a 106-byte datagram |
 | `HANDSHAKE_RESPONSE`, server to client | Noise message two: the server's ephemeral key (32), the payload sealed (n + 16) | 48, empty, so a 54-byte datagram |
 
 **The initiation's payload is the client's layout and the aeroplane asked
@@ -220,26 +221,35 @@ player an aircraft as it admits them:
 
 | field | bytes | |
 |---|---|---|
-| controls | 1 | how many controls the client sends in each input frame: `15`, twenty-one (since `14`) |
+| layout | 4 | `u32`, the fingerprint of the controls the client sends: `03281B95` (since `14`) |
 | length | 1, or none | 1 to 32 |
 | id | length | a catalogue id: `a`-`z`, `0`-`9`, `-` and `_` |
 | loading's length | 1, or none | 1 to 32 (since `0E`) |
 | loading | loading's length | the name of a loading in her figures file, `vertical_landing`: `a`-`z`, `0`-`9`, `-` and `_` (since `0E`) |
 
 and nothing after: the loading's two fields are both there or both not.
+**The layout's fingerprint** is 32-bit FNV-1a - offset basis `811C9DC5`,
+prime `01000193`, each byte XORed in and then multiplied - over, for each
+control of an input frame in order, its name, then `:i16`, then a newline
+(`0A`). The names, in order, are `elevator`, `aileron`, `rudder`,
+`throttle`, `mixture`, `flaps`, `left brake`, `right brake`, `pitch trim`,
+`propeller`, `gear`, `supercharger`, `speedbrake`, `throttle offset 0`,
+`throttle offset 1`, `cooling flaps 0`, `cooling flaps 1`, `reverse`,
+`stovl`, `roll trim` and `yaw trim` - the twenty-one of "Inputs", below - so
+the string begins `elevator:i16` and a newline, and the fingerprint is
+`03281B95`, written little-endian as `95 1B 28 03`.
 **A client of another layout is refused, saying so.** A payload whose first
-byte is not the number of controls the server reads in an input frame - or an
-empty payload, which says none - is refused `WRONG_LAYOUT` instead of a
-handshake answer, and the client is not admitted: let in, its every input
-would be dropped as the wrong length (below, "Inputs") and nothing would say
-why. The server says so on its standard output - `refused 11fc7622 from
-127.0.0.1:50123: it sends 20 controls in an input frame, and this server
-reads 21` - and this project's clients say the refusal by its name. The
-count is the whole of the input frame's layout in this version, a frame being
-its step and that many `i16`s; **it is not a check of what each control
-means**: two builds with twenty-one controls in another order are not told
-apart.
-**A payload of the count alone asks for nothing**: the player flies the
+four bytes are not the server's fingerprint - another count of controls,
+another order, a control renamed or replaced - or that is shorter than four
+bytes, which says none, is refused `WRONG_LAYOUT` instead of a handshake
+answer, and the client is not admitted: let in, its every input would be
+dropped as the wrong length (below, "Inputs"), or flown as another control,
+and nothing would say why. The server says so on its standard output -
+`refused 11fc7622 from 127.0.0.1:50123: its controls' layout is 6F1D0E22,
+and this server's is 03281B95` - and this project's clients say the refusal
+by its name. **It is not a check of what each control means**: a control
+whose range or sense changed under the same name is not told apart.
+**A payload of the layout alone asks for nothing**: the player flies the
 server's plan's aeroplane. An aeroplane that does not read so - a length of 0 or
 over 32, a byte outside those, anything trailing, in the id or the loading -
 is read as none, and so is
@@ -1211,7 +1221,7 @@ have not been sent yet.
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
 | `u32` | the step of the client's it was sent at, or `FFFFFFFF`, not said (since `13`) |
-| `i16` x21 | the twenty-one controls: as many as the initiation's payload said (since `14`) |
+| `i16` x21 | the twenty-one controls, in the order the initiation's layout said (since `14`) |
 
 The frames are consecutive, so only the newest sequence is sent: the oldest
 is the newest less one fewer than the count.
