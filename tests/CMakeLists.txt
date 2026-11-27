@@ -2560,6 +2560,23 @@ add_test(NAME a_window_client_whose_stale_cached_imagery_is_refused_when_asked_a
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/imagery_stale_refused.cmake)
 set_tests_properties(a_window_client_whose_stale_cached_imagery_is_refused_when_asked_again_draws_its_frame_and_exits_0
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1300)
+# **And the shot that first crashed** (2026-10-10, exit 139 after an imagery
+# tile was given up): each aircraft it crashed with, standing on the ground,
+# with that imagery refused and stale. See cmake/imagery_stale_refused.cmake.
+foreach(_case "c172p|24892" "learjet35a|24894")
+    string(REPLACE "|" ";" _case "${_case}")
+    list(GET _case 0 _aircraft)
+    list(GET _case 1 _port)
+    set(_name a_shot_of_the_${_aircraft}_on_the_ground_with_its_stale_imagery_refused_writes_its_frame_and_exits_0)
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DTOOL=$<TARGET_FILE:glideslope_cache_revalidation>
+            -DDRIVER=${_first_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames_stale
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DPORT=${_port} -DAIRCRAFT=${_aircraft}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/imagery_stale_refused.cmake)
+    set_tests_properties(${_name}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1300)
+endforeach()
 
 # ---------------------------------------------------------------------------
 # The shader compiler keeps SDL_GPU's resource layout: a shader that follows it
