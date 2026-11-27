@@ -8,9 +8,10 @@ seconds in a stall, and the circuit. The tests' own copy of the recipes
 controller, the circuit's `demo` branch of `fly_a_circuit`) is deleted. Names
 and checks are unchanged; no figure was loosened.
 
-**Not part of it.** `fly_a_circuit` itself stays: other, non-instructor tests
-(the circuit's bands, the downwind sink fault) measure the circuit with it and
-it is not a demonstration.
+**Still open: `fly_a_circuit`.** The circuit-bands and downwind-sink tests
+measure the circuit through that function, which copies the instructor's
+circuit (src/sim/instructor.cpp). It needs a public hook on the instructor for
+the pattern's legs, the flare and the injected sink; the item stays `[ ]` for it.
 
 **What changed in the flights** (all pass the same checks): the instructor
 hands over the step the lesson ends, where the tests' copy waited a second (half
@@ -27,3 +28,9 @@ stall-recovery test: `leave_in_the_stall(seconds)`, `keep_showing_while(fn)` and
 in `sim::Instructor` (the climb asked for 100 ft above instead of 1,100 ft) turned
 `an_instructor_demonstrates_a_climb_and_descent_and_hands_it_over` red; reverted.
 The selftest hash is untouched (no simulation change).
+
+The hand-over is found by the instructor's own step count, and the test asserts
+it equals its own tick. A deliberate drift in the instructor's count
+(`tick_ += 2`) turned the take-off test red; reverted. (A step in the pilot's
+hands cannot show at the swap: the controller blends the controls at a hand's
+pace, so a different resting hand passed and was not used as the break.)
