@@ -39,7 +39,8 @@
 // bucket, standing in for Copernicus's (server_tiles_arrive.cmake).
 //
 // Says on standard error how many requests it answered with STATUS, and how
-// many with FILE. Exits 0, or 2 on bad arguments or a socket it could not
+// many with FILE - and then, for each PREFIX, how many of those were its:
+// "answered N with FILE for PREFIX". Exits 0, or 2 on bad arguments or a socket it could not
 // open.
 
 #include <cstdio>
@@ -161,11 +162,13 @@ int main(int argc, char** argv) {
     }
     const std::filesystem::path port_file = argv[arg + 1];
     // Each PREFIX as the start of a request line, and the answers its FILEs
-    // make, in turn when more than one; how many of them have been given.
+    // make, in turn when more than one; how many of them have been given,
+    // and how many requests it has answered from a FILE in all.
     struct Turns {
         std::string prefix;
         std::vector<std::string> answers;
         std::size_t given = 0;
+        long served = 0;
     };
     std::vector<Turns> files;
     for (int i = arg + 2; i + 1 < argc; i += 2) {
@@ -190,7 +193,7 @@ int main(int argc, char** argv) {
         if (same != nullptr) {
             same->answers.push_back(std::move(made));
         } else {
-            files.push_back({prefix, {std::move(made)}, 0});
+            files.push_back({prefix, {std::move(made)}, 0, 0});
         }
     }
 #ifdef _WIN32
@@ -263,7 +266,8 @@ int main(int argc, char** argv) {
         } else if (file_answer != nullptr) {
             send_all(client, *file_answer);
             ++answered_file;
-            if (matched != nullptr && matched->answers.size() > 1) {
+            ++matched->served;
+            if (matched->answers.size() > 1) {
                 ++matched->given;
             }
         } else if (stall) {
@@ -289,5 +293,9 @@ int main(int argc, char** argv) {
     close_socket(listening);
     std::fprintf(stderr, "glideslope_http_stub: answered %ld requests %d, and %ld with FILE\n",
                  answered, status, answered_file);
+    for (const Turns& t : files) {
+        std::fprintf(stderr, "glideslope_http_stub: answered %ld with FILE for %s\n", t.served,
+                     t.prefix.substr(4).c_str());
+    }
     return 0;
 }
