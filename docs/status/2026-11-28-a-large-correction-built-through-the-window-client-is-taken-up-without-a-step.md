@@ -1,8 +1,11 @@
 ### A large correction built through the window client is taken up without a step, 2026-11-28
 
 **What is still missing first.** Nothing of the item's verification; it
-has not yet been seen on CI's release runners, where the test runs on pull
-requests (debug presets leave `timing` tests to main and the nightly). What
+has not yet been seen on CI. **The bound runs on release presets only**: the
+test is labelled `timing`, and the debug presets never run `timing` tests -
+not on pull requests, not on main, not at night (`.github/workflows/ci.yml`).
+So a recurrence on a debug build, where the 6.2 m step was seen, would go
+unseen. What
 cannot be had: whether the old steps CI saw (6.2 and 24.5 m in the hand-over
 test, 2.77 m at a take-over, all 2026-09-29) were the session's clock. Their
 runs' lines are gone, and the reading below is the most the remaining record
