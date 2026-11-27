@@ -1483,7 +1483,6 @@ set_tests_properties(
     the_window_client_joining_while_the_servers_stations_change_flies_the_servers_air
     more_than_a_reliable_sender_puts_on_the_wire_at_once_arrives_whole_and_in_order
     a_client_joining_32_stations_each_mid_blend_over_several_reports_flies_the_servers_air
-    a_program_that_has_ended_can_still_take_the_standard_librarys_locks_until_its_last_thread_is_gone
     PROPERTIES COST 1)
 # Flies a circuit after its go-around, in simulated time: 762 s on Linux
 # debug's runners (tests/ci_costs), and past the presets' 900 there in run
