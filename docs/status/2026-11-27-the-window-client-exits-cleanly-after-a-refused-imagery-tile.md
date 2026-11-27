@@ -45,7 +45,13 @@ from the left, its frame at tick 240, at Mount Taranaki (whose DEM the tests
 download), its imagery asked of a port nothing listens on. A first shot
 names the tiles it asked for; each is stored stale in its cache; the second
 asks for them again, is refused, and must write its frame and exit 0, and
-must have asked again for at least one (locally 27 of 27). Both aircraft the
+must have asked again for **every** tile stored, the count said: 27 of 27
+for each aircraft in 10 of 10 local runs. (The terrain shot's test is held
+to one or more, as before, and now names those left out: 45 of 45, 44 of
+47, 48 of 48, 50 of 50 and 45 of 50 in five runs, as its refusals land.)
+The coverage seen red with a 28th tile stored that no shot asks for: "of 28
+stale tiles, 27 were asked for again; c172p's shot asks for every one".
+Reverted. Both aircraft the
 item names, two of two. **Seen red** with the 504 layer taken out: both
 "the second shot exited Segmentation fault", as did the existing terrain
 shot's test. Reverted.
