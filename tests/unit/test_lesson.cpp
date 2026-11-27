@@ -7596,9 +7596,12 @@ Demonstrated demonstrate_with_the_instructor(const std::string& id, const std::s
             how.before(instructor);
         }
         const glideslope::sim::Controls now = instructor.step();
+        // The instructor's own count of steps is the test's: the hand-over is
+        // found by it, and a drift between the two must fail, not pass.
+        check(instructor.steps() == tick + 1, "the test and the instructor count the same steps");
         if (!first) {
             const double step = worst_step(last, now);
-            if (instructor.handed_over_at() == tick) {
+            if (instructor.handed_over_at() == instructor.steps() - 1) {
                 out.worst_to_pilot = step;
             } else if (tick == take_back) {
                 out.worst_to_ai = step;
@@ -7629,10 +7632,6 @@ Demonstrated demonstrate_with_the_instructor(const std::string& id, const std::s
     return out;
 }
 
-Demonstrated demonstrate(const std::string& id, const std::string& exercise) {
-    return demonstrate_with_the_instructor(id, exercise);
-}
-
 } // namespace
 
 // **The instructor demonstrates, hands over, and takes back with no step in
@@ -7648,7 +7647,7 @@ GLIDESLOPE_TEST(an_instructor_hands_over_and_takes_back_with_no_step_in_any_cont
     const auto four = everyone_taught("turns");
     check(!four.empty(), "some aeroplane is taught turns");
     for (const std::string& id : four) {
-        const Demonstrated shown = demonstrate(id, "turns");
+        const Demonstrated shown = demonstrate_with_the_instructor(id, "turns");
         std::printf("  %-13s demonstration %zu/%zu stages, worst step %.4f to the "
                     "pilot, %.4f back, %.4f settled\n",
                     id.c_str(), shown.completed, shown.stages, shown.worst_to_pilot,
