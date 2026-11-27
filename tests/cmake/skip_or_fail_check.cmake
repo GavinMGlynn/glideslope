@@ -22,6 +22,8 @@ if(DEFINED CASE)
         glideslope_warmed_up("${_rc}" "${_err}")
     elseif(CASE MATCHES "^warm_not_downloaded")
         glideslope_warmed_up("1" "glideslope_server: could not download https://example/tile.tif")
+    elseif(CASE STREQUAL "warm_no_weather")
+        glideslope_warmed_up("1" "glideslope_server: the weather could not be had: 503")
     elseif(CASE STREQUAL "warm_stopped")
         glideslope_warmed_up("3" "glideslope_server: no such aircraft")
     elseif(CASE MATCHES "^cannot_draw")
@@ -37,14 +39,16 @@ set(_cases
     "warm_ran|||passed|"
     "warm_timed_out|||failed|did not get its terrain inside its limit"
     "warm_timed_out_network_required|1||failed|did not get its terrain inside its limit"
-    "warm_not_downloaded|||skipped|could not get its terrain, so this is skipped"
-    "warm_not_downloaded_network_required|1||failed|GLIDESLOPE_REQUIRE_NETWORK is set"
+    "warm_not_downloaded|||skipped|could not be downloaded, so it is skipped"
+    "warm_not_downloaded_network_required|1||failed|the warm-up server stopped .exit 1."
+    "warm_no_weather|1||skipped|there is no weather to fly in"
     "warm_stopped|||failed|the warm-up server stopped .exit 3."
     "cannot_draw|||skipped|cannot draw here, so this is skipped"
     "cannot_draw_window_required||1|failed|GLIDESLOPE_REQUIRE_WINDOW is set")
-# **Coverage asserted**: three ends for the warm-up, each of skip and fail
-# with the requirement both unset and set, and the two ends of not drawing.
-set(_expected 8)
+# **Coverage asserted**: the warm-up ran, timed out (network required or
+# not), could not download (required or not), had no weather, or stopped;
+# and the two ends of not drawing.
+set(_expected 9)
 
 set(_walked 0)
 foreach(_row IN LISTS _cases)
