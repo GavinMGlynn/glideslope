@@ -5,6 +5,7 @@
 
 #include "gfx/aircraft.hpp"
 #include "gfx/hud.hpp"
+#include "gfx/parts.hpp"
 #include "gfx/scene.hpp"
 #include "net/state.hpp"
 #include "sim/aircraft.hpp"
@@ -95,9 +96,19 @@ Axes axes_at(const world::Ecef& position, double heading_deg, double pitch_deg,
 // **An aeroplane's visual model and where it sits on it**, by its catalogue
 // id, or nothing where it ships none - FlightGear has no Learjet 35A, and
 // docs/ASSETS.md says so. A model with no alignment is a mistake, and throws.
+//
+// With the model come its livery and its control surfaces, from
+// data/models/<id>.livery and <id>.surfaces (gfx/parts.hpp): `parts` is the
+// model painted and cut into its body and a part for each surface, drawn
+// turned about `hinges[i]` by `surfaces[i]`'s deflection. A model without
+// either file is a mistake too.
 struct Visual {
     gfx::Model model;
     gfx::ModelAlignment alignment;
+    gfx::Livery livery;
+    std::vector<gfx::Surface> surfaces;
+    std::vector<gfx::Hinge> hinges;
+    gfx::ModelParts parts;
 };
 std::optional<Visual> visual_of(const std::filesystem::path& data, const std::string& id);
 
@@ -313,8 +324,16 @@ public:
     // The aircraft's visual model, or null where it ships none - FlightGear
     // has no Learjet 35A, and docs/ASSETS.md says so.
     const gfx::Model* model() const {
-        return model_ ? &*model_ : nullptr;
+        return visual_ ? &visual_->model : nullptr;
     }
+    // That model with its livery and its surfaces (Visual), or null.
+    const Visual* visual() const {
+        return visual_ ? &*visual_ : nullptr;
+    }
+    // **Each surface's deflection now**, in radians, as the flight model
+    // reports it - the property its .surfaces line names - in the order of
+    // visual()->surfaces. Empty without a model.
+    std::vector<double> surface_angles_rad() const;
 
     // Where that model goes: its origin - the flight model's visual reference
     // point moved by the alignment in assets/models/alignment.txt - and the
@@ -429,7 +448,7 @@ private:
     std::shared_ptr<world::TilesAhead> air_tiles_;
     sim::CatalogueEntry aircraft_entry_;
     // The visual model, read once, and where it sits on this aeroplane.
-    std::optional<gfx::Model> model_;
+    std::optional<Visual> visual_;
     gfx::ModelAlignment alignment_;
     double model_radius_ = 0.0;
     bool afloat_at_start_ = false;

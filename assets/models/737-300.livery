@@ -1,0 +1,16 @@
+# The Boeing 737-300's livery: white, with blue wingtips, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/737-300.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with blue trim
+coat tip-left      0  70 140   -25.00    0.08   -14.57  -12.74   -8.80   2.84
+coat tip-right     0  70 140   -25.00    0.08    12.74   14.57   -8.80   2.84
+coat fin           0  70 140   -33.41  -25.00    -0.60    0.60   -8.80  -2.60
+coat cheatline     0  70 140   -33.41    0.08    -1.85    1.85   -0.60  -0.30

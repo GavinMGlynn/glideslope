@@ -1,0 +1,26 @@
+# The Cessna 182S's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/c182.mesh), by
+# slicing it where each surface ends: the ailerons between 50% and 93% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 0.3 m out to 1.7 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 0.6 m above the origin to 1.9 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -2.13..-0.62 at 2.79 m, -1.82..-0.73 at 5.19 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -1.750 -2.788 -0.812  -1.544 -5.185 -0.922  0.000 0.454 0.163
+surface right-aileron   fcs/left-aileron-pos-rad   up    -1.750 2.788 -0.812  -1.544 5.185 -0.922  0.000 0.454 0.163
+# tail -6.15..-4.93 at 0.30 m, -5.89..-5.13 at 1.70 m
+surface left-elevator   fcs/elevator-pos-rad       down  -5.781 -0.300 -0.384  -5.661 -1.700 -0.384  0.000 0.439 0.073
+surface right-elevator  fcs/elevator-pos-rad       down  -5.781 0.300 -0.384  -5.661 1.700 -0.384  0.000 0.439 0.073
+# fin -6.19..-4.50 at -0.60 m, -6.73..-6.02 at -1.85 m
+surface rudder          fcs/rudder-pos-rad         left  -5.681 0.003 -0.600  -6.521 0.002 -1.850  0.000 0.601 0.095

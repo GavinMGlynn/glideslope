@@ -1,0 +1,26 @@
+# The Airbus A380's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/a380.mesh), by
+# slicing it where each surface ends: the ailerons between 70% and 92% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 3.0 m out to 14.0 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 5.0 m above the origin to 15.0 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -23.63..-15.90 at 27.93 m, -27.34..-22.49 at 36.71 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -21.697 -27.928 2.081  -26.126 -36.706 1.511  0.000 2.243 0.447
+surface right-aileron   fcs/right-aileron-pos-rad  down  -21.697 27.928 2.081  -26.126 36.706 1.511  0.000 2.243 0.447
+# tail -45.85..-37.50 at 3.00 m, -49.80..-46.08 at 14.00 m
+surface left-elevator   fcs/elevator-pos-rad       down  -43.343 -3.000 0.833  -48.685 -14.000 -0.374  0.000 2.899 0.710
+surface right-elevator  fcs/elevator-pos-rad       down  -43.343 3.000 0.833  -48.685 14.000 -0.374  0.000 2.899 0.710
+# fin -45.81..-36.02 at -5.00 m, -50.07..-42.41 at -15.00 m
+surface rudder          fcs/rudder-pos-rad         left  -42.872 -0.045 -5.000  -47.773 -0.015 -15.000  0.000 3.397 1.702

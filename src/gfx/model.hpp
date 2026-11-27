@@ -4,8 +4,9 @@
 //
 // The models come from FlightGear's aircraft; docs/ASSETS.md names each one's
 // source, revision and licence. A model holds geometry and nothing else: no
-// texture, no livery and no animation, so control surfaces, gear and
-// propellers are welded where the model has them.
+// texture, no livery and no animation, so gear and propellers are welded
+// where the model has them. Its livery and its control surfaces are data of
+// their own, painted on it and cut out of it as it is drawn (gfx/parts.hpp).
 //
 // **The frame is the aircraft's body frame**, JSBSim's: +x forward out of the
 // nose, +y out of the starboard wing, +z down, in metres from the origin the

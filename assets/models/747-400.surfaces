@@ -1,0 +1,26 @@
+# The Boeing 747-400's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/747-400.mesh), by
+# slicing it where each surface ends: the ailerons between 72% and 92% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 2.0 m out to 10.0 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 4.5 m above the origin to 12.5 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -15.38..-9.71 at 23.55 m, -19.18..-15.10 at 30.09 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -13.966 -23.550 -0.631  -18.162 -30.091 -1.163  0.000 1.650 0.525
+surface right-aileron   fcs/right-aileron-pos-rad  down  -13.966 23.550 -0.631  -18.162 30.091 -1.163  0.000 1.650 0.525
+# tail -37.86..-29.57 at 2.00 m, -39.92..-36.73 at 10.00 m
+surface left-elevator   fcs/elevator-pos-rad       down  -35.372 -2.000 -2.472  -38.960 -10.000 -3.542  0.000 2.881 0.783
+surface right-elevator  fcs/elevator-pos-rad       down  -35.372 2.000 -2.472  -38.960 10.000 -3.542  0.000 2.881 0.783
+# fin -36.95..-33.42 at -4.50 m, -40.29..-34.74 at -12.50 m
+surface rudder          fcs/rudder-pos-rad         left  -35.889 -0.003 -4.500  -38.620 0.003 -12.500  0.000 1.935 0.302

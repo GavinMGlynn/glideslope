@@ -377,6 +377,7 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
     add_library(glideslope_model STATIC
         src/gfx/aircraft.cpp
         src/gfx/model.cpp
+        src/gfx/parts.cpp
         src/gfx/scene.cpp
         src/gfx/terrain_colour.cpp)
     target_include_directories(glideslope_model PUBLIC src)

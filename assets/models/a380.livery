@@ -1,0 +1,16 @@
+# The Airbus A380's livery: white, with purple wingtips, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/a380.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with purple trim
+coat tip-left    120  30 100   -36.00   22.85   -40.00  -35.11  -16.39   8.82
+coat tip-right   120  30 100   -36.00   22.85    35.11   40.00  -16.39   8.82
+coat fin         120  30 100   -50.86  -36.00    -0.60    0.60  -16.39  -2.20
+coat cheatline   120  30 100   -50.86   22.85    -4.10    4.10    1.50   1.85

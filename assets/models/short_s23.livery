@@ -1,0 +1,16 @@
+# The Short S.23's livery: white, with navy wingtips, fin and cheatline.
+# src/gfx/parts.hpp says how a coat is read.
+#
+# Each box is in the model's body frame, metres from its origin: +x forward,
+# +y starboard, +z down. Measured off the model's own sections
+# (assets/models/short_s23.mesh): a coat all over is the whole model's box; a
+# wingtip's is beyond 88% of the wing's semispan; a fin's is above the
+# fuselage's top at the tail, aft of the tail's leading edge; a cheatline's
+# is along the fuselage's sides, between the heights given.
+#
+#    NAME          R   G   B       X0      X1       Y0      Y1      Z0     Z1
+name White with navy trim
+coat tip-left     30  50 120   -18.00    0.10   -17.46  -15.28   -7.94   1.95
+coat tip-right    30  50 120   -18.00    0.10    15.28   17.46   -7.94   1.95
+coat fin          30  50 120   -26.92  -18.00    -0.60    0.60   -7.94  -3.60
+coat cheatline    30  50 120   -26.92    0.10    -2.10    2.10   -0.60  -0.40

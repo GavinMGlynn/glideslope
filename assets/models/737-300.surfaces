@@ -1,0 +1,26 @@
+# The Boeing 737-300's control surfaces (src/gfx/parts.hpp says how a line is
+# read): each a hinge line from its inboard or lower end to its other, in the
+# model's body frame, metres from its origin - +x forward, +y starboard, +z
+# down - then how far forward of the hinge the part reaches, how far aft, and
+# how far either side of the hinge's plane; and first the JSBSim property
+# whose value, in radians, is its deflection, with which way a positive value
+# moves its trailing edge.
+#
+# Measured off the model's own sections (assets/models/737-300.mesh), by
+# slicing it where each surface ends: the ailerons between 68% and 93% of the
+# wing's semispan, each hinge a quarter of the local chord forward of the
+# trailing edge;
+# the elevators from 1.5 m out to 5.8 m, hinged three tenths of the
+# chord forward of the trailing edge;
+# the rudder from 2.8 m above the origin to 7.8 m,
+# hinged three tenths of the chord forward of the trailing edge.
+# The sections each was measured from are above its lines.
+#
+# wing -19.81..-17.07 at 9.84 m, -20.92..-19.05 at 13.46 m
+surface left-aileron    fcs/left-aileron-pos-rad   down  -19.122 -9.843 -0.157  -20.451 -13.462 -0.484  0.000 0.807 0.223
+surface right-aileron   fcs/right-aileron-pos-rad  down  -19.122 9.843 -0.157  -20.451 13.462 -0.484  0.000 0.807 0.223
+# tail -32.23..-25.36 at 1.50 m, -33.23..-32.04 at 5.80 m
+surface left-elevator   fcs/elevator-pos-rad       down  -30.170 -1.500 -1.567  -32.872 -5.800 -2.406  0.000 2.389 0.301
+surface right-elevator  fcs/elevator-pos-rad       down  -30.170 1.500 -1.567  -32.872 5.800 -2.406  0.000 2.389 0.301
+# fin -31.50..-25.33 at -2.80 m, -32.87..-30.91 at -7.80 m
+surface rudder          fcs/rudder-pos-rad         left  -29.649 0.019 -2.800  -32.281 0.018 -7.800  0.000 2.151 0.436

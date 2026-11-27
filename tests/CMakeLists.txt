@@ -121,6 +121,7 @@ add_executable(glideslope_tests
     unit/test_restore.cpp
     unit/test_sky.cpp
     unit/test_model.cpp
+    unit/test_parts.cpp
     unit/test_imagery.cpp
     unit/test_process_end.cpp
     unit/test_whole_lines.cpp
@@ -1002,6 +1003,11 @@ set(GLIDESLOPE_UNIT_TESTS
     the_cockpit_view_puts_the_eye_where_the_flight_model_says_the_pilots_is
     every_view_stands_where_its_name_says_and_looks_at_the_aeroplane
     a_model_file_that_is_damaged_or_of_another_version_is_refused
+    every_aircraft_wears_a_livery_and_has_its_ailerons_elevators_and_rudder_hinged
+    the_stick_and_pedals_move_every_aircrafts_surfaces_the_way_they_should
+    a_surface_turns_about_its_hinge_its_trailing_edge_the_way_its_line_says
+    a_coat_or_a_surface_cuts_the_triangles_it_crosses_and_loses_nothing
+    a_livery_or_surfaces_line_that_cannot_be_read_is_refused_with_its_line
     a_pinned_file_is_kept_only_if_it_arrives_with_its_pinned_hash
     a_pinned_file_is_fetched_from_the_first_of_its_sources_that_serves_its_pinned_bytes
     the_geoids_sources_and_pin_are_the_ones_the_tests_fetch
@@ -2123,6 +2129,9 @@ glideslope_configure(glideslope_hud_check)
 add_executable(glideslope_sky_check tools/sky_check.cpp)
 target_link_libraries(glideslope_sky_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_sky_check)
+add_executable(glideslope_surfaces_check tools/surfaces_check.cpp)
+target_link_libraries(glideslope_surfaces_check PRIVATE glideslope_gfx)
+glideslope_configure(glideslope_surfaces_check)
 add_executable(glideslope_view_check tools/view_check.cpp)
 target_link_libraries(glideslope_view_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_view_check)
@@ -2360,6 +2369,17 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
                            FIXTURES_REQUIRED "downloads;cockpit_view_${_driver}")
         endif()
     endforeach()
+    # **The livery and the ailerons, on the frame drawn**: three shots of the
+    # Cessna from behind, the stick left, right, and her not drawn
+    # (tests/cmake/client_livery.cmake, tests/tools/surfaces_check.cpp).
+    add_test(NAME the_cessna_drawn_wears_her_livery_and_her_ailerons_follow_the_stick_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_surfaces_check>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DMODELS=${GLIDESLOPE_DATA_DIR}/models
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_livery.cmake)
+    set_tests_properties(the_cessna_drawn_wears_her_livery_and_her_ailerons_follow_the_stick_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     # **The HUD's horizon on the horizon drawn**, a test a bank, each walking
     # its pitches (cmake/frame_horizon.cmake says what is walked and what is
     # left out).
