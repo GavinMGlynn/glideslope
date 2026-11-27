@@ -2003,11 +2003,10 @@ Joining, leaving, being dropped and coming back; the handshake, the reliable lay
       whose own is another refuses it `WRONG_LAYOUT`. *Verification: clients
       with two controls swapped, one fewer, one more or none are refused at
       the handshake, by name, and this build's is let in.*
-- [x] **The client's half of a session was written twice** - the command-line
-      client's own and the shared one - and a bug was found in one and not
-      the other. Both clients now join, read, stall and say goodbye through
-      the one session. *Verification: no client source has a session of its
-      own, and all 16 rejoin, going-back and goodbye tests run one of the two.*
+- [x] **The client's half of a session was written twice**; both clients now
+      join, read, stall and say goodbye through one. *Verification: no client
+      source has a session of its own, and every test of joining again, going
+      back, being let go, leaving, dropped or goodbye (22, counted) runs one.*
 - [x] **A client the server has let go cannot come back.** Both clients now
       join again by themselves, and neither does when the operator dropped
       it. *Verification: a client stalled past the timeout joins again by

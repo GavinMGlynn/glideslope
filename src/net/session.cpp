@@ -467,6 +467,20 @@ bool ClientSession::read_datagram(double now_s) {
             if (read(all_of(message), d)) {
                 roster_[d.aircraft] = d;
             }
+            ControllerSwap swap;
+            if (read(all_of(message), swap)) {
+                swaps_[swap.aircraft] = swap.to;
+            }
+            if (in_order_) {
+                // Handed up as it came, and heard by the caller itself, which
+                // says each as it hears it: nothing is also kept here for a
+                // `take_` nobody calls, to grow without end.
+                Arrived a;
+                a.what = Arrived::What::message;
+                a.message = std::move(message);
+                arrived_.push_back(std::move(a));
+                continue;
+            }
             TakeOverRefused refused;
             if (read(all_of(message), refused)) {
                 refusals_.push_back(refused.aircraft);
@@ -479,17 +493,7 @@ bool ClientSession::read_datagram(double now_s) {
             if (read(all_of(message), instruction)) {
                 instructions_.push_back(std::move(instruction));
             }
-            ControllerSwap swap;
-            if (read(all_of(message), swap)) {
-                swaps_[swap.aircraft] = swap.to;
-            }
-            if (in_order_) {
-                // Told by the caller itself, which says each as it hears it.
-                Arrived a;
-                a.what = Arrived::What::message;
-                a.message = std::move(message);
-                arrived_.push_back(std::move(a));
-            } else if (auto air = told_.air_said(told_.hear(all_of(message)))) {
+            if (auto air = told_.air_said(told_.hear(all_of(message)))) {
                 air_said_.push_back(std::move(*air));
             }
         }
