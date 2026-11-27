@@ -2055,6 +2055,17 @@ add_executable(glideslope_checklist_check tools/checklist_check.cpp)
 target_link_libraries(glideslope_checklist_check PRIVATE glideslope_gfx)
 glideslope_configure(glideslope_checklist_check)
 
+# **Every aircraft, loaded where fresh memory is NaN, reports only finite
+# numbers**: operator new fills what it hands out with 0xFF bytes, so a number
+# JSBSim leaves unset is a NaN every run, not only when the heap happens to
+# hold one (gear/unit[8]/side_friction_coeff, the A320's nose tip, on
+# windows-clang, CI run 45972866440). Its own program: the poison is the
+# whole process's.
+add_executable(glideslope_poisoned_heap tools/poisoned_heap.cpp)
+target_link_libraries(glideslope_poisoned_heap PRIVATE glideslope_sim)
+glideslope_configure(glideslope_poisoned_heap)
+add_test(NAME every_aircraft_loaded_where_fresh_memory_is_nan_reports_only_finite_numbers
+    COMMAND glideslope_poisoned_heap ${GLIDESLOPE_DATA_DIR})
 add_executable(glideslope_http_stub tools/http_stub.cpp)
 if(WIN32)
     target_link_libraries(glideslope_http_stub PRIVATE ws2_32)
