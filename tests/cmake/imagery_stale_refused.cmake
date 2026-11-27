@@ -4,7 +4,7 @@
 #
 #   cmake -DPROGRAM=<glideslope> -DTOOL=<glideslope_cache_revalidation>
 #         -DDRIVER=<driver> -DWORK=<dir> -DCACHE=<downloads dir> -DPORT=<a port>
-#         -P imagery_stale_refused.cmake
+#         [-DAIRCRAFT=<id>] -P imagery_stale_refused.cmake
 #
 # **The crash, in the client itself.** The client with the window segfaulted
 # as it closed, an imagery tile "given up, unfinished": the tile was in
@@ -30,6 +30,13 @@
 # of them was enough to end it.
 # Before the fix it ended at its first refused revalidation: a segfault in a
 # release build, the undefined-behaviour sanitizer's report in a debug one.
+#
+# **With AIRCRAFT, the shot that first crashed** (2026-10-10, the Phase 12c
+# item): that aircraft standing on the ground, seen from the left, the frame
+# written at tick 240 - the command the Cessna 172P and the Learjet 35A both
+# exited 139 on, after an imagery tile was given up - here at Mount Taranaki,
+# whose DEM the tests download, and with its imagery refused and stale as
+# above.
 
 cmake_minimum_required(VERSION 3.28)
 
@@ -39,7 +46,13 @@ include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 file(MAKE_DIRECTORY "${WORK}")
+set(_view --screen terrain --at "-39.33,174.155,1500" --toward "-39.2967,174.0634,2200")
 set(_stem "${WORK}/imagery-stale-refused-${DRIVER}")
+if(DEFINED AIRCRAFT)
+    set(_view --aircraft "${AIRCRAFT}" --at "-39.33,174.155,60" --on-ground --view left
+              --shot-at 240)
+    string(APPEND _stem "-${AIRCRAFT}")
+endif()
 set(_cesium "${_stem}.sqlite")
 file(REMOVE "${_cesium}" "${_cesium}-wal" "${_cesium}-shm")
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
@@ -54,8 +67,7 @@ function(shoot run out_var)
     file(REMOVE "${_shot}")
     execute_process(
         COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 320x240
-                --screen terrain --at "-39.33,174.155,1500" --toward "-39.2967,174.0634,2200"
-                --imagery on
+                ${_view} --imagery on
                 --test-imagery-url "${_refused_at}{TileMatrix}/{TileRow}/{TileCol}.jpg"
                 --shot "${_shot}"
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err
