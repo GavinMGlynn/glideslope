@@ -635,7 +635,7 @@ std::optional<Visual> visual_of(const std::filesystem::path& data, const std::st
         throw std::runtime_error(id + " has a visual model and no alignment in "
                                       "models/alignment.txt");
     }
-    Visual visual{gfx::read_model(mesh), found->second, {}, {}, {}, {}};
+    Visual visual{gfx::read_model(mesh), found->second, {}, {}, {}, {}, {}};
     visual.livery = gfx::read_livery(data / "models" / (id + ".livery"));
     visual.surfaces = gfx::read_surfaces(data / "models" / (id + ".surfaces"));
     for (const gfx::Surface& surface : visual.surfaces) {

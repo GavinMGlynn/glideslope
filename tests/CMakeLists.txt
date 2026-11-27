@@ -239,6 +239,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_interpolation_error_stays_within_its_bound_under_jitter
     an_aircraft_nobody_has_heard_from_is_not_carried_on_for_ever
     an_aircraft_turning_through_north_takes_the_short_way_round
+    another_aircrafts_surfaces_move_between_two_updates_and_hold_past_the_last
     the_velocity_an_aircraft_is_drawn_moving_at_is_its_paths_own
     an_aircraft_drawn_again_after_a_pause_is_drawn_where_it_is
     an_aircraft_guessed_across_late_updates_comes_back_from_what_was_shown
@@ -467,6 +468,9 @@ set(GLIDESLOPE_UNIT_TESTS
     a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches
     a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know
     a_state_packet_with_a_controller_that_is_not_one_is_refused
+    a_surfaces_deflection_goes_on_the_wire_to_the_nearest_half_degree
+    a_velocity_goes_on_the_wire_to_the_nearest_sixteenth_of_a_metre_a_second
+    a_state_update_carries_the_ailerons_elevator_and_rudder_by_their_properties
     the_transport_document_and_the_code_agree_about_the_state_packet
     the_kinds_inside_a_sealed_body_are_the_six_the_document_names
     a_knock_written_and_read_back_carries_the_same_token
@@ -1005,6 +1009,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_model_file_that_is_damaged_or_of_another_version_is_refused
     every_aircraft_wears_a_livery_and_has_its_ailerons_elevators_and_rudder_hinged
     the_stick_and_pedals_move_every_aircrafts_surfaces_the_way_they_should
+    every_aircrafts_every_surface_reaches_another_client_where_its_flight_model_has_it
     a_surface_turns_about_its_hinge_its_trailing_edge_the_way_its_line_says
     a_coat_or_a_surface_cuts_the_triangles_it_crosses_and_loses_nothing
     a_livery_or_surfaces_line_that_cannot_be_read_is_refused_with_its_line
@@ -4723,7 +4728,7 @@ add_test(NAME the_client_with_the_window_draws_another_players_ailerons_over_as_
         -DCLIENT=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
         -DCHECK=$<TARGET_FILE:glideslope_ridden_surfaces_check>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/others_surfaces -DPORT=25050
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/others_surfaces -DPORT=24794
         -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_sees_others_surfaces.cmake)
 set_tests_properties(the_client_with_the_window_draws_another_players_ailerons_over_as_she_rolls
