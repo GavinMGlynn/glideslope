@@ -126,6 +126,25 @@ and debriefed on her flying.
   only bound on them: the request rate.
 - The two tails are items in the plan's Phase 12c.
 
+**From the full run 46082094869**
+
+- The tests' ports were outside the tests' block (25010 to 25022): the
+  lessons-screen test is on 24855 now, and the six pieces on 24857, 24861,
+  24875, 24889, 24907 and 24915, free ports of the block.
+- Their two servers' `--timeout 30` are counted in the timeouts check's
+  totals (79 and 67).
+- Three pieces on Ubuntu debug failed at their flying boat's lesson -
+  approach, circuit or stalls - with the window client's "cannot reach":
+  its handshake gave up after 5 s with the server listening and its ready
+  file written, while the other five lessons of each piece had joined; on
+  this machine every join takes under 0.1 s, at either pace. The ports were
+  each piece's own, so it was no clash. The cause is not pinned down: the
+  runner was loaded with six pieces' clients and servers at 8 times real
+  time. The test's clients now try the handshake for 120 s
+  (`--connect-wait`, a new test flag, 5 s by default), as nothing else
+  gives up on a slow machine sooner than it needs, and a failure to join
+  prints the server's output, so a repeat says what the server did.
+
 **Decisions**
 
 - **She is moved because her person asked.** The owner's rule that the

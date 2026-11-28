@@ -120,7 +120,7 @@ foreach(_row IN LISTS _rows)
     execute_process(
         COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
                 --aircraft ${_aircraft} --lesson ${_lesson} --quit-once-lesson-over
-                --shot-lesson "${_prefix}" --stdout "${_said}"
+                --shot-lesson "${_prefix}" --stdout "${_said}" --connect-wait 120
                 --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
         COMMAND "${SERVER}" --port ${PORT} --seconds 3600 --until-empty --ai 1 --players 1
                 --headless --data "${DATA}" --timeout 30 --store "${_store}"
@@ -138,7 +138,7 @@ foreach(_row IN LISTS _rows)
         if(_err MATCHES "no GPU|could not|device")
             glideslope_cannot_draw("${_err}")
         endif()
-        message(FATAL_ERROR "${_lesson}: the client drew no lessons screen:\n${_err}\n${_out}")
+        message(FATAL_ERROR "${_lesson}: the client drew no lessons screen:\n${_err}\n${_out}\nthe server said:\n${_server}")
     endif()
     glideslope_judge_leaks("${_err}")
     if(NOT _rc EQUAL 0)
