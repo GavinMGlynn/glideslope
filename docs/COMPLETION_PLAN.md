@@ -2165,13 +2165,10 @@ What the client with the window does that the command-line client does, and what
 - [x] **The instructor's circuits on a server are flown to the book.**
       They were debriefed "Hold the circuit height downwind" because the
       lessons judged height over the DEM's ground, which rises under the
-      downwind leg; circuit height is now judged on the altimeter.
+      downwind leg; circuit height, and every height a turn, stall or climb
+      is judged from, is now read on the altimeter.
       *Verification: every lesson on a server, the seven circuits among them,
       debriefs "flown to the book".* Done 2026-11-29.
-- [ ] **The turns and stalls lessons judge "hold your height" over the
-      ground** (found 2026-11-29), as the circuits did: flown over rising
-      ground, a level turn would be faulted. *Verification: a turn flown level
-      over rising ground debriefs "flown to the book".*
 - [ ] **The tests' demonstrations fly their own copy of the instructor**
       (found 2026-11-28): `test_lesson.cpp` kept the recipes now in the
       simulation's instructor. Done: every `an_instructor_*` test flies the

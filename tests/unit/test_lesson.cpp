@@ -5440,7 +5440,7 @@ GLIDESLOPE_TEST(a_turn_that_loses_height_is_named_in_the_debrief) {
         const Result sinking = fly_a_turn(id, -1200.0);
         std::printf("  %s sinking: lowest %.0f ft of 3000, banked to %.0f\n", id.c_str(),
                     sinking.lowest_agl_ft, sinking.steepest_bank_deg);
-        names_that_fault_and_no_other(id, "turns", sinking.debrief, {"position/h-agl-ft"},
+        names_that_fault_and_no_other(id, "turns", sinking.debrief, {"position/h-sl-ft"},
                                       "losing height in the turn");
     }
 }
@@ -6005,7 +6005,7 @@ GLIDESLOPE_TEST(a_stall_recovered_badly_is_named_in_the_debrief) {
         const Result sloppy = fly_a_stall(id, 35.0);
         std::printf("  %s recovered badly: lowest %.0f ft\n", id.c_str(),
                     sloppy.lowest_agl_ft);
-        names_that_fault_and_no_other(id, "stalls", sloppy.debrief, {"position/h-agl-ft"},
+        names_that_fault_and_no_other(id, "stalls", sloppy.debrief, {"position/h-sl-ft"},
                                       "recovering late and lazily");
     }
 }
@@ -6101,7 +6101,7 @@ double height_bound_ft(const Result& r) {
 double recovery_allowance_ft(const Lesson& lesson) {
     for (const auto& stage : lesson.stages) {
         for (const auto& need : stage.needs) {
-            if (need.property == "position/h-agl-ft" && need.at_least &&
+            if (need.property == "position/h-sl-ft" && need.at_least &&
                 need.low.reference == "start" && need.low.offset < 0.0) {
                 return -need.low.offset;
             }

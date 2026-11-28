@@ -40,6 +40,20 @@ the figures above; the others point to it. The downwind-sink unit test names
 the property the fault is judged on (`position/h-sl-ft`); on its level ground
 nothing else changes.
 
+**The same fault in the lessons flown in the air**, found by the new
+assertion: in the full suite `seaplane-turns` in the S.23 was debriefed
+"Hold your height through the turn" on the server (taught from the water at
+Rose Bay, 3,000 ft over ground that rises under the turn), where it had been
+flown to the book in #434's run. Every height judged from where a stage
+began in the turns, stalls and climb-and-descent lessons - the turn's and
+the stall entry's bands, the recovery's least height, and the climb's and
+descent's ends - is now `position/h-sl-ft` too, 35 lines in 21 files; the
+unit tests that name the property a fault is judged on (the turn that loses
+height, the stall recovered badly, a recovery's allowance) name it. Heights
+that are about the ground stay on `position/h-agl-ft`: the take-off's and
+climb-out's ends from the runway, final's end at 40 ft, and the height a
+lesson is begun at.
+
 **Verification**
 
 - `every_lesson_from_N_by_sevens_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed`
@@ -49,10 +63,10 @@ nothing else changes.
   at `airliner-circuit in the 737-300: the instructor's demonstration is
   debriefed "Hold the circuit height downwind", not flown to the book`;
   restored, green (airliner-circuit handed over at 670.2 s, flown to the book).
-- The full linux-debug suite less `timing|nightly|gust_sweep`, every piece of
-  the every-lesson test included, green.
-- The selftest hash does not move: no lesson is flown by it.
+- The full linux-debug suite less `timing|nightly|gust_sweep`: with the
+  circuits alone fixed, every test green but piece 1 of the every-lesson test,
+  red at `seaplane-turns` as above; with the in-the-air lessons fixed, the
+  lesson unit tests and all seven every-lesson pieces green again.
+- The selftest hash does not move (the selftest tests green): no lesson is
+  flown by it.
 
-**Tail**: the turns and stalls lessons hold "your height" on
-`position/h-agl-ft` too. They pass at 3,000 ft over YSSY, but a level turn
-over rising ground would be faulted the same way; named in the plan.

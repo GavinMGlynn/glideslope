@@ -24,6 +24,10 @@
 #
 # **The bands here are provisional** and are tightened against what the AI
 # pilot actually flies, aeroplane by aeroplane, rather than set by eye.
+#
+# **Heights from where a stage began are on the altimeter**
+# (`position/h-sl-ft`), not over the ground below: see
+# light-aircraft-circuit.lesson.
 
 name Climbs and descents in a business jet
 teaches business-jet
@@ -33,7 +37,7 @@ stage The climb
 do Set the climbing power and let the speed settle at the climbing speed
 do Hold the attitude the speed sits at, and keep the lookout going
 hold velocities/vc-kts climb-40 climb+40 Hold the climbing speed
-until position/h-agl-ft >= start+900
+until position/h-sl-ft >= start+900
 
 stage Levelling off
 do Lower the nose at the height you want and let the speed build
@@ -44,4 +48,4 @@ stage The descent
 do Bring the power back and let the nose down to a steady rate of descent
 do Hold the speed, and keep the engines warm
 hold velocities/vc-kts climb-40 climb+60 Hold the speed in the descent
-until position/h-agl-ft <= start-500
+until position/h-sl-ft <= start-500

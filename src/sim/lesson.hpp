@@ -80,7 +80,7 @@ struct LessonError : std::runtime_error {
 // **`start` is the fourth, and it is not a speed.** It is whatever this
 // watch own property read when the stage began, which is how a lesson says
 // "hold the height you are at" or "hold this heading" without knowing where
-// the aeroplane is: `hold position/h-agl-ft start-150 start+150`. It is
+// the aeroplane is: `hold position/h-sl-ft start-150 start+150`. It is
 // resolved by the runner, which is the only thing that knows when a stage
 // began and what the aeroplane read then.
 //
