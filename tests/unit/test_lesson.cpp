@@ -14814,7 +14814,7 @@ GLIDESLOPE_TEST(a_circuit_flown_low_downwind_is_named_in_the_debrief) {
         std::printf("  %s sinking downwind: %zu/%zu stages, downwind %.0f-%.0f ft\n",
                     id.c_str(), sunk.completed, sunk.stages, sunk.lowest_downwind_ft,
                     sunk.highest_downwind_ft);
-        names_that_fault_and_no_other(id, "circuit", sunk.debrief, {"position/h-agl-ft"},
+        names_that_fault_and_no_other(id, "circuit", sunk.debrief, {"position/h-sl-ft"},
                                       "sinking along the downwind leg");
     }
 }

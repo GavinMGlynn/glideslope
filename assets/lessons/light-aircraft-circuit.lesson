@@ -56,6 +56,15 @@
 # fault; one that sinks a hundred feet along the downwind leg is not holding
 # her height, which is this one.
 #
+# **Circuit height is held on the altimeter, not over the ground below**
+# (`position/h-sl-ft`, not `position/h-agl-ft`): a circuit is flown at an
+# altitude, and the ground under a downwind leg rises and falls. At YSSY 16R
+# on the server's DEM the ground under the instructor's downwind legs ran
+# from 72 to 386 ft while she held her altitude within 8 ft below and 30
+# above where the leg began, and her height over the ground swung 77 ft
+# (the C172P) to 259 ft (the B-2A) under it - every circuit but the light
+# aeroplane's faulted for flying it right (2026-11-29).
+#
 # **The turns are left**, which is the usual direction and the one the numbers
 # here are signed for: `lesson/turned-deg` is negative to the left.
 #
@@ -104,7 +113,7 @@ until lesson/turned-deg <= -80
 stage Downwind
 do Fly the downwind leg at circuit height, parallel to the runway
 do Hold the height and the speed: the landing checks are done along here
-hold position/h-agl-ft start-120 start+120 Hold the circuit height downwind
+hold position/h-sl-ft start-120 start+120 Hold the circuit height downwind
 need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
 until lesson/turned-deg <= -50
 

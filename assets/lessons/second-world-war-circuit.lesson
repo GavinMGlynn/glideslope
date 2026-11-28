@@ -77,6 +77,9 @@
 # **The heights are against where the stage began**, so the lesson can be flown
 # from any aerodrome: `start+400` is four hundred feet above where the climb
 # out started, not above the sea.
+#
+# **Circuit height is on the altimeter** (`position/h-sl-ft`), not over the
+# ground below: see light-aircraft-circuit.lesson.
 
 name The circuit in a wartime aeroplane
 teaches second-world-war
@@ -107,7 +110,7 @@ until lesson/turned-deg <= -80
 stage Downwind
 do Fly the downwind leg at circuit height, parallel to the runway
 do Hold the height and the speed: the landing checks are done along here
-hold position/h-agl-ft start-120 start+120 Hold the circuit height downwind
+hold position/h-sl-ft start-120 start+120 Hold the circuit height downwind
 need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
 until lesson/turned-deg <= -50
 

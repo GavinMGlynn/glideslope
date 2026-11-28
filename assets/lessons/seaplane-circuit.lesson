@@ -23,6 +23,9 @@
 # flies final at 82 to 94 knots against a reference speed of 86. She touches
 # the water within 9 m of the line she took off along. Sinking 250 ft
 # downwind is outside the 120 either side the band allows.
+#
+# **Circuit height is on the altimeter** (`position/h-sl-ft`), not over the
+# ground below: see light-aircraft-circuit.lesson.
 
 name The circuit in a flying boat
 teaches seaplane
@@ -53,7 +56,7 @@ until lesson/turned-deg <= -80
 stage Downwind
 do Fly the downwind leg at circuit height, parallel to the runway
 do Hold the height and the speed: the landing checks are done along here
-hold position/h-agl-ft start-120 start+120 Hold the circuit height downwind
+hold position/h-sl-ft start-120 start+120 Hold the circuit height downwind
 need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
 until lesson/turned-deg <= -50
 
