@@ -14472,176 +14472,78 @@ struct Circuit {
     double fastest_final_kts = 0.0;
 };
 
-// **The AI pilot flies a whole circuit.** The take-off autopilot flies her
-// off, the plain autopilot flies the pattern - a heading and a height a leg -
-// and the approach autopilot brings her back to the same runway she left.
-// (The instructor's own circuit, handed over and taken back, is the
-// simulation's: `demonstrate_with_the_instructor`.)
+// **The AI pilot flies a whole circuit**, as the simulation's instructor
+// (sim/instructor.hpp) demonstrates it: the take-off autopilot flies her off
+// to 650 ft, the go-around's circuit flies the pattern - a heading and a
+// height a leg - and the approach autopilot brings her back to the same runway
+// she left. What is measured here is watched from outside, step by step, up
+// to the lesson's end, before the instructor hands over. `sink_downwind_ft` is
+// the one fault flown in it, given to the instructor's pattern as it is flown.
 Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft = 0.0) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const glideslope::sim::Runway runway = a_runway();
-    const auto dep = glideslope::sim::book_departure_speeds(data(), entry.model);
-    const auto app = glideslope::sim::approach_speeds(data(), entry.model);
-
-    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
-    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
-        [](double, double) { return 0.0; },
-        [water = entry.seaplane](double, double) { return water; }));
-    glideslope::sim::InitialConditions ic;
-    ic.latitude_deg = runway.threshold_lat_deg;
-    ic.longitude_deg = runway.threshold_lon_deg;
-    ic.altitude_ft = runway.elevation_ft + (entry.seaplane ? 6.0 : 0.0);
-    ic.terrain_elevation_ft = runway.elevation_ft;
-    ic.heading_deg = runway.heading_deg;
-    ic.airspeed_kts = 0.0;
-    ic.engine_running = true;
-    ic.gear = 1.0;
-    // **A circuit is flown at the weight its approach speed belongs to**, the
-    // landing loading: a training circuit is flown light, and the approach at
-    // the end of it is judged against a third above the landing stall. At
-    // the take-off loading an A380 - a hundred tonnes heavier - met the turn
-    // on to final at a speed its landing weight's stall had set, stalled in
-    // the bank, and hit the ground five and a half miles short. For every
-    // aeroplane whose figures are all at one loading the two are the same.
-    glideslope::sim::load_for_the_approach(aircraft, data(), entry.model);
-    aircraft.initialize(ic);
-    if (entry.seaplane) {
-        settle_afloat(aircraft);
-    }
-
     const auto found = lesson_for(entry, "circuit");
     check(found.has_value(), id + " has a circuit lesson for its class");
-    LessonRun run(*found, glideslope::sim::LessonSpeeds{dep.rotate_kts, dep.climb_kts,
-                                                        app.vref_kts,
-                                                        app.stall_kts});
-
-    glideslope::sim::Controls standing;
-    glideslope::sim::Controller controller(aircraft, standing);
-    // The climb out: straight ahead to six hundred and fifty feet. **Clear of
-    // where the lesson's climb out ends**, which is four hundred feet above
-    // where it began - about 605 ft. It used to turn at 600, and at the
-    // weight the Cessna's figures are measured at she climbs so slowly in a
-    // turn that she was thirty-eight degrees round before she climbed the
-    // last five feet: turning in the stage that asks her to fly straight, and
-    // every stage after it one turn early, so the downwind leg was counted
-    // inside the turn on to it.
-    constexpr double turn_crosswind_ft = 650.0;
-    // **The take-off asks for that height**, and she is joined to the
-    // circuit levelled there. Until 2026-11-06 it asked for 100 ft more, to
-    // join climbing: asked for 650 ft itself, the PA-28 climbed on to the
-    // circuit's height with her take-off flap put back out (below), slowed
-    // to 51 kt and went 43 ft past it, and began her downwind leg 124 ft
-    // under the highest she flew it at, past the lesson's 120 ft band.
-    controller.to_ai_take_off(runway, dep, turn_crosswind_ft);
-
-    // **The pattern is the go-around's circuit** (sim/circuit.hpp), joined
-    // from the take-off: one set of rules for both. Its sizes, its legs and
-    // where each ends are there; what the take-off brings to it is here.
-    //
-    // What the take-off climbs away at: the climbing speed for a light
-    // aeroplane, V2 and ten for a jet, whose best climb speed is an en-route
-    // one. **Seven tenths of the climb she has, up to two thousand feet a
-    // minute.** `a_climb_it_can_manage` stops at six hundred, which suits a
-    // demonstration and not a jet's circuit: at 175 knots and six hundred
-    // feet a minute an A380 flew three miles of crosswind leg to reach
-    // circuit height, turned downwind far wider than the two miles abeam
-    // Boeing's circuit is flown at, and could not line up with the runway
-    // before she touched - 186 metres to the left of it. For the light
-    // aircraft seven tenths of their climb is below six hundred anyway.
-    // **A jet's take-off flap stays out round the pattern**, as her
-    // downwind leg is flown with it. **A light aeroplane's does not**: her
-    // take-off brought it up from 50 ft (DepartureSpeeds::flaps_up_ft, the
-    // Airplane Flying Handbook's), and she is joined with the flap she has
-    // (below). Until 2026-11-06 it was put back out at the join: the PA-28's
-    // 25 degrees, with which she slowed to 51 kt climbing to circuit height,
-    // 23 under her climbing speed, and ballooned 43 ft past it as she rolled
-    // out downwind and the speed came back.
-    glideslope::sim::CircuitEntry joined;
-    joined.from_take_off = true;
-    joined.climb_kts = dep.initial_climb_kts;
-    joined.climb_fpm = [&] {
-        try {
-            const auto figures = glideslope::sim::read_published_figures(
-                data() / "figures" / (entry.model + ".xml"));
-            for (const auto& spec : figures.figures) {
-                if (spec.flight == "climb_rate" && spec.published > 0.0) {
-                    return std::min(2000.0, 0.7 * spec.published);
-                }
-            }
-        } catch (const std::exception&) {
-        }
-        return 600.0;
-    }();
-    joined.flaps = dep.flap;
-    std::optional<glideslope::sim::GoAroundCircuit> pattern;
+    glideslope::sim::Instructor instructor(
+        data(), entry, *found, runway,
+        std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; },
+            [water = entry.seaplane](double, double) { return water; }));
+    const glideslope::sim::Aircraft& aircraft = instructor.aircraft();
+    const glideslope::sim::LessonRun& run = instructor.run();
     using Leg = glideslope::sim::GoAroundCircuit::Leg;
-    bool climbing_out = true;
-    bool approach = false;
     bool sank = false;
+    if (sink_downwind_ft > 0.0) {
+        instructor.fly_the_pattern_with([&](glideslope::sim::AutopilotModes& m) {
+            const double along = along_the_runway_nm(runway, aircraft);
+            if (instructor.pattern()->leg() == Leg::downwind && along <= -1.0 && !sank) {
+                // **The fault: she sinks along the downwind leg.** Not a low
+                // circuit - that is a different fault and the band is
+                // measured from where the leg began, on purpose - but a leg
+                // begun at circuit height and not held there.
+                sank = true;
+                std::printf("      sinking %.0f ft at %.2f nm, stage %zu, agl %.0f\n",
+                            sink_downwind_ft, along, run.stage(),
+                            aircraft.property("position/h-agl-ft"));
+            }
+            if (sank) {
+                m.altitude_ft = *m.altitude_ft - sink_downwind_ft;
+            }
+        });
+    }
 
     Circuit out;
     out.after.judged_as(entry.seaplane);
     out.stages = found->stages.size();
     std::size_t stage_was = 0;
-    // The flap lever she was last flown with: what she is joined with.
-    double flown_flaps = 0.0;
+    // The leg she was on before this step: the pattern is joined on the
+    // crosswind leg, from the take-off (GoAroundCircuit's constructor).
+    Leg was = Leg::crosswind;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         if (run.finished()) {
             break;
         }
         const double agl = aircraft.property("position/h-agl-ft");
         const double along = along_the_runway_nm(runway, aircraft);
-        if (climbing_out && agl >= turn_crosswind_ft) {
-            climbing_out = false;
-            controller.to_ai();
-            if (entry.aircraft_class == glideslope::sim::AircraftClass::light_aircraft) {
-                joined.flaps = flown_flaps;
+        const bool joined_before = instructor.pattern() != nullptr;
+        instructor.step();
+        check(instructor.steps() == tick + 1, "the test and the instructor count the same steps");
+        if (const auto* pattern = instructor.pattern()) {
+            if (!joined_before) {
+                out.circuit_ft = pattern->circuit_ft();
+                out.circuit_legs = 1;
             }
-            pattern.emplace(aircraft, runway, app, joined);
-            out.circuit_ft = pattern->circuit_ft();
-            out.circuit_legs = 1;
-        }
-        if (pattern && !pattern->on_final()) {
-            const Leg was = pattern->leg();
-            glideslope::sim::AutopilotModes m = pattern->modes();
             if (pattern->leg() != was &&
                 static_cast<int>(pattern->leg()) == static_cast<int>(was) + 1) {
                 ++out.circuit_legs;
             }
-            if (pattern->on_final()) {
-                approach = true;
-                controller.to_ai_approach(runway, app);
-            } else {
-                if (pattern->leg() == Leg::downwind && sink_downwind_ft > 0.0 && along <= -1.0 &&
-                    !sank) {
-                    // **The fault: she sinks along the downwind leg.** Not a
-                    // low circuit - that is a different fault and the band
-                    // is measured from where the leg began, on purpose - but
-                    // a leg begun at circuit height and not held there.
-                    sank = true;
-                    std::printf("      sinking %.0f ft at %.2f nm, stage %zu, agl %.0f\n",
-                                sink_downwind_ft, along, run.stage(), agl);
-                }
-                if (sank) {
-                    m.altitude_ft = *m.altitude_ft - sink_downwind_ft;
-                }
-                controller.autopilot()->set(m);
-            }
+            was = pattern->leg();
         }
-        glideslope::sim::Controls flown = controller.fly();
-        flown_flaps = flown.flaps;
-        if (pattern && !approach) {
-            pattern->configure(flown);
-        }
-        aircraft.set_controls(flown);
-        aircraft.step();
-        if (!run.finished()) {
-            run.update(aircraft, tick);
-        }
+        const bool approach = instructor.on_the_approach();
         out.highest_agl_ft = std::max(out.highest_agl_ft, agl);
         if (approach) {
             out.after.watch(aircraft);
-            out.flare.watch(controller.lander(), aircraft);
+            out.flare.watch(instructor.controller().lander(), aircraft);
         }
         if (out.touch_across_m > 1e8 && approach &&
             (aircraft.property("gear/wow") > 0.5 || aircraft.in_water())) {
@@ -14665,8 +14567,9 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             std::printf("      %6.1f s  stage %zu  leg %d  agl %5.0f  along %+5.2f nm  "
                         "hdg %3.0f  %3.0f kt\n",
                         static_cast<double>(tick) / steps_per_second, run.stage(),
-                        pattern ? static_cast<int>(pattern->leg()) : -1, agl, along,
-                        aircraft.property("attitude/psi-deg"),
+                        instructor.pattern() ? static_cast<int>(instructor.pattern()->leg())
+                                             : -1,
+                        agl, along, aircraft.property("attitude/psi-deg"),
                         aircraft.property("velocities/vc-kts"));
         }
     }
