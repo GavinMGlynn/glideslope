@@ -10594,7 +10594,7 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         behind.set_controls(behind_c.fly());
         behind.step();
         now_s += 1.0 / steps_per_second;
-        out.flown_s = static_cast<double>(t + 1) / steps_per_second;
+        out.flown_s = now_s;
         if (const auto what = judge_ahead.judge(ahead)) {
             out.wreck = ahead_id + " ahead: " + *what;
             break;

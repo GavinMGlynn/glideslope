@@ -32,6 +32,10 @@ how far it got - the three runs above printed nothing.
 
 **Verification.** The failure is seen in CI's logs, three times at 900.1 to
 900.2 s, and the slowdown measured from the timed-out shard's other tests.
-Not yet done, and why the item stays `[ ]`: a local run under load seen give
-up at 900 and pass at 1,800 (the machine's heavy-job lock was held by another
-suite for the whole of this item's time box), and this branch's full CI run.
+The limit itself, read from `ctest --show-only=json-v1` on linux-debug: 1800 s
+with the line; with its value set to 1 (a deliberate break, reverted) the
+tables give it 744 s, less than the 856 s it has taken on CI - so without the
+line it gives up on a slow runner, as it did. A limit set by hand below the
+tables is raised by them, not obeyed (a run at 120 took 187 s and passed), so
+the hand-set figure can only lengthen a limit. Locally the test passes at
+1800 in 189 s. This branch's full CI run is the last check.

@@ -5677,9 +5677,9 @@ add_test(NAME the_cli_refuses_an_argument_it_does_not_know
 # floor where its shard was cut off around it), or the limit set above if
 # that is longer. A test's limit set by hand was a guess at its slowest
 # runner, and runners move: five gust_sweep circuits gave up at their 1800 s
-# on Linux debug in run 43111884667, and the one behind two going around whose
-# leader goes around again at the presets' 900 s on Linux debug in #365's run
-# 43261047217, with 856 s in the table. Nothing gives up on a slow machine
+# on Linux debug in run 43111884667. A limit set by hand is still raised by
+# the tables, never lowered: the racetrack test's 1800 above stays when its
+# figure falls on a fast day. Nothing gives up on a slow machine
 # sooner than a slow machine needs. The tables are measured again by
 # tools/ci_test_costs.py, and the limits follow them.
 file(GLOB _ci_cost_tables ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/*.txt)
