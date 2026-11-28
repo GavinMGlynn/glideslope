@@ -72,9 +72,11 @@ if [[ -f "$costs" ]]; then
             echo "pre-push: a quick test fails (log in ${logs}/glideslope-pre-push-tests.log)" >&2
             exit 1
         fi
-        summary="$(grep -o '[0-9]*% tests passed, [0-9]* tests failed out of [0-9]*' "${logs}/glideslope-pre-push-tests.log" | head -1)"
+        # The exit status decides; the summary only goes in the message. ctest 3
+        # words it "N% tests passed, M tests failed out of T", ctest 4 "N% tests
+        # passed out of T" - and a ctest that ran nothing prints neither.
+        summary="$(grep -oE '[0-9]+% tests passed.* out of [0-9]+' "${logs}/glideslope-pre-push-tests.log" | head -1)"
         if [[ -z "$summary" ]]; then
-            # ctest exits 0 having run nothing ("No tests were found"): not a pass.
             tail -20 "${logs}/glideslope-pre-push-tests.log" >&2
             echo "pre-push: ctest ($(ctest --version | head -1)) ran no quick tests (log in ${logs}/glideslope-pre-push-tests.log)" >&2
             exit 1
