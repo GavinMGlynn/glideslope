@@ -289,6 +289,10 @@ struct Options {
     // For a test: the window's frame while it waits its turn on final,
     // written once the server has said why (`--shot-waiting FILE`).
     std::string shot_waiting;
+    // **How long the handshake is tried for**, seconds, before "cannot
+    // reach" (`--connect-wait`): five by default, which a starved CI runner
+    // under a server flying ahead of real time has outlasted.
+    double connect_wait_s = 5.0;
     // **A lesson chosen by flag** (`--lesson ID`): on a server, the lessons
     // screen shown with it chosen once joined, and asked for, as F2 and
     // Return would.
@@ -467,6 +471,8 @@ void usage(std::FILE* out) {
         "                first again, taken back as it is demonstrated, and again,\n"
         "                handed to the AI as it is; quit once that has ended it\n"
         "                (for tests)\n"
+        "  --connect-wait S  on a server, try the handshake for S seconds before\n"
+        "                saying it cannot reach it (default 5)\n"
         "  --shot-waiting FILE  on a server, write the frame the window shows while\n"
         "                it waits for an aircraft, once the server has said why\n"
         "                (for tests)\n"
@@ -869,6 +875,12 @@ static int run_program(int argc, char** argv) {
             o.shot_once_joined_again = true;
         } else if (a == "--shot-once-back") {
             o.shot_once_back = true;
+        } else if (a == "--connect-wait" && has_value) {
+            o.connect_wait_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+            if (!(o.connect_wait_s > 0.0)) {
+                std::fputs("glideslope: --connect-wait wants seconds, more than 0\n", stderr);
+                return 2;
+            }
         } else if (a == "--shot-waiting" && has_value) {
             o.shot_waiting = std::string(args[++i]);
         } else if (a == "--lesson" && has_value) {
@@ -1261,7 +1273,7 @@ static int run_program(int argc, char** argv) {
             }
             std::optional<glideslope::net::Refusal> refused_by;
             if (auto made = glideslope::net::ClientSession::connect(
-                    where, key, glideslope::sim::control_layout, 5.0, 0.25,
+                    where, key, glideslope::sim::control_layout, o.connect_wait_s, 0.25,
                     o.aircraft_given ? o.aircraft : std::string(),
                     o.aircraft_given ? o.loading : std::string(), o.player_key, &refused_by)) {
                 session.emplace(std::move(*made));

@@ -48,9 +48,11 @@ endforeach()
 # servers, a long one each; 75 and 63 since 2026-11-21 too:
 # server_tiles_arrive.cmake's server, a long one; 76 and 64 since
 # 2026-11-27: server_layout_refused.cmake's server, a long one; 77 and 65
-# since 2026-11-28: client_sees_others_surfaces.cmake's server, a long one).
-set(_expect_uses 77)
-set(_expect_long 65)
+# since 2026-11-28: client_sees_others_surfaces.cmake's server, a long one;
+# 79 and 67 since 2026-11-28 too: client_lesson_screen.cmake's and
+# client_every_lesson.cmake's servers, a long one each).
+set(_expect_uses 79)
+set(_expect_long 67)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 

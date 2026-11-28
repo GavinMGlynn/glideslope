@@ -58,7 +58,7 @@ file(REMOVE "${_said}")
 execute_process(
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 640x480 --aircraft c172p
             --lesson light-aircraft-turns --shot-lesson "${_prefix}"
-            --test-lesson-states fighter-turns --stdout "${_said}"
+            --test-lesson-states fighter-turns --stdout "${_said}" --connect-wait 120
             --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --players 1
             --headless --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
@@ -74,7 +74,7 @@ if(NOT EXISTS "${_prefix}-closed.bmp")
     if(_err MATCHES "no GPU|could not|device")
         glideslope_cannot_draw("${_err}")
     endif()
-    message(FATAL_ERROR "the client drew no lessons screen:\n${_err}\n${_out}")
+    message(FATAL_ERROR "the client drew no lessons screen:\n${_err}\n${_out}\nthe server said:\n${_server}")
 endif()
 glideslope_judge_leaks("${_err}")
 if(NOT _rc EQUAL 0)
