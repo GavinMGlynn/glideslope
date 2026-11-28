@@ -10269,6 +10269,7 @@ struct TwoAround {
     int racetracks = 0;            // flown by the one behind
     double furthest_out_nm = 0.0;  // the one behind, before the threshold
     double leave_downwind_nm = 0.0; // where she turns base, unextended
+    double flown_s = 0.0;          // simulated time flown, to the end of the run
     // Taken by her pilot: the one behind followed every step until her
     // wheels touched, and how long her pilot flew her in the circuit.
     bool followed_while_taken = false;
@@ -10593,6 +10594,7 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         behind.set_controls(behind_c.fly());
         behind.step();
         now_s += 1.0 / steps_per_second;
+        out.flown_s = static_cast<double>(t + 1) / steps_per_second;
         if (const auto what = judge_ahead.judge(ahead)) {
             out.wreck = ahead_id + " ahead: " + *what;
             break;
@@ -10980,12 +10982,15 @@ GLIDESLOPE_TEST(the_one_behind_two_going_around_whose_leader_goes_around_again_f
             two_go_around_together(ahead_id, behind_id, true, Then::ahead_goes_around_again);
         ++flown;
         std::printf("  %s ahead (%d circuits), %s behind: %s; %d racetrack(s), %.1f nm out at "
-                    "most (base at %.1f); %s%s%s%s\n",
+                    "most (base at %.1f); %.0f s flown; %s%s%s%s\n",
                     ahead_id.c_str(), r.ahead_circuits, behind_id.c_str(), least_of(r).c_str(),
-                    r.racetracks, r.furthest_out_nm, r.leave_downwind_nm,
+                    r.racetracks, r.furthest_out_nm, r.leave_downwind_nm, r.flown_s,
                     r.ahead_down_first ? "the one ahead down first" : "THE ONE BEHIND DOWN FIRST",
                     r.both_clear ? ", both landed and clear" : ", NOT BOTH LANDED",
                     r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str());
+        // Each pair's line as it is flown: a run given up at its time limit
+        // says how far it got.
+        std::fflush(stdout);
         const std::string pair = ahead_id + " ahead of " + behind_id;
         auto w = judged(pair, r);
         if (r.ahead_circuits != 2) {
