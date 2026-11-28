@@ -66,25 +66,36 @@ run("the scratch configure" ${CMAKE_COMMAND} --preset linux-debug)
 file(WRITE "${WORK}/build/linux-debug/Testing/Temporary/CTestCostData.txt"
      "${_costs}---\n")
 
-# As git runs it: no refs to push on its standard input.
-execute_process(
-    COMMAND ${CMAKE_COMMAND} -E env "GLIDESLOPE_PUSH_LOGS=${WORK}"
-            bash "${HOOKS}/pre-push" origin "https://example.invalid/scratch.git"
-    WORKING_DIRECTORY "${WORK}" INPUT_FILE /dev/null
-    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-set(_logs "")
-foreach(_log build tests)
-    if(EXISTS "${WORK}/glideslope-pre-push-${_log}.log")
-        file(READ "${WORK}/glideslope-pre-push-${_log}.log" _text)
-        string(SUBSTRING "${_text}" 0 3000 _text)
-        string(APPEND _logs "\n--- the hook's ${_log} log:\n${_text}")
+# As git runs it: no refs to push on its standard input. `fake` is the text a
+# stand-in ctest first on PATH prints (empty: the real ctest runs).
+function(run_hook fake expect)
+    set(_path "$ENV{PATH}")
+    if(NOT fake STREQUAL "")
+        file(MAKE_DIRECTORY "${WORK}/fake")
+        file(WRITE "${WORK}/fake/ctest" "#!/bin/sh\n[ \"$1\" = --version ] && echo 'ctest version 4.5.1' && exit 0\necho '${fake}'\n")
+        execute_process(COMMAND chmod +x "${WORK}/fake/ctest")
+        set(_path "${WORK}/fake:${_path}")
     endif()
-endforeach()
-if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "the pre-push hook refused ${_count} quick tests (exit ${_rc}):\n${_out}${_err}${_logs}")
-endif()
-if(NOT _err MATCHES "100% tests passed, 0 tests failed out of ${_count}\n")
-    message(FATAL_ERROR "the hook did not report all ${_count} quick tests passed, and the "
-                        "live one left out:\n${_out}${_err}${_logs}")
-endif()
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E env "GLIDESLOPE_PUSH_LOGS=${WORK}" "PATH=${_path}"
+                bash "${HOOKS}/pre-push" origin "https://example.invalid/scratch.git"
+        WORKING_DIRECTORY "${WORK}" INPUT_FILE /dev/null
+        RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    set(_logs "")
+    foreach(_log build tests)
+        if(EXISTS "${WORK}/glideslope-pre-push-${_log}.log")
+            file(READ "${WORK}/glideslope-pre-push-${_log}.log" _text)
+            string(SUBSTRING "${_text}" 0 3000 _text)
+            string(APPEND _logs "\n--- the hook's ${_log} log:\n${_text}")
+        endif()
+    endforeach()
+    if(NOT _rc EQUAL 0 OR NOT _err MATCHES "${expect}")
+        message(FATAL_ERROR "the pre-push hook (ctest: '${fake}') did not pass ${_count} quick "
+                            "tests and say so (exit ${_rc}):\n${_out}${_err}${_logs}")
+    endif()
+endfunction()
+run_hook("" "tests passed.* out of ${_count}\n")
+# ctest 3's and ctest 4's wording of the summary, as stand-ins.
+run_hook("100% tests passed, 0 tests failed out of 3000" "out of 3000\n")
+run_hook("100% tests passed out of 3000" "out of 3000\n")
 message(STATUS "the pre-push hook ran all ${_count} quick tests, and not the live one")
