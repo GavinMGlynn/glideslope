@@ -1557,6 +1557,17 @@ foreach(_t 737_300 747_400 787_8 a320 a380 b2 c172p c182 f15c f22 f35b j3cub
 endforeach()
 set_tests_properties(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
     PROPERTIES TIMEOUT 1800)
+# **The one behind whose leader goes around again**: four pairs, each round
+# two circuits and down, in simulated time and at most an hour of it each.
+# On Linux debug's runners it has taken 370 to 856 s as measured, and gave
+# up at the presets' 900 three times: #365's run 43261047217, and runs
+# 46157212817 and 46158030097 beside shard 2's Vulkan client tests - each
+# time its table figure was a fast run's (464 s, from 2026-11-27), so that
+# the limit the tables give it (half as long again) was below 900. Set
+# here, the limit does not fall when the tables are measured again on a
+# faster day. Nothing gives up on a slow machine sooner than it needs.
+set_tests_properties(the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land
+    PROPERTIES TIMEOUT 1800)
 # **A piece's cost and time limit, until CI has measured it**: each piece is
 # a share of a whole test that was too long for a debug sweep shard. A
 # debug runner takes about twelve times a release one's (the racetrack

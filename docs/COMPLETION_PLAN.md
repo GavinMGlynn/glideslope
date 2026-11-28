@@ -2284,6 +2284,11 @@ What the client with the window does that the command-line client does, and what
       twice as fast, and a test that every preset has its test. *Verification:
       each test red with a shard dropping a test, and the coverage test red
       with a preset left out; all green on Linux and Windows.* Done 2026-11-28.
+- [ ] **The racetrack test of two going around gave up at 900 s on Linux
+      debug** three times (runs 43261047217, 46157212817, 46158030097): not a
+      hang, a slow test whose limit fell when its cost was measured on a fast
+      day. Its limit is now 1,800 s, set by hand. *Verification: seen give up
+      at 900 under load locally, and pass at 1,800; then the full CI run green.*
 
 ---
 
