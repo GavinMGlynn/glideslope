@@ -413,8 +413,7 @@ const LessonStage* Instructor::stage() const {
     return run_.finished() ? nullptr : &run_.lesson().stages[run_.stage()];
 }
 
-// **What the instructor asks for, this step**, as the tests' demonstrations
-// asked it (tests/unit/test_lesson.cpp): only while demonstrating.
+// **What the instructor asks for, this step**: only while demonstrating.
 void Instructor::instruct() {
     const std::int64_t since = tick_ - settle_until_;
     switch (demonstration_) {

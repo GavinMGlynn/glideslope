@@ -14519,15 +14519,16 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     // The leg she was on before this step: the pattern is joined on the
     // crosswind leg, from the take-off (GoAroundCircuit's constructor).
     Leg was = Leg::crosswind;
+    std::int64_t stepped = 0;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         if (run.finished()) {
             break;
         }
+        ++stepped;
         const double agl = aircraft.property("position/h-agl-ft");
         const double along = along_the_runway_nm(runway, aircraft);
         const bool joined_before = instructor.pattern() != nullptr;
         instructor.step();
-        check(instructor.steps() == tick + 1, "the test and the instructor count the same steps");
         if (const auto* pattern = instructor.pattern()) {
             if (!joined_before) {
                 out.circuit_ft = pattern->circuit_ft();
@@ -14573,6 +14574,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
                         aircraft.property("velocities/vc-kts"));
         }
     }
+    check(instructor.steps() == stepped, "the test and the instructor count the same steps");
     // Stopped, and on the runway: within its length beyond the threshold and
     // its width either side of the centreline, not stopped anywhere at all.
     const double along_nm = along_the_runway_nm(runway, aircraft);
