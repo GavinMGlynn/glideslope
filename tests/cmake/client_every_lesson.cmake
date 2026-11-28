@@ -49,6 +49,11 @@ endif()
 if(NOT DEFINED EVERY)
     set(EVERY 1)
 endif()
+# The pieces FROM 0 to EVERY - 1 are the whole list between them, each
+# lesson in one: a FROM past that would be a piece of another split.
+if(FROM LESS 0 OR NOT FROM LESS EVERY)
+    message(FATAL_ERROR "FROM ${FROM} is not a piece of ${EVERY}: 0 to ${EVERY} - 1")
+endif()
 file(MAKE_DIRECTORY "${WORK}")
 set(_store "${WORK}/every-lesson.sqlite")
 file(REMOVE "${_store}")

@@ -4950,25 +4950,31 @@ set_tests_properties(every_state_of_the_lessons_screen_is_drawn_and_reads_back_o
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lesson_screen)
 
 # **Every lesson there is, chosen in the client with the window, is flown by
-# the server's instructor, handed over and debriefed**: in six pieces, each
-# every sixth lesson of the list from its own, so that ctest runs them side
-# by side; each asserts how many it flew of how many it holds. See
+# the server's instructor, handed over and debriefed**: in seven pieces of
+# six, each every seventh lesson of the list from its own, so that ctest runs
+# them side by side; each asserts how many it flew of how many it holds. The
+# list is each class's six exercises in turn, so a stride of seven gives
+# every piece one lesson of each exercise - one circuit each, the longest.
+# Six pieces of every sixth gave one piece all seven circuits, which ran past
+# 900 s on a loaded Ubuntu debug runner (run 46106569461). See
 # cmake/client_every_lesson.cmake.
 # Each piece's port, from the free ones left in the tests' block.
-set(_lesson_ports 24857 24861 24875 24889 24907 24915)
-foreach(_piece RANGE 0 5)
+set(_lesson_ports 24857 24861 24875 24889 24907 24915 24919)
+foreach(_piece RANGE 0 6)
     list(GET _lesson_ports ${_piece} _port)
     math(EXPR _first "${_piece} + 1")
-    set(_name every_lesson_from_${_first}_by_sixes_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed)
+    set(_name every_lesson_from_${_first}_by_sevens_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed)
     add_test(NAME ${_name}
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
             -DCLIENT=$<TARGET_FILE:glideslope> -DCLI=$<TARGET_FILE:glideslope_cli>
             -DCHECK=$<TARGET_FILE:glideslope_lesson_check>
             -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/every_lesson_${_piece} -DPORT=${_port}
-            -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER} -DFROM=${_piece} -DEVERY=6
+            -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER} -DFROM=${_piece} -DEVERY=7
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_every_lesson.cmake)
-    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 PROCESSORS 2)
+    # A piece is six lessons, one a circuit; its time limit is twice the
+    # slowest piece measured on CI, not ctest's 900 s default.
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 PROCESSORS 2 TIMEOUT 1800)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/every_lesson_${_piece})
 endforeach()
 

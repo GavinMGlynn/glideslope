@@ -76,8 +76,8 @@ and debriefed on her flying.
   instructor as it demonstrates: ended. Each frame read back glyph by glyph
   (`glideslope_lesson_check`) against what the client said it drew, 7 of 7,
   and each holds the words its state says.
-- `every_lesson_from_N_by_sixes_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed`,
-  six pieces: every lesson `glideslope_cli lessons` lists, in the aeroplane
+- `every_lesson_from_N_by_sevens_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed`,
+  seven pieces of six, one lesson of each exercise in each: every lesson `glideslope_cli lessons` lists, in the aeroplane
   that teaches it, chosen by flag in the window client; the client must be
   told the instructor flying every stage in turn and the hand-over with
   every stage flown, and must draw the screen handed over with the debrief,
@@ -144,6 +144,25 @@ and debriefed on her flying.
   (`--connect-wait`, a new test flag, 5 s by default), as nothing else
   gives up on a slow machine sooner than it needs, and a failure to join
   prints the server's output, so a repeat says what the server did.
+
+**From the full run 46106569461**
+
+- Six pieces of every sixth lesson put all seven circuits in one piece,
+  which ctest cut off at 900 s on Ubuntu debug with its sixth circuit
+  flying. The list is each class's six exercises in turn, so seven pieces
+  of every seventh hold one lesson of each exercise apiece - one circuit
+  each - and each asserts its six, 42 between them (a piece outside the
+  split is refused). Each has a time limit of 1,800 s. On this machine,
+  inside the full linux-debug suite at -j4, they took 172, 200, 216, 235,
+  219, 183 and 182 s: the slowest has 7.7 times its time to spare, and CI's
+  debug runners were about 2.3 times slower than this machine on the six
+  pieces before (2,128 s against about 920).
+- `tests/ci_costs/` remeasured with `tools/ci_test_costs.py --finished` over
+  the three runs before and 46106569461, and the 596 tests those runs did
+  not run (the gust sweep's, the nightly's) merged back at their earlier
+  figures; macos-debug, which the runs had none of, unchanged. The seven
+  pieces' figures are estimates - the six old pieces' total over seven, a
+  fifth more - until a run measures them.
 
 **Decisions**
 
