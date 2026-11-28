@@ -53,12 +53,16 @@ if ! cmake --build --preset linux-debug -j8 > /tmp/glideslope-pre-push-build.log
 fi
 costs="build/linux-debug/Testing/Temporary/CTestCostData.txt"
 if [[ -f "$costs" ]]; then
-    quick="$(awk '/^---/ { exit } NF >= 3 && $3 + 0 < 5 { printf "%s^%s$", sep, $1; sep = "|" }' "$costs")"
-    if [[ -n "$quick" ]]; then
+    # **From a file, not a regular expression**: every quick test's name in one
+    # -R overflowed ctest's regex ("Expression too big") and the command line
+    # itself once the suite had thousands of tests (2026-11-28).
+    quick="$root/$(dirname "$costs")/pre-push-quick.txt"
+    awk '/^---/ { exit } NF >= 3 && $3 + 0 < 5 { print $1 }' "$costs" > "$quick"
+    if [[ -s "$quick" ]]; then
         # Never a live model call (label live): it costs money, and a skipped
         # one measures as quick. GLIDESLOPE_LIVE_MODEL is dropped as well.
         # Four at once, as CLAUDE.md caps ctest in WSL.
-        if ! env -u GLIDESLOPE_LIVE_MODEL ctest --preset linux-debug -j4 -R "$quick" -LE live \
+        if ! env -u GLIDESLOPE_LIVE_MODEL ctest --preset linux-debug -j4 --tests-from-file "$quick" -LE live \
                 > /tmp/glideslope-pre-push-tests.log 2>&1; then
             grep -E 'Failed|\*\*\*' /tmp/glideslope-pre-push-tests.log >&2
             echo "pre-push: a quick test fails (log in /tmp/glideslope-pre-push-tests.log)" >&2

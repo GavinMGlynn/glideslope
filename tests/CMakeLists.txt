@@ -4444,6 +4444,14 @@ add_test(NAME the_pre_commit_hook_refuses_an_unfinished_commit_and_nothing_else
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks.cmake)
 
+# **The pre-push hook runs every quick test, however many there are**: it once
+# gave ctest their names in one regular expression, which overflowed.
+# See cmake/githooks_pre_push_quick.cmake.
+add_test(NAME the_pre_push_hook_runs_thousands_of_quick_tests_and_not_the_live_one
+    COMMAND ${CMAKE_COMMAND} -DHOOKS=${PROJECT_SOURCE_DIR}/.githooks
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks_pre_push_quick
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks_pre_push_quick.cmake)
+
 # **CI's test shards between them run every test once**: for every preset
 # the workflow shards, its dealing (tools/ci_shard.cmake) is done for each of
 # the shards its matrix rows name, and every test is in exactly one. See

@@ -2164,6 +2164,11 @@ What the client with the window does that the command-line client does, and what
       downwind-sink tests still use, copies the instructor's circuit.
       *Verification: those tests fly the circuit through the simulation's
       instructor and pass unchanged.*
+- [x] **The pre-push hook cannot run the quick tests after a full suite
+      run**: it gave ctest every name in one regular expression, which
+      overflowed (found 2026-11-28). *Verification: a hook fed 3000 quick tests
+      runs them all and not the live one, failing with the old regex.* Done
+      2026-11-28: the names go in a file for `ctest --tests-from-file`.
 - [x] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
       model. *Verification: a model whose source and licence are in
       `ASSETS.md` is held to the Learjet's size and drawn in a shot.* Done
