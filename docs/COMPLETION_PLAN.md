@@ -2166,13 +2166,13 @@ What the client with the window does that the command-line client does, and what
       Every circuit but the light aeroplane's is debriefed "Hold the circuit
       height downwind" on the server, where the tests' flat ground flies them clean.
       *Verification: every circuit lesson on a server debriefs "flown to the book".*
-- [ ] **The tests' demonstrations fly their own copy of the instructor**
+- [x] **The tests' demonstrations fly their own copy of the instructor**
       (found 2026-11-28): `test_lesson.cpp` kept the recipes now in the
-      simulation's instructor. Done: every `an_instructor_*` test flies the
-      instructor. Missing: `fly_a_circuit`, which the circuit-bands and
-      downwind-sink tests still use, copies the instructor's circuit.
+      simulation's instructor. Every `an_instructor_*` test, and the
+      circuit-bands and downwind-sink tests, now fly the instructor.
       *Verification: those tests fly the circuit through the simulation's
-      instructor and pass unchanged.*
+      instructor and pass unchanged.* Done 2026-11-28: their output is
+      identical to the copy's, and a break in the instructor turns each red.
 - [x] **The pre-push hook cannot run the quick tests after a full suite
       run**: it gave ctest every name in one regular expression, which
       overflowed (found 2026-11-28). *Verification: a hook fed 3000 quick tests

@@ -140,6 +140,18 @@ public:
     void keep_showing_while(std::function<bool()> showing) { showing_ = std::move(showing); }
     bool recovering() const { return recovering_; }
 
+    // **A circuit's pattern**, once she is joined to it at 650 ft (nothing
+    // before, and nothing for any other lesson), and whether she has been
+    // given to the approach autopilot for final.
+    const GoAroundCircuit* pattern() const { return pattern_ ? &*pattern_ : nullptr; }
+    bool on_the_approach() const { return approach_flown_; }
+    // **For a test that flies a circuit with a fault in it**: called with
+    // each step's pattern modes, before the autopilot is given them, round
+    // the pattern up to final.
+    void fly_the_pattern_with(std::function<void(AutopilotModes&)> fault) {
+        fault_ = std::move(fault);
+    }
+
 private:
     void begin(const Lesson& lesson);
     void begin_in_the_air(double agl_ft, double flaps);
@@ -179,6 +191,7 @@ private:
     ApproachSpeeds approach_;
     bool climbing_out_ = true;
     bool approach_flown_ = false;
+    std::function<void(AutopilotModes&)> fault_;
     double flown_flaps_ = 0.0;
 };
 

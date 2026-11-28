@@ -297,7 +297,7 @@ void Instructor::begin(const Lesson& lesson) {
         } else {
             // The climb out: straight ahead to 650 ft, clear of where the
             // lesson's climb out ends, and joined to the go-around's
-            // circuit there (as the circuit lesson's test flies it).
+            // circuit there.
             controller_->to_ai_take_off(runway_, *dep, 650.0);
             joined_.from_take_off = true;
             joined_.climb_kts = dep->initial_climb_kts;
@@ -413,8 +413,7 @@ const LessonStage* Instructor::stage() const {
     return run_.finished() ? nullptr : &run_.lesson().stages[run_.stage()];
 }
 
-// **What the instructor asks for, this step**, as the tests' demonstrations
-// asked it (tests/unit/test_lesson.cpp): only while demonstrating.
+// **What the instructor asks for, this step**: only while demonstrating.
 void Instructor::instruct() {
     const std::int64_t since = tick_ - settle_until_;
     switch (demonstration_) {
@@ -475,11 +474,14 @@ void Instructor::instruct() {
             pattern_.emplace(*aircraft_, runway_, approach_, joined_);
         }
         if (pattern_ && !pattern_->on_final()) {
-            const AutopilotModes m = pattern_->modes();
+            AutopilotModes m = pattern_->modes();
             if (pattern_->on_final()) {
                 approach_flown_ = true;
                 controller_->to_ai_approach(runway_, approach_);
             } else {
+                if (fault_) {
+                    fault_(m);
+                }
                 controller_->autopilot()->set(m);
             }
         }
