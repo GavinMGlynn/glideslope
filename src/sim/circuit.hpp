@@ -23,8 +23,8 @@
 // gear where the landing needs them. A faster aeroplane's circuit is higher
 // and wider.
 //
-// **The circuit lessons' AI flies this circuit too** (tests/unit/
-// test_lesson.cpp, fly_a_circuit), joined from a take-off rather than a
+// **The circuit lessons' instructor flies this circuit too** (sim/
+// instructor.hpp), joined from a take-off rather than a
 // go-around - one set of rules, two ways in (`CircuitEntry`): from the
 // take-off on to crosswind at the take-off's turn height, climbing at its
 // climb speed and rate with the take-off flap out. **It is flown that high over the

@@ -144,7 +144,8 @@ an empty debrief by every aeroplane whose figures give the speeds it names,
 and each flown with a stated fault naming that fault and no other; and the
 instructor, the AI pilot, demonstrating each and handing the controls over
 and back with no step. Since 2026-11-28 the instructor is the
-simulation's, not the tests': every lesson says how it is demonstrated, and
+simulation's, not the tests' - every test that flies a demonstration or a
+circuit flies it - and every lesson says how it is demonstrated, and
 `glideslope_cli lesson` flies one - demonstrated, handed over, debriefed - and
 a player chooses any of the 42 on the window client's lessons screen and
 watches the server's instructor fly it in her own aircraft, stage by stage,
