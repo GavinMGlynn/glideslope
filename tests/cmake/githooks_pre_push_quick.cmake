@@ -68,14 +68,23 @@ file(WRITE "${WORK}/build/linux-debug/Testing/Temporary/CTestCostData.txt"
 
 # As git runs it: no refs to push on its standard input.
 execute_process(
-    COMMAND bash "${HOOKS}/pre-push" origin "https://example.invalid/scratch.git"
+    COMMAND ${CMAKE_COMMAND} -E env "GLIDESLOPE_PUSH_LOGS=${WORK}"
+            bash "${HOOKS}/pre-push" origin "https://example.invalid/scratch.git"
     WORKING_DIRECTORY "${WORK}" INPUT_FILE /dev/null
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+set(_logs "")
+foreach(_log build tests)
+    if(EXISTS "${WORK}/glideslope-pre-push-${_log}.log")
+        file(READ "${WORK}/glideslope-pre-push-${_log}.log" _text)
+        string(SUBSTRING "${_text}" 0 3000 _text)
+        string(APPEND _logs "\n--- the hook's ${_log} log:\n${_text}")
+    endif()
+endforeach()
 if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "the pre-push hook refused ${_count} quick tests (exit ${_rc}):\n${_out}${_err}")
+    message(FATAL_ERROR "the pre-push hook refused ${_count} quick tests (exit ${_rc}):\n${_out}${_err}${_logs}")
 endif()
 if(NOT _err MATCHES "100% tests passed, 0 tests failed out of ${_count}\n")
     message(FATAL_ERROR "the hook did not report all ${_count} quick tests passed, and the "
-                        "live one left out:\n${_out}${_err}")
+                        "live one left out:\n${_out}${_err}${_logs}")
 endif()
 message(STATUS "the pre-push hook ran all ${_count} quick tests, and not the live one")
