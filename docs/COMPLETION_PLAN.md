@@ -2269,6 +2269,12 @@ What the client with the window does that the command-line client does, and what
       recorded weather, and a skip on macOS CI prints why. *Verification: every
       window-client test run on macOS release, none skipped but for want of
       a key.* Done 2026-11-28.
+- [x] **The shard check is one test a preset** (found 2026-11-28): one test
+      dealing every preset's shards took 2,061 s on Windows, past what the
+      dealer gives a shard's longest test. Now a test a preset, a dealing
+      twice as fast, and a test that every preset has its test. *Verification:
+      each test red with a shard dropping a test, and the coverage test red
+      with a preset left out; all green on Linux and Windows.* Done 2026-11-28.
 
 ---
 

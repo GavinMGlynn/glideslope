@@ -4455,21 +4455,33 @@ set_tests_properties(the_pre_push_hook_runs_thousands_of_quick_tests_and_not_the
     PROPERTIES SKIP_RETURN_CODE 77)
 
 # **CI's test shards between them run every test once**: for every preset
-# the workflow shards, its dealing (tools/ci_shard.cmake) is done for each of
-# the shards its matrix rows name, and every test is in exactly one. See
-# cmake/ci_shards.cmake.
-add_test(NAME every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+# the workflows shard, its dealing (tools/ci_shard.cmake) is done for each of
+# the shards its matrix rows name, and every test is in exactly one. A test a
+# preset, so they run side by side: in one, every preset's dealings took
+# 2,061 s on Windows debug's runners (run 46106569461), and the dealing will
+# not give a shard a test half as long again as its 45 minutes. A test of the
+# workflows themselves checks that these presets are every preset they deal.
+# See cmake/ci_shards.cmake.
+set(_ci_shard_presets linux-debug linux-release macos-debug macos-release
+    windows-debug windows-release windows-clang)
+foreach(_preset IN LISTS _ci_shard_presets)
+    string(REPLACE "-" "_" _pname ${_preset})
+    add_test(NAME every_${_pname}_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+        COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -DBUILD=${PROJECT_BINARY_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ci_shards/${_preset} -DPRESET=${_preset}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ci_shards.cmake)
+    # The longest, locally: linux-release's, four jobs of it, 71 s; linux-debug's,
+    # its seven days and the nightly's repeat job, 53. Half an hour: nothing
+    # gives up on a slow machine sooner than it needs.
+    set_tests_properties(every_${_pname}_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+        PROPERTIES TIMEOUT 1800)
+endforeach()
+add_test(NAME every_preset_ci_deals_has_a_shard_test_of_its_own_and_every_test_job_deals_its_own_row
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -DBUILD=${PROJECT_BINARY_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ci_shards
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ci_shards/workflows "-DPRESETS=${_ci_shard_presets}"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ci_shards.cmake)
-# Every shard's -I file is read back by a ctest of its own: 648 s on Windows
-# debug's runners (tests/ci_costs), and past the presets' 900 there and on
-# Windows release in dispatch run 43257673789, once the gust sweep's shards
-# were dealt too; and now every debug preset's seven days are dealt and read
-# back as well - 358 s on linux-release locally, against 146 before. An hour:
-# nothing gives up on a slow machine sooner than it needs.
-set_tests_properties(every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
-    PROPERTIES TIMEOUT 3600)
+set_tests_properties(every_preset_ci_deals_has_a_shard_test_of_its_own_and_every_test_job_deals_its_own_row
+    PROPERTIES TIMEOUT 600)
 
 # **A test skipped on CI says why**: ctest prints nothing of a skip, so CI's
 # test jobs print what each skipped test said from ctest's JUnit report

@@ -1,4 +1,4 @@
-# Seconds each test took on CI, the longest of runs 43138678345, 43129942786, 42838785343, 42103685797, 43111884667, 41918525620, 43257673789, 43384660740 (42838785343, 43111884667, 43138678345, 43257673789, 43384660740 not green: the tests its shards finished counted, 15 of them cut off and counted at the time they had run): tools/ci_test_costs.py --finished
+# Seconds each test took on CI, the longest of runs 43138678345, 43129942786, 42838785343, 42103685797, 43111884667, 41918525620, 43257673789, 43384660740 (42838785343, 43111884667, 43138678345, 43257673789, 43384660740 not green: the tests its shards finished counted, 15 of them cut off and counted at the time they had run): tools/ci_test_costs.py --finished; 8 tests estimated, not measured: every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once split 8 ways, 54 s each of its 425
 1 a_32_bit_toolchain_is_refused_on_every_platform
 1 a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_returned
 188 a_737_300_and_a_737_300_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
@@ -1087,7 +1087,6 @@
 31 every_checklist_band_is_one_its_aeroplanes_controls_can_reach
 2 every_checklist_item_names_a_state_its_own_aircraft_has_or_is_the_pilots
 1 every_checklist_item_the_cessna_can_see_ticks_when_its_state_first_shows_it_done
-425 every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
 2 every_compiled_unit_test_is_registered_with_ctest
 1 every_compiler_is_refused_below_its_floor_and_accepted_at_it
 1 every_control_goes_on_the_wire_and_comes_back_within_one_step
@@ -2171,3 +2170,11 @@
 1 with_nothing_lost_every_reliable_message_arrives_once_and_in_order
 1 without_stability_the_wind_over_a_ridge_is_potential_flow
 278 the_cessnas_light_follows_her_bank_with_no_mesh_made_again_on_metal
+54 every_linux_debug_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_linux_release_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_macos_debug_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_macos_release_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_windows_debug_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_windows_release_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_windows_clang_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+54 every_preset_ci_deals_has_a_shard_test_of_its_own_and_every_test_job_deals_its_own_row
