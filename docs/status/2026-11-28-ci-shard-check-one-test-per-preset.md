@@ -27,7 +27,12 @@ Phase 12c, "The shard check is one test a preset" (found 2026-11-28).
   reads back only that preset's dealings - every job's rows of it, both ways
   its runs leave tests out (the night's way sized on its own system's
   hosts), its debug sweep's seven days, and the nightly's repeat job for
-  linux-debug - and fails unless it did every one it was asked for.
+  linux-debug - counting each shard file as it is read back and checked,
+  and failing unless that is every shard file its workflows ask for
+  (linux-debug 81, linux-release 24, macos-debug 37, macos-release 11,
+  windows-debug 69, windows-release 16, windows-clang 14). The old count of
+  shards dealt against the matrix rows, which the rows check already pins,
+  is gone.
 - **`every_preset_ci_deals_has_a_shard_test_of_its_own_and_every_test_job_deals_its_own_row`**
   (`-DPRESETS=`, the list tests/CMakeLists.txt makes the tests from) deals
   nothing: it keeps every check of the workflows themselves - each job
@@ -52,8 +57,10 @@ Phase 12c, "The shard check is one test a preset" (found 2026-11-28).
   all seven preset tests failed ("... dealt, 1687 distinct; missing: 1687")
   and the workflow test passed; with windows-clang left out of the list in
   tests/CMakeLists.txt, the workflow test failed ("dealt, with no test:
-  windows-clang"). `-DPRESET=linux-foo` fails "no workflow deals it". Each
-  reverted.
+  windows-clang"). With shard 2's read-back skipped in every way, the
+  preset tests failed on the count ("windows-debug: 68 of its 69 shard files
+  read back", "linux-release: 19 of its 24"). `-DPRESET=linux-foo` fails "no
+  workflow deals it". Each reverted.
 - Windows (tools/windows_build.sh, windows-debug on the development machine),
   all eight green, 325 s between them: linux-debug 296 s, windows-debug
   253 s, linux-release 177 s, macos-debug 157 s, windows-release 108 s,
