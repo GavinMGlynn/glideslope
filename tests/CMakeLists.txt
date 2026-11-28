@@ -4451,6 +4451,8 @@ add_test(NAME the_pre_push_hook_runs_thousands_of_quick_tests_and_not_the_live_o
     COMMAND ${CMAKE_COMMAND} -DHOOKS=${PROJECT_SOURCE_DIR}/.githooks
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/githooks_pre_push_quick
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/githooks_pre_push_quick.cmake)
+set_tests_properties(the_pre_push_hook_runs_thousands_of_quick_tests_and_not_the_live_one
+    PROPERTIES SKIP_RETURN_CODE 77)
 
 # **CI's test shards between them run every test once**: for every preset
 # the workflow shards, its dealing (tools/ci_shard.cmake) is done for each of
