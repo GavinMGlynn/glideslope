@@ -14,6 +14,17 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+# The hook is a bash script run from Linux or WSL, and uses ctest
+# --tests-from-file, CMake 3.29's (the project's minimum is 3.28; Rocky 10's own
+# CMake and the runners' are newer). Skipped, never passed, where it cannot run.
+find_program(_ninja ninja)
+if(CMAKE_HOST_WIN32 OR CMAKE_VERSION VERSION_LESS 3.29 OR NOT _ninja)
+    message(STATUS "SKIPPED: the pre-push hook runs from Linux or WSL, with CMake 3.29 "
+                   "and Ninja (this is ${CMAKE_HOST_SYSTEM_NAME}, CMake ${CMAKE_VERSION})")
+    cmake_language(EXIT 77)
+endif()
+unset(ENV{GLIDESLOPE_PUSH_QUICK})  # a 0 in the environment would skip the hook's tests
+
 foreach(_var GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_PARAMETERS
         GIT_CONFIG_COUNT GIT_OBJECT_DIRECTORY GIT_DIR GIT_WORK_TREE GIT_IMPLICIT_WORK_TREE
         GIT_GRAFT_FILE GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS GIT_REPLACE_REF_BASE GIT_PREFIX
@@ -38,7 +49,7 @@ string(APPEND _costs "a_live_test_that_must_not_run 1 0.01\n")
 file(WRITE "${WORK}/CMakeLists.txt" "${_cmakelists}")
 file(WRITE "${WORK}/CMakePresets.json" [[{
   "version": 6,
-  "configurePresets": [{"name": "linux-debug", "binaryDir": "${sourceDir}/build/linux-debug"}],
+  "configurePresets": [{"name": "linux-debug", "generator": "Ninja", "binaryDir": "${sourceDir}/build/linux-debug"}],
   "buildPresets": [{"name": "linux-debug", "configurePreset": "linux-debug"}],
   "testPresets": [{"name": "linux-debug", "configurePreset": "linux-debug"}]
 }]])

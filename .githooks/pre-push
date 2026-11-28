@@ -55,7 +55,9 @@ costs="build/linux-debug/Testing/Temporary/CTestCostData.txt"
 if [[ -f "$costs" ]]; then
     # **From a file, not a regular expression**: every quick test's name in one
     # -R overflowed ctest's regex ("Expression too big") and the command line
-    # itself once the suite had thousands of tests (2026-11-28).
+    # itself once the suite had thousands of tests (2026-11-28). --tests-from-file
+    # is CMake 3.29's; the project's minimum is 3.28, but Rocky 10 and every
+    # machine here have newer.
     quick="$root/$(dirname "$costs")/pre-push-quick.txt"
     awk '/^---/ { exit } NF >= 3 && $3 + 0 < 5 { print $1 }' "$costs" > "$quick"
     if [[ -s "$quick" ]]; then
