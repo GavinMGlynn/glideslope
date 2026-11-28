@@ -24,6 +24,9 @@
 # fly final at vref-9 to vref+11. The downwind band is 150 ft
 # either side, half as much again as the FAA's Airline Transport Pilot ACS
 # allows (100 ft) and inside the 250 ft the fault is flown with.
+#
+# **Circuit height is on the altimeter** (`position/h-sl-ft`), not over the
+# ground below: see light-aircraft-circuit.lesson.
 
 name The circuit in an airliner
 teaches airliner
@@ -53,7 +56,7 @@ until lesson/turned-deg <= -80
 stage Downwind
 do Fly the downwind leg at circuit height, parallel to the runway, the take-off flap out
 do Hold the height and the speed: the landing checks are done along here
-hold position/h-agl-ft start-150 start+150 Hold the circuit height downwind
+hold position/h-sl-ft start-150 start+150 Hold the circuit height downwind
 need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
 until lesson/turned-deg <= -50
 

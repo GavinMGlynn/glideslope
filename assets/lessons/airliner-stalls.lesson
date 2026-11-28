@@ -27,6 +27,10 @@
 # because `stall` is the stall with everything down: flown clean, a swept wing
 # asked for twenty-five knots above its landing stall has to stall to get
 # there, and departs. **The bands are measured**, with room: the 737-300 loses 128 feet at worst entering it and 319 in the recovery, the A380 354, the 787-8 418 and the A320 320 (as measured 2026-09-26).
+#
+# **Heights from where a stage began are on the altimeter**
+# (`position/h-sl-ft`), not over the ground below: see
+# light-aircraft-circuit.lesson.
 
 name Stalls in an airliner
 teaches airliner
@@ -49,11 +53,11 @@ warning stall+6
 stage Entering the stall
 do Close the throttles and hold the height as the speed comes back
 do Keep the wings level: a wing drop is what you are avoiding
-hold position/h-agl-ft start-250 start+150 Hold the height as the speed comes back
+hold position/h-sl-ft start-250 start+150 Hold the height as the speed comes back
 until velocities/vc-kts <= stall+25
 
 stage The recovery
 do Move the control column forward to unstall the wing
 do Full power as the nose comes down, and level the wings
-need position/h-agl-ft >= start-1300 Recover with the least height you can
+need position/h-sl-ft >= start-1300 Recover with the least height you can
 until velocities/vc-kts >= stall+35

@@ -32,6 +32,9 @@
 # until a pilot could open them by hand it reached vref+20. The pattern above
 # is a jet's with the flap left out: the B-2A has none, and her speedbrakes
 # do its work.
+#
+# **Circuit height is on the altimeter** (`position/h-sl-ft`), not over the
+# ground below: see light-aircraft-circuit.lesson.
 
 name The circuit in a bomber
 teaches bomber
@@ -61,7 +64,7 @@ until lesson/turned-deg <= -80
 stage Downwind
 do Fly the downwind leg at circuit height, parallel to the runway
 do Hold the height and the speed: the landing checks are done along here
-hold position/h-agl-ft start-150 start+150 Hold the circuit height downwind
+hold position/h-sl-ft start-150 start+150 Hold the circuit height downwind
 need lesson/flown-nm >= 1.0 Fly a downwind leg long enough to do the checks and settle
 until lesson/turned-deg <= -50
 

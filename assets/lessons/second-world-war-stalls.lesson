@@ -20,6 +20,10 @@
 # for one that never comes - she breaks, drops, and accelerates away in the
 # descent while the lesson watches. The margin is the gap between a published
 # low-level figure and where a clean aeroplane at height gives up.
+#
+# **Heights from where a stage began are on the altimeter**
+# (`position/h-sl-ft`), not over the ground below: see
+# light-aircraft-circuit.lesson.
 
 name Stalls in a wartime twin
 teaches second-world-war
@@ -54,11 +58,11 @@ warning stall+5
 stage Entering the stall
 do Close the throttles and hold the height as the speed comes back
 do Keep the wings level: a wing drop is what you are avoiding
-hold position/h-agl-ft start-150 start+150 Hold the height as the speed comes back
+hold position/h-sl-ft start-150 start+150 Hold the height as the speed comes back
 until velocities/vc-kts <= stall+25
 
 stage The recovery
 do Move the control column forward to unstall the wing
 do Full power as the nose comes down, and level the wings
-need position/h-agl-ft >= start-600 Recover with the least height you can
+need position/h-sl-ft >= start-600 Recover with the least height you can
 until velocities/vc-kts >= stall+35

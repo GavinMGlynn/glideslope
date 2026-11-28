@@ -14,8 +14,9 @@
 # where the lesson begins in the air, and flying every stage of it in turn;
 # then the hand-over, 'N of N stages flown'; and it must draw the screen
 # handed over with the debrief, read back off its frame
-# (glideslope_lesson_check). The server must say it handed her over. The
-# count of lessons flown is asserted against the count there are.
+# (glideslope_lesson_check), and the debrief must be "flown to the book".
+# The server must say it handed her over. The count of lessons flown is
+# asserted against the count there are.
 #
 # **Events, not times**: the client quits once its screen shows the lesson
 # handed over (`--quit-once-lesson-over`), and the server once its client
@@ -201,6 +202,14 @@ foreach(_row IN LISTS _rows)
     endif()
     if(_debrief STREQUAL "")
         set(_debrief "flown to the book")
+    endif()
+    # **The instructor flies every lesson to the book**, the circuits too:
+    # her debrief is empty, here on the DEM's ground at the server's runway
+    # as on the unit tests' level ground. Its text, not only that there is
+    # one: a demonstration debriefed with a fault is a demonstration of it.
+    if(NOT _debrief STREQUAL "flown to the book")
+        message(FATAL_ERROR "${_lesson} in the ${_aircraft}: the instructor's demonstration "
+                            "is debriefed \"${_debrief}\", not flown to the book:\n${_server}")
     endif()
     message(STATUS "${_lesson} in the ${_aircraft}: ${_stages} stages flown by the "
                    "instructor, handed over at ${_at} s; debrief: ${_debrief}")

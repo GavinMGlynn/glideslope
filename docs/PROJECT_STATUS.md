@@ -148,7 +148,9 @@ simulation's, not the tests': every lesson says how it is demonstrated, and
 `glideslope_cli lesson` flies one - demonstrated, handed over, debriefed - and
 a player chooses any of the 42 on the window client's lessons screen and
 watches the server's instructor fly it in her own aircraft, stage by stage,
-hand over and debrief it (protocol 22, `ASK_LESSON` and `LESSON`); her own
+hand over and debrief it (protocol 22, `ASK_LESSON` and `LESSON`), every
+one flown to the book on the server's ground, its heights judged on the
+altimeter since 2026-11-29; her own
 flying after the hand-over is not yet staged or judged. The AI pilot takes off, flies the pattern, lands and
 stops - on water, too, in the flying boat, and in moderate turbulence on
 every gust seed on Linux and Windows (2026-11-04) - every one of the fourteen

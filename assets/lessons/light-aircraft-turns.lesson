@@ -43,6 +43,10 @@
 # sink at eight hundred feet a minute through it loses about a hundred and
 # fifty - inside the band. A band has to be set against how long the stage
 # lasts, not against how bad the flying feels.
+#
+# **Heights from where a stage began are on the altimeter**
+# (`position/h-sl-ft`), not over the ground below: see
+# light-aircraft-circuit.lesson.
 
 name Turns in a light aeroplane
 teaches light-aircraft
@@ -57,7 +61,7 @@ stage Holding the turn
 do Hold the bank steady and the nose where it was
 do Keep the height: this is what the turn is for
 hold attitude/phi-deg -45.0 -12.0 Hold the bank steady through the turn
-hold position/h-agl-ft start-150 start+150 Hold your height through the turn
+hold position/h-sl-ft start-150 start+150 Hold your height through the turn
 until lesson/turned-deg <= -60
 
 stage Rolling out

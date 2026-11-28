@@ -23,6 +23,10 @@
 # **A left turn**, because a bank angle has a sign and a lesson has to pick
 # one. `lesson/turned-deg` is how far she has turned since the stage began,
 # which is what makes the measurement free of the wrap at north.
+#
+# **Heights from where a stage began are on the altimeter**
+# (`position/h-sl-ft`), not over the ground below: see
+# light-aircraft-circuit.lesson.
 
 name Turns in a business jet
 teaches business-jet
@@ -37,7 +41,7 @@ stage Holding the turn
 do Hold the bank steady and the nose where it was
 do Keep the height: this is what the turn is for
 hold attitude/phi-deg -45.0 -12.0 Hold the bank steady through the turn
-hold position/h-agl-ft start-150 start+150 Hold your height through the turn
+hold position/h-sl-ft start-150 start+150 Hold your height through the turn
 until lesson/turned-deg <= -60
 
 stage Rolling out
