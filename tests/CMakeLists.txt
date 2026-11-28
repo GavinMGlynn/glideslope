@@ -4942,7 +4942,7 @@ add_test(NAME every_state_of_the_lessons_screen_is_drawn_and_reads_back_off_its_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_lesson_check>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/lesson_screen -DPORT=25010
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/lesson_screen -DPORT=24855
         -DDRIVER=${GLIDESLOPE_CLIENT_DRIVER}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_lesson_screen.cmake)
 set_tests_properties(every_state_of_the_lessons_screen_is_drawn_and_reads_back_off_its_frame
@@ -4954,8 +4954,10 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lesson_screen)
 # every sixth lesson of the list from its own, so that ctest runs them side
 # by side; each asserts how many it flew of how many it holds. See
 # cmake/client_every_lesson.cmake.
+# Each piece's port, from the free ones left in the tests' block.
+set(_lesson_ports 24857 24861 24875 24889 24907 24915)
 foreach(_piece RANGE 0 5)
-    math(EXPR _port "25012 + 2 * ${_piece}")
+    list(GET _lesson_ports ${_piece} _port)
     math(EXPR _first "${_piece} + 1")
     set(_name every_lesson_from_${_first}_by_sixes_is_chosen_in_the_window_client_demonstrated_handed_over_and_debriefed)
     add_test(NAME ${_name}
