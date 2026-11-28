@@ -33,3 +33,8 @@ the sink test red ("737-300 sinking along the downwind leg is not
 faultless"), and the light aeroplane's take-off flap not carried into the
 pattern turned the circuit-bands test red ("pa28 ... said 1 things");
 reverted.
+
+From the review of #435: the step-count check (the test and the instructor
+count the same steps) is made once, after the loop; the instructor's count
+broken (`tick_ += 2`) turned the sink test red on it, reverted. 48/48 of
+`ctest -R "instructor|lesson|debrief"` green after.
