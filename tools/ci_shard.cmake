@@ -210,10 +210,16 @@ if(ELSEWHERE)
 endif()
 
 # The longest test the table names, of those dealt: DEFAULT=longest's cost.
+# **Each test is taken out of the listing once**, and kept: every string(JSON)
+# parses the whole listing again, so getting a test from it is as slow as the
+# listing is long, and doing it twice a test, here and below, was nine tenths
+# of a dealing's time - 18 of 19 s for 1,681 tests, and the shard check,
+# which deals some forty times, took 2,061 s on Windows (run 46106569461).
 set(_longest 0)
 math(EXPR _last "${_count} - 1")
 foreach(_i RANGE ${_last})
-    string(JSON _name GET "${_tests}" ${_i} name)
+    string(JSON _t_${_i} GET "${_tests}" ${_i})
+    string(JSON _name GET "${_t_${_i}}" name)
     if(DEFINED _cost_${_name} AND _cost_${_name} GREATER _longest)
         set(_longest ${_cost_${_name}})
     endif()
@@ -235,7 +241,8 @@ set(_total 0)
 math(EXPR _last "${_count} - 1")
 foreach(_i RANGE ${_last})
     math(EXPR _n "${_i} + 1")
-    string(JSON _t GET "${_tests}" ${_i})
+    set(_t "${_t_${_i}}")
+    unset(_t_${_i})
     string(JSON _name GET "${_t}" name)
     list(APPEND _names ${_name})
     set(_holds 1)
